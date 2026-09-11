@@ -47,6 +47,7 @@ Các năng lực cốt lõi bắt buộc để giải quyết `Business Problem`
 * Dự báo lượng tiêu thụ tương lai trong chu kỳ mua hàng.
 
 ### 3.3. Phân tích tồn kho & Tính toán nhu cầu bổ sung
+* Phân loại ma trận tồn kho `ABC - XYZ` tự động dựa trên giá trị doanh thu và mức độ biến động nhu cầu lịch sử, phục vụ xếp hạng ưu tiên và định vị sản phẩm.
 * Xác định rủi ro `Stockout` và `Overstock`.
 * Tính toán các chỉ số tồn kho: `Safety Stock`, `Reorder Point`.
 * Tính toán số lượng mua đề xuất (`Suggested Order Quantity`) dựa trên tồn kho, dự báo bán và `Lead Time`.

@@ -47,7 +47,7 @@ Hệ thống có **2 Actor** nghiệp vụ trực tiếp tương tác:
                      ↓
 [Phân tích DSS & Ra quyết định mua]
   Purchasing Staff: Kích hoạt phân tích On-demand
-  System: Chạy Dự báo → Tính SS/ROP/Số lượng mua → Xếp hạng NCC → Tạo giải thích LLM
+  System: Chạy Dự báo → Phân loại ABC-XYZ → Tính SS/ROP/Số lượng mua → Xếp hạng NCC → Tạo giải thích LLM
   Purchasing Staff: Xem xét cơ sở dữ liệu → Tùy chỉnh (nếu cần) → Bấm "Phê duyệt"
   System: Tự động gom SKU theo từng NCC để sinh các Purchase Order (Approved) (UC-01)
                      ↓
@@ -90,10 +90,11 @@ Hệ thống gồm **7 Use Cases** được phân chia theo vai trò và phân l
   1. Actor yêu cầu hệ thống phân tích mua hàng.
   2. Hệ thống thực thi xử lý ngầm:
      * Dự báo nhu cầu bán hàng tương lai (`Demand Forecast`).
+     * Phân loại ma trận tồn kho `ABC - XYZ` tự động từ dữ liệu bán hàng.
      * Phân tích rủi ro tồn kho (`Stockout` / `Overstock`), tính toán `Safety Stock`, `Reorder Point`, và số lượng mua đề xuất.
      * Đánh giá, chấm điểm và xếp hạng các nhà cung cấp theo bộ tiêu chí.
-     * Sinh tóm tắt giải thích lý do đề xuất (`Why Buy`) bằng LLM dựa trên số liệu định lượng.
-  3. Actor xem xét danh sách đề xuất, các chỉ số dự báo và nội dung giải thích lý do.
+     * Sinh tóm tắt giải thích lý do đề xuất (`Why Buy`) bằng LLM dựa trên số liệu định lượng và nhóm phân loại ABC-XYZ.
+  3. Actor xem xét danh sách đề xuất (hiển thị nhãn Badge và hỗ trợ lọc/sắp xếp theo nhóm ABC-XYZ), các chỉ số dự báo và nội dung giải thích lý do.
   4. Actor có thể điều chỉnh số lượng mua hoặc chọn lại nhà cung cấp khác nếu cần.
   5. Actor xác nhận phê duyệt phương án mua hàng.
   6. Hệ thống tự động gom nhóm các SKU theo từng nhà cung cấp và sinh các đơn mua hàng (`Purchase Order`) ở trạng thái `Approved`.
@@ -206,7 +207,7 @@ Hệ thống gồm **7 Use Cases** được phân chia theo vai trò và phân l
 ## 6. Ranh Giới & Ràng Buộc Nghiệp Vụ (Boundaries)
 
 1. **AI / LLM không phải là Actor:**
-   * Dự báo nhu cầu, tính ROP/Safety stock, chấm điểm NCC và sinh lời giải thích LLM hoàn toàn là **tác vụ xử lý bên trong** của `UC-01`.
+   * Dự báo nhu cầu, phân loại ABC-XYZ, tính ROP/Safety stock, chấm điểm NCC và sinh lời giải thích LLM hoàn toàn là **tác vụ xử lý bên trong** của `UC-01`.
 2. **Không phân mảnh CRUD / Screen:**
    * Các thao tác xem gợi ý, so sánh NCC, chỉnh sửa số lượng và phê duyệt được hợp nhất trong một chu trình nghiệp vụ khép kín tại `UC-01`.
    * Hiệu suất nhà cung cấp không tách thành màn hình báo cáo rời rạc mà được gắn liền theo ngữ cảnh tại `UC-01` (khi chọn NCC) và `UC-06` (khi xem chi tiết NCC).

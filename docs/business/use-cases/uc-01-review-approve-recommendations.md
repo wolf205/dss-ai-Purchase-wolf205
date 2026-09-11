@@ -20,7 +20,7 @@
 * **Nguyên tắc cốt lõi:**
   > **AI recommends. Human decides.**
 * **Ranh giới xử lý của AI / DSS:**
-  * Dự báo nhu cầu, tính toán ngưỡng tồn kho, chấm điểm xếp hạng nhà cung cấp và tạo tóm tắt giải thích tự nhiên hoàn toàn là các **tác vụ xử lý ngầm bên trong hệ thống**.
+  * Dự báo nhu cầu, phân loại ma trận tồn kho ABC-XYZ, tính toán ngưỡng tồn kho, chấm điểm xếp hạng nhà cung cấp và tạo tóm tắt giải thích tự nhiên hoàn toàn là các **tác vụ xử lý ngầm bên trong hệ thống**.
   * AI không phải là Actor, không tự động đặt hàng và không tự ý gửi đơn khi chưa có phê duyệt từ con người.
 * **Trách nhiệm của con người:**
   * Chủ động kích hoạt phân tích, xem xét đề xuất, tùy chỉnh khi cần thiết và chịu trách nhiệm ra quyết định phê duyệt cuối cùng.
@@ -59,8 +59,8 @@
 | Bước | Chủ thể | Hành động nghiệp vụ |
 | :---: | :--- | :--- |
 | **1** | **Actor** | Yêu cầu kích hoạt đợt phân tích mua hàng mới và chọn phạm vi (Toàn bộ cửa hàng hoặc Một ngành hàng cụ thể). |
-| **2** | **Hệ thống** | Tiếp nhận yêu cầu và thực thi chuỗi tính toán DSS tự động ngầm:<br>a. Dự báo nhu cầu tiêu thụ tương lai (`Demand Forecast`) cho từng mặt hàng trong chu kỳ rà soát.<br>b. Phân tích rủi ro tồn kho, xác định `Safety Stock`, `Reorder Point`, và tính số lượng mua đề xuất (`Suggested Order Quantity`).<br>c. Chấm điểm và xếp hạng các nhà cung cấp khả dụng cho từng SKU, chọn NCC có điểm tối ưu nhất.<br>d. Tổng hợp cơ sở tính toán thành đoạn tóm tắt giải thích lý do đề xuất (`Why Buy`) bằng ngôn ngữ tự nhiên. |
-| **3** | **Hệ thống** | Hiển thị bảng phương án đề xuất mua hàng tổng thể:<br>- Liệt kê toàn bộ danh mục SKU thuộc phạm vi phân tích.<br>- Mặc định sắp xếp các SKU rủi ro cao / cần mua gấp lên trên cùng.<br>- Cung cấp bộ lọc theo trạng thái rủi ro (`Cần mua gấp`, `Sắp hết`, `An toàn`, `Dư thừa`).<br>- Hiển thị đầy đủ thông tin: Mã SKU, Tên sản phẩm, Tồn kho hiện tại, Dự báo nhu cầu, Số lượng mua đề xuất, Nhà cung cấp gợi ý và Tóm tắt giải thích (`Why Buy`). |
+| **2** | **Hệ thống** | Tiếp nhận yêu cầu và thực thi chuỗi tính toán DSS tự động ngầm:<br>a. Dự báo nhu cầu tiêu thụ tương lai (`Demand Forecast`) cho từng mặt hàng trong chu kỳ rà soát.<br>b. Phân loại ma trận tồn kho `ABC - XYZ` tự động dựa trên doanh thu lũy kế (Pareto 80/15/5) và hệ số biến thiên nhu cầu $CV = \sigma / \mu$ ($CV \le 0.5$ / $1.0$ / $>1.0$).<br>c. Phân tích rủi ro tồn kho, xác định `Safety Stock`, `Reorder Point`, và tính số lượng mua đề xuất (`Suggested Order Quantity`). Số lượng đề xuất ban đầu tự động làm tròn lên bằng hoặc là bội số của mức `MOQ` do nhà cung cấp quy định.<br>d. Chấm điểm và xếp hạng các nhà cung cấp khả dụng cho từng SKU, chọn NCC có điểm tối ưu nhất.<br>e. Tổng hợp cơ sở tính toán cùng nhóm phân loại ABC-XYZ thành đoạn tóm tắt giải thích lý do đề xuất (`Why Buy`) bằng ngôn ngữ tự nhiên. |
+| **3** | **Hệ thống** | Hiển thị giao diện Không gian làm việc đề xuất mua hàng (Decision Cockpit) gồm 3 vùng thông tin liền mạch:<br>1. **Vùng đầu trang (Interactive Stat Cards kiêm Bộ lọc 1-Click):**<br>- Các thẻ chỉ số sức khỏe tồn kho: `🔴 Cần mua gấp / Hết hàng`, `🟠 Sắp hết / Chạm ROP`, `🟢 An toàn`, `⚪ Dư thừa`.<br>- Thẻ phân loại ma trận `ABC - XYZ` (AX, AY, BY, CZ...).<br>- *Tương tác:* Bấm trực tiếp vào từng thẻ để kích hoạt lọc nhanh bảng dữ liệu bên dưới.<br>2. **Vùng trung tâm (Bảng chi tiết đề xuất mua hàng):**<br>- Liệt kê danh sách SKU theo phạm vi phân tích, mặc định ưu tiên xếp các SKU rủi ro cao lên trên.<br>- Hiển thị đầy đủ: Mã SKU, Tên sản phẩm, Nhóm ABC-XYZ, Tồn hiện tại, Dự báo nhu cầu, Số lượng mua đề xuất, Đơn giá nhập, Thành tiền tạm tính, Nhà cung cấp gợi ý và Tóm tắt giải thích (`Why Buy`).<br>3. **Vùng đáy màn hình (Thanh tổng kết & Chốt đơn nổi cố định - Sticky Action Bar):**<br>- Luôn gắn cố định ở mép dưới màn hình khi cuộn trang, hiển thị tổng hợp theo thời gian thực:<br>`[ Số SKU chọn mua: X / Tổng số ] | [ Số đơn PO dự kiến sinh ra: Y ] | [ Tổng tiền tạm tính: Z VNĐ ]`<br>- Chứa hai nút hành động nghiệp vụ chính: **Lưu nháp** (`Save Draft`) và **Phê duyệt mua hàng** (`Approve Purchase`). |
 | **4** | **Actor** | Xem xét danh sách tổng thể; chọn xem chi tiết từng SKU để đối chiếu căn cứ tính toán (so sánh điểm số các NCC khác nhau, lịch sử bán, dự báo chi tiết). |
 | **5** | **Actor** | *(Tùy chọn)* Điều chỉnh số lượng đặt mua hoặc chọn lại Nhà cung cấp khác từ danh sách các NCC khả dụng của SKU đó. Hệ thống cập nhật lại các chỉ số dự kiến. |
 | **6** | **Actor** | Xác nhận phê duyệt phương án mua hàng (toàn bộ hoặc các dòng SKU đã chọn). |
@@ -122,10 +122,16 @@
 
 ## 8. Quy Tắc Nghiệp Vụ Liên Quan (Business Rules)
 
-* **BR-01 (Inventory & Demand Calculation):** Quy tắc tính toán nhu cầu mua (dự báo bán, `Safety Stock`, `Reorder Point`, và `Suggested Order Quantity` có tính đến tồn kho hiện tại và hàng đang trên đường về).
+* **BR-01 (Inventory & Demand Calculation):** Quy tắc tính toán nhu cầu mua (dự báo bán, `Safety Stock`, `Reorder Point`, và `Suggested Order Quantity` có tính đến tồn kho hiện tại và hàng đang trên đường về). Số lượng đề xuất ban đầu của hệ thống luôn tự động làm tròn tối thiểu bằng hoặc là bội số của `MOQ` của nhà cung cấp được chọn.
 * **BR-02 (Supplier Scoring & Ranking):** Quy tắc chuẩn hóa dữ liệu và tính điểm xếp hạng Nhà cung cấp dựa trên 4 tiêu chí trọng số: Đơn giá, `Lead Time`, `MOQ`, và Lịch sử giao hàng thực tế.
-* **BR-03 (Order Constraints Check):** Quy tắc kiểm tra ràng buộc điều kiện đặt hàng (`MOQ Check`) khi người dùng điều chỉnh số lượng mua.
+* **BR-03 (Order Constraints & MOQ Check):** Quy tắc kiểm tra ràng buộc điều kiện đặt hàng:
+  * Hệ thống tự động làm tròn theo MOQ trong đề xuất ban đầu (BR-01).
+  * Khi người dùng tự tay điều chỉnh số lượng mua nhỏ hơn `MOQ`, hệ thống hiển thị cảnh báo vi phạm và gợi ý nâng số lượng hoặc chọn NCC khác.
 * **BR-04 (Purchase Order Grouping):** Quy tắc gom các SKU có cùng Nhà cung cấp đã chọn vào duy nhất một bản ghi `Purchase Order` trong cùng một phiên phê duyệt.
+* **BR-05 (ABC-XYZ Classification):** Quy tắc phân loại mặt hàng dựa trên dữ liệu bán hàng lịch sử:
+  * Phân loại ABC theo tỷ trọng đóng góp doanh thu tích lũy: Nhóm A (~80%), Nhóm B (~15%), Nhóm C (~5%).
+  * Phân loại XYZ theo hệ số biến thiên nhu cầu $CV = \sigma / \mu$: Nhóm X ($CV \le 0.5$), Nhóm Y ($0.5 < CV \le 1.0$), Nhóm Z ($CV > 1.0$).
+  * Ngưỡng phân loại được cố định chuẩn công nghiệp trong mã nguồn hệ thống, phục vụ hiển thị nhãn ưu tiên và làm ngữ cảnh cho LLM Explainability.
 
 ---
 

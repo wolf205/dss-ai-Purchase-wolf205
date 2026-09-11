@@ -258,3 +258,27 @@ Tập trung tối đa vào bài toán cốt lõi của đồ án tốt nghiệp 
 Impact:
 
 Loại bỏ form tạo PO thủ công tại UC-02, giảm thiểu độ phức tạp và nguy cơ dữ liệu không được kiểm soát qua DSS.
+
+---
+
+### ABC-XYZ Inventory Classification for Prioritization and LLM Context
+
+Status: Confirmed
+
+Decision:
+
+Tích hợp ma trận phân loại tồn kho ABC-XYZ tự động ngầm dựa trên lịch sử bán hàng (`Sales History`) trong chu trình phân tích tại UC-01. Cố định các ngưỡng phân loại chuẩn công nghiệp trong mã nguồn hệ thống (ABC: 80% / 15% / 5% doanh thu; XYZ: hệ số biến thiên $CV \le 0.5$ / $1.0$ / $>1.0$).
+
+Kết quả phân loại được sử dụng cho hai mục đích chính:
+1. Hiển thị trực quan nhãn phân loại (Badge) và bộ lọc/sắp xếp theo nhóm ABC-XYZ trên bảng đề xuất tại UC-01 để hỗ trợ người dùng ưu tiên xem xét các mặt hàng trọng yếu.
+2. Cung cấp ngữ cảnh phong phú cho mô hình ngôn ngữ (LLM) để sinh nội dung giải thích lý do đề xuất (`Why Buy`) mang tính nghiệp vụ quản trị chuỗi cung ứng.
+
+Phân loại ABC-XYZ không làm thay đổi công thức tính tồn kho cơ bản (`Safety Stock` và `Reorder Point` vẫn áp dụng mức `Target Service Level` chung từ UC-07) và không mở thêm màn hình cấu hình ngưỡng tại UC-07. Không tạo Use Case riêng cho chức năng này.
+
+Reason:
+
+Gia tăng tính học thuật và giá trị thực tế của giải pháp DSS trong đồ án tốt nghiệp ngành Hệ thống thông tin / Chuỗi cung ứng, nâng cao chất lượng diễn đạt lý do đề xuất của LLM mà không làm phát sinh sự phức tạp về mặt vận hành hay phá vỡ ranh giới Use Case đã tinh gọn.
+
+Impact:
+
+UC-01 bổ sung bước xử lý tính toán ABC-XYZ ngầm, hiển thị badge phân loại và bộ lọc trên giao diện đề xuất, đồng thời đưa nhãn phân loại vào prompt của LLM. Phạm vi hệ thống vẫn duy trì 7 Use Cases cốt lõi.
