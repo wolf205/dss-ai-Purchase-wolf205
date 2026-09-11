@@ -229,15 +229,17 @@ Status: Confirmed
 
 Decision:
 
-Đơn mua hàng sau khi sinh ra từ UC-01 là cố định (không cho phép sửa số lượng hay đổi SKU trực tiếp tại UC-02). Cho phép Hủy đơn mua hàng (`Cancel PO`) khi ở trạng thái `Approved`; khi hủy, hệ thống tự động hoàn trả/giảm trừ lượng hàng đang về (`On-order quantity`) của các SKU tương ứng.
+Đơn mua hàng sau khi sinh ra từ UC-01 là cố định (không cho phép sửa số lượng hay đổi SKU trực tiếp tại UC-02). Cho phép Hủy đơn mua hàng (`Cancel PO`) khi ở trạng thái `Approved`; khi hủy, bắt buộc phải chọn/nhập lý do hủy đơn (`Cancellation Reason`) để phục vụ lưu vết lịch sử và đánh giá nhà cung cấp. Khi hủy, hệ thống tự động hoàn trả/giảm trừ lượng hàng đang về (`On-order quantity`) của các SKU tương ứng.
+
+Khi xuất file hoặc in đơn mua hàng tại UC-02, hệ thống tự động ghi nhận thời điểm xuất file gần nhất (`Last Exported At`) dưới dạng metadata mà vẫn giữ nguyên trạng thái cốt lõi của đơn là `Approved`.
 
 Reason:
 
-Bảo vệ tính toàn vẹn của kết quả tối ưu DSS; việc giảm trừ `On-order` khi hủy đơn giúp thuật toán DSS ở UC-01 tự động nhận diện lại nhu cầu thiếu hụt trong đợt phân tích tiếp theo mà không cần xử lý thủ công.
+Bảo vệ tính toàn vẹn của kết quả tối ưu DSS; việc giảm trừ `On-order` khi hủy đơn giúp thuật toán DSS ở UC-01 tự động nhận diện lại nhu cầu thiếu hụt trong đợt phân tích tiếp theo mà không cần xử lý thủ công; việc ghi nhận lý do hủy và thời điểm xuất file hỗ trợ giám sát tiến độ và kiểm soát chất lượng cung ứng mà không làm phức tạp hóa vòng đời trạng thái PO.
 
 Impact:
 
-Mọi sai lệch giao hàng thực tế sẽ ghi nhận tại UC-03; UC-02 hỗ trợ nút Hủy đơn và tự động kích hoạt logic cập nhật `On-order`.
+Mọi sai lệch giao hàng thực tế sẽ ghi nhận tại UC-03; UC-02 hỗ trợ nút Hủy đơn (yêu cầu lý do hủy), tự động kích hoạt logic cập nhật `On-order`, hiển thị cảnh báo quá hạn giao (`Overdue Alert`), và lưu vết `Last Exported At` khi xuất đơn.
 
 ---
 
@@ -256,6 +258,3 @@ Tập trung tối đa vào bài toán cốt lõi của đồ án tốt nghiệp 
 Impact:
 
 Loại bỏ form tạo PO thủ công tại UC-02, giảm thiểu độ phức tạp và nguy cơ dữ liệu không được kiểm soát qua DSS.
-
-
-
