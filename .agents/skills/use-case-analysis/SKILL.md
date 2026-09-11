@@ -1,3 +1,10 @@
+---
+name: use-case-analysis
+description: >-
+  Hướng dẫn phân tích và đặc tả Use Cases theo chuẩn Actor-Goal cho DSS.
+  Sử dụng khi xác định, đánh giá, phản biện hoặc viết chi tiết Use Cases.
+---
+
 # Use Case Analysis Skill
 
 ## 1. Mục Đích
@@ -461,3 +468,13 @@ Phải báo rõ:
 - Phương án đề xuất
 
 và chờ người dùng chốt trước khi cập nhật.
+
+---
+
+## 20. Tài Liệu Tham Chiếu
+
+Khi cần tìm hiểu sâu hơn về tiêu chuẩn và ranh giới Use Case, hãy tham khảo:
+
+* [use-case-definition.md](references/use-case-definition.md): Khái niệm cốt lõi và tiêu chuẩn của một Use Case có ý nghĩa.
+* [actor-and-goal.md](references/actor-and-goal.md): Hướng dẫn xác định Actor và phân biệt Business Goal với thao tác UI.
+* [use-case-boundary.md](references/use-case-boundary.md): Phân biệt phạm vi Use Case với các bước xử lý thuật toán/xử lý ngầm (internal processing).

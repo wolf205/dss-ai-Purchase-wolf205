@@ -1,73 +1,39 @@
 ---
-trigger: always_on
-description: Quy Tắc Chung Của Project
+trigger: model_decision
+description: Quy tắc phân định ranh giới AI vs Business Calculation vs Human Decision và 5 bài toán mua hàng cốt lõi trong DSS
 ---
 
-# Quy Tắc Chung Của Project
+# Quy Tắc Nghiệp Vụ Cốt Lõi Của Project
 
-## 1. Decision Support System
+## 1. 5 Bài Toán Mua Hàng Cốt Lõi (Core Business Problem)
 
-Hệ thống là một **Decision Support System (DSS)**.
+Hệ thống DSS tập trung giải quyết 5 bài toán mua hàng cho cửa hàng bán lẻ:
 
-Nguyên tắc:
-
-> **AI recommends. Human decides.**
-
-AI không tự động thay thế người dùng trong quyết định mua hàng.
-
----
-
-## 2. Core Business Problem
-
-Project tập trung vào bài toán hỗ trợ cửa hàng bán lẻ:
-
-* What to Buy
-* When to Buy
-* How Much to Buy
-* Which Supplier
-* Why Buy
+* **What to Buy**: Mặt hàng (SKU) nào đang có rủi ro thiếu hụt hoặc cần bổ sung?
+* **When to Buy**: Thời điểm tối ưu cần kích hoạt đặt hàng để kịp về kho?
+* **How Much to Buy**: Số lượng đề xuất mua là bao nhiêu để tối ưu tồn kho và chi phí?
+* **Which Supplier**: Chọn nhà cung cấp nào dựa trên giá, Lead Time, MOQ và độ tin cậy?
+* **Why Buy**: Lý do rõ ràng, minh bạch (Explainable Insights) để con người tự tin ra quyết định.
 
 ---
 
-## 3. Nguyên Tắc AI
+## 2. Phân Tách 3 Tầng Xử Lý (AI vs Business Calculation vs Human Decision)
 
-Phải phân biệt rõ:
+Để tuân thủ nguyên tắc **"AI recommends. Human decides."**, hệ thống phải phân định ranh giới rạch ròi giữa 3 tầng:
 
-### AI
+| Tầng xử lý | Bản chất | Ví dụ cụ thể | Vai trò |
+| :--- | :--- | :--- | :--- |
+| **AI Layer** | Dự báo, phát hiện quy luật, gợi ý thông minh | Demand Forecast, Trend/Seasonality, Pattern Detection | Cung cấp đầu vào dự báo mang tính xác suất |
+| **Business Calculation** | Công thức toán học và quy tắc nghiệp vụ cố định | Safety Stock, Reorder Point (ROP), EOQ, Supplier Score, Stockout Risk Threshold | Áp dụng logic kinh doanh tất định, minh bạch |
+| **Human Decision** | Thẩm định, điều chỉnh và chốt quyết định cuối cùng | Review đề xuất, chỉnh số lượng/NCC, Phê duyệt PO, Quyết định mua hàng | Trách nhiệm và quyền hạn tối cao |
 
-Ví dụ:
-
-* Demand Forecast
-* Prediction
-* Recommendation
-* Pattern Detection
-
-### Business Calculation
-
-Ví dụ:
-
-* Safety Stock
-* Reorder Point
-* EOQ
-* Supplier Score
-
-### Human Decision
-
-Ví dụ:
-
-* Review
-* Adjust
-* Approve
-* Create Purchase Order
-
-Không gộp ba nhóm này thành một khái niệm duy nhất.
+*Không gộp ba tầng này thành một khái niệm duy nhất. Không tự động hóa tầng Human Decision.*
 
 ---
 
-## 4. Không Tự Bổ Sung Business Requirement
+## 3. Trạng Thái Yêu Cầu (Requirement Status)
 
-Nếu thông tin chưa được xác nhận:
+Mọi thông tin hoặc đề xuất chưa được người dùng chốt qua hội thoại:
+* Bắt buộc đánh dấu: `Status: Proposed`
+* Không được ghi nhận như một quyết định chính thức hoặc requirement bắt buộc của hệ thống.
 
-* Không coi đó là requirement.
-* Không coi đó là project decision.
-* Có thể đưa ra dưới dạng `Proposed`.

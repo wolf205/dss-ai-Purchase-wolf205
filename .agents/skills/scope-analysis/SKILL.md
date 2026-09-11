@@ -1,3 +1,10 @@
+---
+name: scope-analysis
+description: >-
+  Hướng dẫn phân tích và xác định System Scope cho DSS.
+  Sử dụng khi thảo luận, xác định ranh giới hệ thống, In-Scope / Out-of-Scope.
+---
+
 # Scope Analysis Skill
 
 ## 1. Mục Đích
@@ -128,3 +135,13 @@ Nếu hai phương án đều giải quyết được Business Problem:
 > Ưu tiên phương án đơn giản hơn.
 
 Không mở rộng Scope chỉ vì một chức năng có thể triển khai về mặt kỹ thuật.
+
+---
+
+## 8. Tài Liệu Tham Chiếu
+
+Khi cần tham khảo chi tiết nguyên tắc xác định phạm vi hoặc ranh giới DSS, hãy tham khảo:
+
+* [scope-definition.md](references/scope-definition.md): Chi tiết định nghĩa System Scope chuẩn mực và tiêu chí đánh giá Scope tốt.
+* [project-boundary.md](references/project-boundary.md): Ranh giới trách nhiệm giữa System vs Human và kiểm soát phạm vi đồ án.
+

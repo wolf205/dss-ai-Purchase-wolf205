@@ -1,5 +1,6 @@
 ---
-trigger: always_on
+trigger: model_decision
+description: Quy trình trao đổi phản biện, template trình bày Understanding và Confirmation Gate khi phân tích yêu cầu nghiệp vụ
 ---
 
 # Quy Tắc Phân Tích Qua Hội Thoại

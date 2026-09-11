@@ -171,6 +171,21 @@ Implementation
 
 Không dùng quyết định ở tầng thấp để áp đặt cho tầng cao hơn nếu chưa có lý do rõ ràng.
 
+### Ranh giới chuyển tiếp các tầng:
+
+* **Use Cases**: Mô tả hành vi tương tác của Actor với hệ thống để đạt mục tiêu nghiệp vụ.
+* **Business Rules**: Mô tả các chính sách, công thức tính toán (ROP, Safety Stock, EOQ, Supplier Score), logic phân loại rủi ro và quy tắc áp dụng dự báo (không chứa chi tiết kỹ thuật/thuật toán ML).
+* **Domain Model**: Mô tả các thực thể nghiệp vụ (Entities) và mối quan hệ khái niệm (Concepts & Relationships) từ góc nhìn nghiệp vụ thuần túy (chưa phải Database Schema hay Data Model).
+* **Data Model**: Mô tả cấu trúc lưu trữ kỹ thuật trong CSDL (bảng, khóa chính, khóa ngoại, kiểu dữ liệu, ràng buộc CSDL).
+
+### Cơ chế Phản hồi ngược (Feedback Loop):
+
+Khi phân tích ở tầng thấp hơn mà phát hiện thiếu sót hoặc mâu thuẫn với tầng cao hơn:
+
+1. **Không tự ý sửa** tài liệu của tầng cao hơn.
+2. **Nêu rõ mâu thuẫn**: Chỉ ra điểm chưa hợp lý, phân tích phạm vi ảnh hưởng và đề xuất phương án điều chỉnh.
+3. **Chờ xác nhận**: Chỉ cập nhật tài liệu tầng cao hơn khi người dùng đã chốt phương án.
+
 ---
 
 ## 9. Phân Tách Business Và Technical
@@ -182,17 +197,18 @@ Tài liệu Business tập trung vào:
 * Actor.
 * Quy trình.
 * Business Need.
-* Business Rule.
-* Business Concept.
+* Business Rule (bao gồm quy tắc ứng dụng dự báo: chu kỳ, horizon, fallback logic).
+* Business Concept / Domain Entities.
 
 Tài liệu Technical tập trung vào:
 
 * Architecture.
-* Database.
-* API.
-* Framework.
+* Database & Data Model.
+* API & Contracts.
+* Framework & Libraries.
+* AI/ML Technical (lựa chọn thuật toán ML, train/test split, metrics đánh giá, pipeline huấn luyện).
 * Code Structure.
-* Infrastructure.
+* Infrastructure & Deployment.
 
 Không trộn hai tầng nếu không cần thiết.
 
