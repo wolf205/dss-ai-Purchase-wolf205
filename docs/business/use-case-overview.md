@@ -88,13 +88,12 @@ Hệ thống gồm **7 Use Cases** được phân chia theo vai trò và phân l
 * **Pre-conditions:** Dữ liệu bán hàng, tồn kho và danh mục SKU-NCC đã sẵn sàng.
 * **Main Flow:**
   1. Actor yêu cầu hệ thống phân tích mua hàng.
-  2. Hệ thống thực thi xử lý ngầm:
+  2. Hệ thống thực thi xử lý ngầm (hoàn tất tức thì):
      * Dự báo nhu cầu bán hàng tương lai (`Demand Forecast`).
      * Phân loại ma trận tồn kho `ABC - XYZ` tự động từ dữ liệu bán hàng.
      * Phân tích rủi ro tồn kho (`Stockout` / `Overstock`), tính toán `Safety Stock`, `Reorder Point`, và số lượng mua đề xuất.
      * Đánh giá, chấm điểm và xếp hạng các nhà cung cấp theo bộ tiêu chí.
-     * Sinh tóm tắt giải thích lý do đề xuất (`Why Buy`) bằng LLM dựa trên số liệu định lượng và nhóm phân loại ABC-XYZ.
-  3. Actor xem xét danh sách đề xuất (hiển thị nhãn Badge và hỗ trợ lọc/sắp xếp theo nhóm ABC-XYZ), các chỉ số dự báo và nội dung giải thích lý do.
+  3. Actor xem xét danh sách đề xuất (hiển thị nhãn Badge, hỗ trợ lọc/sắp xếp theo nhóm ABC-XYZ, các chỉ số dự báo); bấm nút xem giải thích AI (`Why Buy`) theo nhu cầu cho từng sản phẩm cần tìm hiểu.
   4. Actor có thể điều chỉnh số lượng mua hoặc chọn lại nhà cung cấp khác nếu cần.
   5. Actor xác nhận phê duyệt phương án mua hàng.
   6. Hệ thống tự động gom nhóm các SKU theo từng nhà cung cấp và sinh các đơn mua hàng (`Purchase Order`) ở trạng thái `Approved`.
