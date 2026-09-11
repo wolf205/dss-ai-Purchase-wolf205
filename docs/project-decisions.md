@@ -115,21 +115,21 @@ Cấu trúc dữ liệu sản phẩm và tồn kho không cần quản lý thôn
 
 ---
 
-### Explainability with LLM Summary
+### Explainability with On-Demand LLM Summary
 
 Status: Confirmed
 
 Decision:
 
-Sử dụng mô hình ngôn ngữ (LLM) để tổng hợp thành đoạn tóm tắt giải thích tự nhiên lý do đề xuất (`Why Buy`) dựa trên các kết quả tính toán định lượng của hệ thống.
+Sử dụng mô hình ngôn ngữ (LLM) để tổng hợp thành đoạn tóm tắt giải thích tự nhiên lý do đề xuất (`Why Buy`) dựa trên các kết quả tính toán định lượng của hệ thống. Quá trình sinh giải thích này được thực hiện theo nhu cầu (`On-demand`) khi người dùng chủ động bấm xem giải thích cho một sản phẩm cụ thể trên bảng đề xuất, thay vì sinh hàng loạt đồng thời cho toàn bộ danh sách. Kết quả giải thích được lưu tạm (cache) trong phiên làm việc.
 
 Reason:
 
-Hỗ trợ người dùng nắm bắt nhanh chóng và trực quan cơ sở khuyến nghị của DSS.
+Loại bỏ độ trễ lớn (latency 30-60s) khi tải bảng kết quả phân tích mua hàng ban đầu, tiết kiệm chi phí token/quota API và tránh chạm giới hạn tần suất gọi API (rate limit), đồng thời phản ánh đúng nhu cầu thực tế của người dùng (chỉ tra cứu sâu ở các mặt hàng có nghi vấn hoặc biến động lớn).
 
 Impact:
 
-LLM đóng vai trò tổng hợp và diễn đạt (`Synthesizer/Explainer`), không tự tính toán số lượng mua để loại bỏ rủi ro sai lệch dữ liệu (`hallucination`).
+Chuỗi tính toán DSS ban đầu tại UC-01 hoàn tất tức thì (< 1s) với đầy đủ số liệu định lượng (Dự báo, Tồn kho, ROP, Điểm NCC, ABC-XYZ). LLM chỉ được gọi riêng lẻ khi có tương tác click của người dùng, đảm bảo hệ thống phản hồi mượt mà và không bao giờ bị nghẽn quy trình phê duyệt.
 
 ---
 
@@ -282,3 +282,45 @@ Gia tăng tính học thuật và giá trị thực tế của giải pháp DSS 
 Impact:
 
 UC-01 bổ sung bước xử lý tính toán ABC-XYZ ngầm, hiển thị badge phân loại và bộ lọc trên giao diện đề xuất, đồng thời đưa nhãn phân loại vào prompt của LLM. Phạm vi hệ thống vẫn duy trì 7 Use Cases cốt lõi.
+
+---
+
+### Goods Receipt Constraints (Partial Delivery, Over-delivery, Rejection & Returns)
+
+Status: Confirmed
+
+Decision:
+
+1. **Không Partial Delivery:** Mỗi PO chỉ nhận hàng 1 lần duy nhất. Giao thiếu vẫn đóng PO sang `Completed`, phần thiếu hụt làm giảm điểm Fulfillment Rate. DSS sẽ tự bù đắp thiếu hụt vào đợt tính toán sau.
+2. **Cho phép Over-delivery có cảnh báo:** Cho phép nhập thực nhận > số lượng đặt để tồn kho thực tế luôn chính xác, nhưng có cảnh báo (Soft Warning) để tránh gõ nhầm. Điểm Fulfillment Rate bị khóa ở mức tối đa 100% (không thưởng điểm cho giao dư).
+3. **Từ chối nhận 100% & Giao lại (100% Rejection):** Nếu từ chối nhận toàn bộ hàng tại thời điểm giao, nhân viên không bấm xác nhận nhận hàng, giữ PO ở trạng thái `Approved` để NCC giao lại ngoài đời thực. Không reset ngày giao dự kiến ban đầu (nếu giao lại muộn vẫn tính là trễ hạn). Chặn không cho xác nhận nhận hàng nếu số lượng thực nhận của toàn bộ SKU bằng 0.
+4. **Không luồng Return riêng:** Hàng lỗi/hư hỏng trả lại ngay lúc giao; nhân viên chỉ nhập số lượng hàng nguyên vẹn thực tế nhận vào hệ thống. Màn hình nhận hàng mặc định điền sẵn số lượng đặt để tối ưu thao tác, và hỗ trợ ô Ghi chú tùy chọn.
+
+Reason:
+
+Giữ quy trình nhận hàng ở mức cơ bản ("Simple Goods Receipt") phục vụ khép kín vòng lặp dữ liệu DSS mà không làm phình to scope hệ thống thành WMS chuyên sâu. Việc cho phép Over-delivery đảm bảo tồn kho (đầu vào của DSS) luôn chính xác nhất. Cơ chế giữ PO Approved khi từ chối nhận 100% phản ánh đúng bản chất thời gian giao hàng và phạt trễ hạn chính xác mà không cần tạo thêm trạng thái phức tạp.
+
+Impact:
+
+UC-03 được thiết kế tinh gọn, tập trung vào cập nhật tồn kho (`Current Inventory`) và giải phóng hàng đang về (`On-order`). Tỷ lệ giao đủ hàng (`Fulfillment Rate`) có công thức cap ở 100%. Không có Use Case phụ cho việc quản lý hàng lỗi hoặc theo dõi nợ đọng PO.
+
+---
+
+### Operational Data Import Strategy (All-or-Nothing & De-duplication Overwrite)
+
+Status: Confirmed
+
+Decision:
+
+1. **All-or-Nothing Validation:** File dữ liệu nạp vào (Bán hàng hoặc Tồn kho) phải hợp lệ 100% mới được chấp thuận ghi vào cơ sở dữ liệu. Nếu có bất kỳ dòng nào vi phạm, từ chối nạp toàn bộ tệp và báo lỗi chi tiết theo từng dòng để người dùng sửa triệt để.
+2. **Sales De-duplication & Date Overwrite:** Dữ liệu bán hàng quản lý theo mốc ngày `(Date, SKU, Quantity, Revenue)`. Nếu phát hiện tệp chứa các ngày đã có dữ liệu trong hệ thống, bắt buộc phải cảnh báo người dùng và thực hiện **ghi đè (overwrite)** số liệu của ngày đó sau khi người dùng xác nhận, tuyệt đối không tự động cộng dồn làm nhân đôi doanh số bán hàng.
+3. **Physical Inventory Overwrite & On-Order Preservation:** Nạp tệp kiểm kê tồn kho chỉ ghi đè số lượng đếm được trên kệ vào `Current Inventory`, hoàn toàn bảo lưu số lượng hàng đang về (`On-order quantity`) của các PO đang ở trạng thái `Approved`.
+4. **Chuẩn hóa biểu mẫu:** Cung cấp sẵn file mẫu (`CSV`/`Excel`) chuẩn để người dùng tải về sử dụng.
+
+Reason:
+
+Bảo đảm nguyên tắc "Garbage In, Garbage Out" cho hệ thống DSS. Việc làm sạch dữ liệu 100% trước khi nạp và cơ chế ghi đè ngày trùng lặp giúp bảo vệ các mô hình AI dự báo nhu cầu (`Demand Forecast`) và phân loại tồn kho (`ABC-XYZ`) không bị méo mó bởi dữ liệu rác hoặc dữ liệu nhân đôi sai lệch.
+
+Impact:
+
+UC-04 được thiết kế tập trung vào xác thực và xem trước dữ liệu (Data Preview), loại trừ các cơ chế nhập dở dang phức tạp, đảm bảo luồng dữ liệu sạch và an toàn cho toàn bộ hệ thống.
