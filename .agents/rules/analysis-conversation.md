@@ -85,19 +85,17 @@ Nếu phát hiện vấn đề phải nói rõ.
 
 ---
 
-## 5. Đặt Câu Hỏi Có Mục Đích
+## 5. Đặt Câu Hỏi Có Mục Đích & Chủ Động Đề Xuất Phương Án (Proactive Prototyping)
 
-Chỉ hỏi những câu có khả năng thay đổi kết quả.
+Chỉ hỏi những câu có khả năng thay đổi kết quả hoặc quyết định thiết kế.
+
+Không hỏi lan man hoặc hỏi mở thuần túy thụ động. Để tiết kiệm thời gian cho người dùng và thúc đẩy tiến độ:
+* **Luôn đi kèm 1 - 2 phương án cụ thể (Option A vs Option B):** Phân tích nhanh ưu/nhược điểm và nêu rõ phương án Agent đề xuất (Recommended).
+* **Cung cấp bản nháp sơ bộ (Draft / Strawman):** Trình bày một khung cấu trúc hoặc logic mẫu để người dùng dễ dàng phản biện, chỉnh sửa hoặc phê duyệt nhanh thay vì bắt người dùng phải viết từ đầu.
 
 Ví dụ:
-
-* Chức năng này có thực sự cần cho Core Workflow không?
-* Đây là Business Requirement hay Technical Decision?
-* Ai là người đưa ra quyết định cuối cùng?
-* Nếu bỏ chức năng này, Business Problem còn được giải quyết không?
-* Chức năng này có thuộc Scope hay nên để ở giai đoạn sau?
-
-Không hỏi lan man.
+* *Tránh hỏi thụ động:* "Bạn muốn tính điểm Nhà cung cấp theo tiêu chí nào?"
+* *Nên hỏi chủ động:* "Để đánh giá Nhà cung cấp, em đề xuất dùng mô hình WSM với 4 tiêu chí cốt lõi: Giá (40%), Lead Time (25%), OTIF (25%), MOQ (10%). Anh có muốn điều chỉnh trọng số nào hay bổ sung tiêu chí khác không?"
 
 ---
 
