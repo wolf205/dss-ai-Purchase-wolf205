@@ -38,15 +38,16 @@ Actor chủ động truy cập chức năng Quản lý đơn mua hàng khi:
 * Khi cần tra cứu lịch sử đơn mua hàng cũ (`Completed`, `Cancelled`).
 
 ### 3.2. Preconditions (Điều kiện tiên quyết)
-* Đã tồn tại ít nhất một bản ghi `Purchase Order` trong hệ thống (được sinh ra tự động từ `UC-01`).
+* Người dùng đã đăng nhập hệ thống với quyền hạn hợp lệ (`Purchasing Staff` hoặc `Store Manager`).
+*(Trường hợp hệ thống mới khởi tạo và chưa có đơn mua hàng nào sẽ được xử lý qua trạng thái rỗng tại Bước 2).*
 
 ---
 
 ## 4. Kết Quả Nghiệp Vụ (Postconditions)
 
-1. Đơn mua hàng được phát hành chính thức (dưới dạng file in hoặc tệp PDF/Excel) để chuyển cho Nhà cung cấp, đồng thời hệ thống ghi nhận thời điểm xuất file gần nhất (`Last Exported At`).
-2. Trạng thái và tiến độ của các đơn mua hàng được quản lý xuyên suốt, minh bạch (kèm cảnh báo trực quan các đơn hàng bị quá hạn giao).
-3. Nếu đơn hàng bị hủy (`Cancelled`), lý do hủy đơn (`Cancellation Reason`) được lưu vết vào lịch sử và lượng hàng đang trên đường về (`On-order quantity`) của các SKU tương ứng được hoàn trả tức thời, sẵn sàng để DSS tại `UC-01` tự động nhận diện lại nhu cầu thiếu hụt trong đợt phân tích tiếp theo.
+1. Đơn mua hàng được phát hành chính thức (dạng tài liệu điện tử hoặc bản in) để chuyển cho Nhà cung cấp, đồng thời hệ thống ghi nhận thời điểm xuất chứng từ gần nhất (`Last Exported At`).
+2. Trạng thái và tiến độ của các đơn mua hàng được quản lý xuyên suốt, minh bạch (kèm cảnh báo trạng thái quá hạn giao theo `BR-09`).
+3. Nếu đơn hàng bị hủy (`Cancelled`), lý do hủy đơn (`Cancellation Reason`) được lưu vết vào lịch sử theo `BR-10` và lượng hàng đang trên đường về (`On-order quantity`) của các SKU tương ứng được hoàn trả tức thời theo `BR-07`, sẵn sàng để DSS tại `UC-01` tự động nhận diện lại nhu cầu thiếu hụt trong đợt phân tích tiếp theo.
 
 ---
 
@@ -54,36 +55,37 @@ Actor chủ động truy cập chức năng Quản lý đơn mua hàng khi:
 
 | Bước | Chủ thể | Hành động nghiệp vụ |
 | :---: | :--- | :--- |
-| **1** | **Actor** | Truy cập màn hình Quản lý đơn mua hàng. |
-| **2** | **Hệ thống** | Hiển thị danh sách tổng hợp các `Purchase Order`:<br>- Mã PO, Ngày tạo, Nhà cung cấp, Số lượng SKU, Tổng giá trị đơn hàng dự kiến, Ngày giao dự kiến, Trạng thái đơn (kèm nhãn cảnh báo đỏ `🔴 Quá hạn giao - Overdue` nếu ngày hiện tại vượt quá Ngày giao dự kiến mà đơn vẫn ở trạng thái `Approved`), Trạng thái xuất file (`Chưa xuất` hoặc `Đã xuất: [thời gian]`).<br>- Mặc định sắp xếp các đơn hàng mới nhất lên đầu danh sách. |
+| **1** | **Actor** | Truy cập chức năng Quản lý đơn mua hàng. |
+| **2** | **Hệ thống** | Kiểm tra và hiển thị danh sách đơn mua hàng:<br>- *Trường hợp đã có đơn hàng:* Hiển thị danh sách tổng hợp các `Purchase Order` (mặc định ưu tiên đơn mới nhất lên đầu): Mã PO, Ngày tạo, Nhà cung cấp, Số lượng SKU, Tổng giá trị đơn hàng dự kiến, Ngày giao dự kiến, Trạng thái đơn (tự động gắn cờ cảnh báo `Quá hạn giao - Overdue` theo `BR-09` nếu ngày hiện tại vượt quá Ngày giao dự kiến mà đơn vẫn ở trạng thái `Approved`), Thời điểm xuất chứng từ gần nhất (`Chưa xuất` hoặc `Đã xuất: [thời gian]`).<br>- *Trường hợp chưa có đơn hàng nào:* Hiển thị giao diện trạng thái rỗng (*Empty State*) thông báo hệ thống chưa phát sinh đơn mua hàng, kèm hướng dẫn và liên kết chuyển nhanh tới `UC-01` để phê duyệt đề xuất mua hàng. |
 | **3** | **Actor** | Tìm kiếm hoặc lọc danh sách theo: Mã PO, Nhà cung cấp, Trạng thái đơn hàng (`Approved`, `Completed`, `Cancelled`), Tình trạng quá hạn (`Tất cả`, `Đang chờ giao`, `Quá hạn giao`), hoặc Khoảng thời gian đặt hàng. |
 | **4** | **Actor** | Chọn xem chi tiết một Đơn mua hàng cụ thể. |
-| **5** | **Hệ thống** | Hiển thị toàn bộ thông tin chi tiết của PO được chọn:<br>- Thông tin Nhà cung cấp: Tên, Người liên hệ, Số điện thoại, Địa chỉ.<br>- Danh sách mặt hàng đặt mua: Mã SKU, Tên sản phẩm, Đơn vị tính, Số lượng đặt, Đơn giá nhập cam kết, Thành tiền.<br>- Tổng tiền đơn hàng, Ngày tạo, Ngày giao dự kiến (tính từ `Lead Time` cam kết của NCC), Lần xuất file gần nhất (`Last Exported At`). Nếu đơn bị hủy, hiển thị thêm Lý do hủy đơn và Thời điểm hủy. |
-| **6** | **Actor** | Yêu cầu xuất file hoặc in đơn mua hàng (`Export / Print PO`). |
-| **7** | **Hệ thống** | Tạo và xuất bản đơn mua hàng theo biểu mẫu chuẩn nghiệp vụ (PDF/Excel hoặc giao diện in sẵn sàng) để Actor tải về hoặc in ra gửi đối tác; đồng thời tự động cập nhật trường `Last Exported At` với mốc thời gian hiện tại. Trạng thái nghiệp vụ của đơn hàng vẫn duy trì là `Approved`. |
+| **5** | **Hệ thống** | Hiển thị toàn bộ thông tin chi tiết của PO được chọn:<br>- Thông tin Nhà cung cấp: Tên, Người liên hệ, Số điện thoại, Địa chỉ (trường nào chưa có dữ liệu sẽ hiển thị `Chưa cập nhật`).<br>- Danh sách mặt hàng đặt mua: Mã SKU, Tên sản phẩm, Đơn vị tính, Số lượng đặt, Đơn giá nhập cam kết snapshot tại thời điểm duyệt (`BR-22`), Thành tiền.<br>- Tổng tiền đơn hàng, Ngày tạo, Ngày giao dự kiến cố định (`BR-08`), Thời điểm xuất chứng từ gần nhất. Nếu đơn đã bị hủy, hiển thị thêm Lý do hủy đơn (`BR-10`) và Thời điểm hủy.<br>- *Kiểm soát hành động theo trạng thái (`BR-06`):* Nếu PO đang ở trạng thái kết thúc (`Completed` hoặc `Cancelled`), hệ thống khóa toàn bộ các hành động Hủy đơn và Nhận hàng, chỉ cho phép tra cứu thông tin và xuất chứng từ lưu trữ. |
+| **6** | **Actor** | Yêu cầu phát hành chứng từ đơn mua hàng (`Export / Print PO`). |
+| **7** | **Hệ thống** | Phát hành chứng từ Đơn mua hàng theo biểu mẫu chuẩn nghiệp vụ (dạng tài liệu điện tử hoặc bản in) để Actor gửi đối tác; đồng thời tự động ghi nhận thời điểm xuất đơn gần nhất (`Last Exported At`) với mốc thời gian hiện tại. Trạng thái nghiệp vụ của đơn hàng vẫn duy trì là `Approved`. |
 
 ---
 
 ## 6. Luồng Rẽ Nhánh (Alternative Flows)
 
 ### AF-1: Hủy đơn mua hàng (Cancel PO)
-* **Điều kiện:** Nhà cung cấp phản hồi đột xuất không thể giao hàng (hết hàng, ngừng sản xuất) hoặc cửa hàng phát sinh sự cố cần hủy đơn. Chức năng này chỉ khả dụng khi PO đang ở trạng thái `Approved` (chưa thực hiện nhận hàng).
+* **Điều kiện:** Nhà cung cấp phản hồi đột xuất không thể giao hàng (hết hàng, ngừng sản xuất) hoặc cửa hàng phát sinh sự cố cần hủy đơn. Chức năng này chỉ khả dụng khi PO đang ở trạng thái `Approved` (chưa thực hiện nhận hàng theo `BR-06`).
 * **Xử lý:**
-  1. Actor chọn chức năng **Hủy đơn hàng** (`Cancel PO`) tại màn hình chi tiết đơn.
-  2. Hệ thống hiển thị hộp thoại cảnh báo và yêu cầu Actor chọn/nhập **Lý do hủy đơn** (`Cancellation Reason`):
-     * *Nhà cung cấp báo hết hàng*
-     * *Nhà cung cấp thay đổi giá hoặc thời gian giao*
-     * *Cửa hàng thay đổi kế hoạch kinh doanh*
-     * *Lý do khác (nhập văn bản ngắn)*
+  1. Actor chọn chức năng **Hủy đơn hàng** (`Cancel PO`) tại giao diện chi tiết đơn.
+  2. Hệ thống yêu cầu Actor xác nhận và chọn/nhập **Lý do hủy đơn** (`Cancellation Reason`) theo danh mục chuẩn `BR-10`:
+     * *NCC báo hết hàng*
+     * *NCC không liên lạc được*
+     * *Cửa hàng thay đổi kế hoạch*
+     * *Lỗi nhập sai số lượng*
+     * *Khác (nhập văn bản)*
   3. Actor xác nhận lý do và chốt hủy đơn.
-  4. Hệ thống chuyển trạng thái của PO sang `Cancelled` và lưu trữ lý do hủy vào hồ sơ đơn hàng để phục vụ tra cứu và đánh giá uy tín NCC.
-  5. Hệ thống lập tức **giảm trừ số lượng `On-order quantity`** tương ứng của các SKU trong đơn.
+  4. Hệ thống chuyển trạng thái của PO sang `Cancelled` và lưu trữ lý do hủy vào hồ sơ đơn hàng để phục vụ tra cứu và đánh giá uy tín NCC (`BR-06`, `BR-10`).
+  5. Hệ thống lập tức **giảm trừ số lượng `On-order quantity`** tương ứng của các SKU trong đơn theo `BR-07`.
   6. Ở lần chạy phân tích On-demand tiếp theo tại `UC-01`, hệ thống DSS tính toán lại vị thế tồn kho (`Inventory Position = Stock + On-order`) thấy thiếu hụt và sẽ tự động đưa các SKU này trở lại danh sách khuyến nghị mua hàng.
 
 ### AF-2: Lối tắt điều hướng sang Ghi nhận nhận hàng (Goods Receipt Shortcut)
-* **Điều kiện:** Khi Nhà cung cấp giao hàng đến cửa hàng, Actor đang mở xem chi tiết đơn PO tại UC-02.
+* **Điều kiện:** Khi Nhà cung cấp giao hàng đến cửa hàng, Actor đang mở xem chi tiết đơn PO ở trạng thái `Approved` tại UC-02.
 * **Xử lý:**
-  1. Actor chọn nút tắt **Nhận hàng** (`Receive Goods`) trên giao diện chi tiết PO.
+  1. Actor chọn thao tác chuyển nhanh sang **Nhận hàng** (`Receive Goods`) trên giao diện chi tiết PO.
   2. Hệ thống tự động chuyển ngữ cảnh và dữ liệu của PO này sang `UC-03: Ghi nhận nhận hàng` để tiến hành quy trình kiểm đếm thực tế.
 
 ---
@@ -91,27 +93,20 @@ Actor chủ động truy cập chức năng Quản lý đơn mua hàng khi:
 ## 7. Luồng Ngoại Lệ (Exception Flows)
 
 ### EF-1: Không tìm thấy đơn hàng theo điều kiện tra cứu
-* **Điều kiện:** Actor tìm kiếm mã PO hoặc áp dụng bộ lọc nhưng không có bản ghi nào khớp.
-* **Xử lý:** Hệ thống hiển thị thông báo: *"Không tìm thấy đơn mua hàng phù hợp với điều kiện tìm kiếm"* và hiển thị tùy chọn đặt lại bộ lọc.
+* **Điều kiện:** Actor tìm kiếm mã PO hoặc áp dụng bộ lọc nhưng không có đơn mua hàng nào khớp với điều kiện.
+* **Xử lý:** Hệ thống thông báo không tìm thấy kết quả phù hợp và cung cấp tùy chọn đặt lại bộ lọc về mặc định.
 
 ---
 
 ## 8. Quy Tắc Nghiệp Vụ Liên Quan (Business Rules)
 
-* **BR-06 (PO Status Lifecycle Rule):** Quy định vòng đời trạng thái của PO:
-  * `Approved`: Đã được duyệt từ UC-01, đang chờ giao hàng.
-  * `Completed`: Đã nhận hàng và đóng đơn thành công (chuyển trạng thái tại UC-03).
-  * `Cancelled`: Đã bị hủy trước khi nhận hàng.
-  * *Quy tắc:* Không thể chuyển từ `Completed` hoặc `Cancelled` quay ngược lại `Approved`.
-* **BR-07 (On-Order Inventory Synchronization Rule):** Quy tắc đồng bộ lượng hàng đang về:
-  * Khi PO sinh ra ở `UC-01`: Tăng `On-order`.
-  * Khi PO chuyển sang `Completed` (`UC-03`): Giảm `On-order`, tăng tồn kho thực tế (`Current Inventory`).
-  * Khi PO chuyển sang `Cancelled` (`UC-02`): Giảm `On-order`.
-* **BR-08 (Expected Delivery Date Rule):** Ngày giao hàng dự kiến = `Ngày duyệt PO` + `Lead Time cam kết của Nhà cung cấp`.
-* **BR-09 (PO Overdue Identification Rule):** Quy tắc xác định đơn mua hàng quá hạn giao:
-  * Khi `Ngày hiện tại > Expected Delivery Date` và trạng thái PO vẫn là `Approved`, hệ thống tự động đánh dấu cờ cảnh báo `Overdue`.
-* **BR-10 (PO Cancellation Reason Rule):** Quy tắc bắt buộc ghi nhận lý do hủy đơn:
-  * Mọi hành động hủy PO đều bắt buộc phải lưu kèm lý do hủy (`Cancellation Reason`) để phục vụ kiểm toán và đánh giá hiệu suất nhà cung cấp.
+* **BR-06 (PO Status Lifecycle Rule):** Quy định vòng đời trạng thái của PO (`Approved` $\rightarrow$ `Completed` hoặc `Cancelled`). Đơn đã ở trạng thái `Completed` hoặc `Cancelled` là bất biến, không thể khôi phục hay chỉnh sửa.
+* **BR-07 (On-Order Inventory Synchronization Rule):** Quy tắc đồng bộ lượng hàng đang về: Tăng `On-order` khi duyệt đơn ở `UC-01`, giải phóng và giảm trừ `On-order` khi hủy đơn tại `UC-02` hoặc khi hoàn tất nhận hàng tại `UC-03`.
+* **BR-08 (Expected Delivery Date Rule):** Ngày giao hàng dự kiến = `Ngày duyệt PO` + `Lead Time cam kết của Nhà cung cấp`, được lưu cố định vào PO và không bị reset.
+* **BR-09 (PO Overdue Identification Rule):** Tự động gắn cờ cảnh báo quá hạn giao (`Overdue`) khi `Ngày hiện tại > Expected Delivery Date` và trạng thái PO vẫn là `Approved`.
+* **BR-10 (PO Cancellation Reason Rule):** Bắt buộc chọn lý do từ danh mục chuẩn hóa (`NCC báo hết hàng`, `NCC không liên lạc được`, `Cửa hàng thay đổi kế hoạch`, `Lỗi nhập sai số lượng`, `Khác`) khi thực hiện hủy đơn.
+* **BR-22 (Supply Condition Snapshot & Forward-Looking Pricing Rule):** Đơn mua hàng bảo lưu nguyên vẹn đơn giá nhập và các điều kiện cam kết tại thời điểm duyệt đơn, không bị ảnh hưởng bởi các thay đổi giá sau này tại `UC-06`.
+* **BR-23 (Supply Discontinuation & Active PO Guard Rule):** Chặn ngừng cung ứng hoặc xóa liên kết đối tác đối với các SKU đang có đơn hàng ở trạng thái `Approved`.
 
 ---
 

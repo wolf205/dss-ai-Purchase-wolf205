@@ -59,12 +59,12 @@
 | Bước | Chủ thể | Hành động nghiệp vụ |
 | :---: | :--- | :--- |
 | **1** | **Actor** | Yêu cầu kích hoạt đợt phân tích mua hàng mới và chọn phạm vi (Toàn bộ cửa hàng hoặc Một ngành hàng cụ thể). |
-| **2** | **Hệ thống** | Tiếp nhận yêu cầu và thực thi chuỗi tính toán DSS tự động ngầm (thuần toán học & quy tắc, hoàn tất tức thì trong < 1s):<br>a. Dự báo nhu cầu tiêu thụ tương lai (`Demand Forecast`) cho từng mặt hàng trong chu kỳ rà soát.<br>b. Phân loại ma trận tồn kho `ABC - XYZ` tự động dựa trên doanh thu lũy kế (Pareto 80/15/5) và hệ số biến thiên nhu cầu $CV = \sigma / \mu$ ($CV \le 0.5$ / $1.0$ / $>1.0$).<br>c. Phân tích rủi ro tồn kho, xác định `Safety Stock`, `Reorder Point`, và tính số lượng mua đề xuất (`Suggested Order Quantity`). Số lượng đề xuất ban đầu tự động làm tròn lên bằng hoặc là bội số của mức `MOQ` do nhà cung cấp quy định.<br>d. Chấm điểm và xếp hạng các nhà cung cấp khả dụng cho từng SKU, chọn NCC có điểm tối ưu nhất. |
-| **3** | **Hệ thống** | Hiển thị giao diện Không gian làm việc đề xuất mua hàng (Decision Cockpit) gồm 3 vùng thông tin liền mạch:<br>1. **Vùng đầu trang (Interactive Stat Cards kiêm Bộ lọc 1-Click):**<br>- Các thẻ chỉ số sức khỏe tồn kho: `🔴 Cần mua gấp / Hết hàng`, `🟠 Sắp hết / Chạm ROP`, `🟢 An toàn`, `⚪ Dư thừa`.<br>- Thẻ phân loại ma trận `ABC - XYZ` (AX, AY, BY, CZ...).<br>- *Tương tác:* Bấm trực tiếp vào từng thẻ để kích hoạt lọc nhanh bảng dữ liệu bên dưới.<br>2. **Vùng trung tâm (Bảng chi tiết đề xuất mua hàng):**<br>- Liệt kê danh sách SKU theo phạm vi phân tích, mặc định ưu tiên xếp các SKU rủi ro cao lên trên.<br>- Hiển thị đầy đủ: Mã SKU, Tên sản phẩm, Nhóm ABC-XYZ, Tồn hiện tại, Dự báo nhu cầu, Số lượng mua đề xuất, Đơn giá nhập, Thành tiền tạm tính, Nhà cung cấp gợi ý và Nút hành động xem giải thích AI (`[✨ Xem giải thích]`).<br>3. **Vùng đáy màn hình (Thanh tổng kết & Chốt đơn nổi cố định - Sticky Action Bar):**<br>- Luôn gắn cố định ở mép dưới màn hình khi cuộn trang, hiển thị tổng hợp theo thời gian thực:<br>`[ Số SKU chọn mua: X / Tổng số ] | [ Số đơn PO dự kiến sinh ra: Y ] | [ Tổng tiền tạm tính: Z VNĐ ]`<br>- Chứa hai nút hành động nghiệp vụ chính: **Lưu nháp** (`Save Draft`) và **Phê duyệt mua hàng** (`Approve Purchase`). |
-| **4** | **Actor** | Xem xét danh sách tổng thể; chọn xem chi tiết từng SKU để đối chiếu căn cứ tính toán (so sánh điểm số các NCC khác nhau, lịch sử bán, dự báo chi tiết), hoặc bấm nút `[✨ Xem giải thích]` của SKU cần tìm hiểu thêm lý do. |
-| **5** | **Hệ thống / Actor** | - Khi Actor bấm xem giải thích của SKU nào, **Hệ thống** mới kích hoạt mô hình ngôn ngữ (LLM) để sinh đoạn tóm tắt giải thích tự nhiên theo nhu cầu (`On-demand Explanation`) cho riêng SKU đó (kèm cơ chế lưu tạm/cache trong phiên làm việc để không phải gọi lại nếu mở lại).<br>- *(Tùy chọn)* **Actor** điều chỉnh số lượng đặt mua hoặc chọn lại Nhà cung cấp khác từ danh sách các NCC khả dụng của SKU đó. Hệ thống cập nhật lại các chỉ số dự kiến. |
+| **2** | **Hệ thống** | Tiếp nhận yêu cầu và thực thi chuỗi tính toán DSS tự động ngầm:<br>a. Dự báo nhu cầu tiêu thụ tương lai (`Demand Forecast`) cho từng mặt hàng trong chu kỳ rà soát (kèm cơ chế dự phòng dùng mức tiêu thụ bình quân lịch sử ngày $\bar{d}$ nếu mô hình AI không khả dụng hoặc dữ liệu chuỗi thời gian chưa đủ mẫu).<br>b. Phân loại ma trận tồn kho `ABC - XYZ` theo `BR-05`. Với SKU mới bán dưới 7 ngày hoặc chưa có doanh thu, mặc định phân loại vào nhóm `CZ`.<br>c. Phân tích rủi ro tồn kho, xác định `Safety Stock`, `Reorder Point`, và tính số lượng mua đề xuất (`Suggested Order Quantity`) theo `BR-01` và `BR-03`. Với SKU mới có lịch sử bán dưới 14 ngày, tự động áp dụng công thức tồn kho an toàn dự phòng ($SS_{\text{fallback}}$). Số lượng đề xuất ban đầu tự động làm tròn thỏa mãn quy cách đóng gói và mức `MOQ` của Nhà cung cấp.<br>d. Chấm điểm và xếp hạng các nhà cung cấp khả dụng cho từng SKU theo `BR-02` (áp dụng cơ chế Cold Start theo `BR-24` cho NCC mới), chọn NCC có điểm tối ưu nhất. |
+| **3** | **Hệ thống** | Hiển thị danh sách đề xuất mua hàng kèm thông tin tổng quan hỗ trợ ra quyết định:<br>1. **Thông tin tổng quan sức khỏe tồn kho:** Tổng hợp số lượng mặt hàng theo từng trạng thái rủi ro (`🔴 Cần mua gấp / Hết hàng`, `🟠 Sắp hết / Chạm ROP`, `🟢 An toàn`, `⚪ Dư thừa` theo `BR-01`) và phân loại ma trận `ABC - XYZ` (`BR-05`), hỗ trợ lọc danh sách theo các nhóm này.<br>2. **Danh sách chi tiết đề xuất mua hàng:** Liệt kê các SKU thuộc phạm vi phân tích (ưu tiên sắp xếp các mặt hàng có rủi ro cao lên đầu). Mỗi dòng hiển thị: Mã SKU, Tên sản phẩm, Nhóm ABC-XYZ, Tồn kho khả dụng, Dự báo nhu cầu, Số lượng mua đề xuất, Đơn giá nhập, Thành tiền tạm tính, Nhà cung cấp gợi ý và tùy chọn yêu cầu AI giải thích khuyến nghị.<br>3. **Tổng kết phương án mua hàng dự kiến:** Tổng hợp theo thời gian thực số SKU chọn mua, số lượng đơn mua hàng (PO) dự kiến phát sinh theo từng Nhà cung cấp (`BR-04`), và tổng ngân sách tạm tính.<br>4. **Các hành động khả dụng:** Cung cấp chức năng **Lưu nháp** (`Save Draft`) và **Phê duyệt mua hàng** (`Approve Purchase`). |
+| **4** | **Actor** | Xem xét danh sách tổng thể; chọn xem chi tiết từng SKU để đối chiếu căn cứ tính toán (so sánh điểm số các NCC, lịch sử bán, dự báo chi tiết), hoặc yêu cầu giải thích khuyến nghị AI cho SKU cần tìm hiểu thêm lý do. |
+| **5** | **Hệ thống / Actor** | - Khi Actor yêu cầu giải thích khuyến nghị cho SKU cụ thể, **Hệ thống** kích hoạt mô hình ngôn ngữ (LLM) để sinh đoạn tóm tắt giải thích tự nhiên theo nhu cầu (`On-demand Explanation`) cho riêng SKU đó.<br>- *(Tùy chọn)* **Actor** điều chỉnh số lượng đặt mua hoặc chọn lại Nhà cung cấp khác từ danh sách các NCC khả dụng của SKU đó. Hệ thống tự động cập nhật lại các chỉ số và tổng kết dự kiến. |
 | **6** | **Actor** | Xác nhận phê duyệt phương án mua hàng (toàn bộ hoặc các dòng SKU đã chọn). |
-| **7** | **Hệ thống** | Thực thi ghi nhận và tạo đơn:<br>a. Lưu trữ phương án mua hàng đã được duyệt (ghi nhận cả số liệu gợi ý gốc và số liệu thực tế được duyệt).<br>b. Tự động gom nhóm các SKU theo từng Nhà cung cấp đã chọn để sinh các bản ghi Đơn mua hàng (`Purchase Order`) ở trạng thái `Approved`. |
+| **7** | **Hệ thống** | Thực thi ghi nhận và tạo đơn:<br>a. Lưu trữ phương án mua hàng đã được duyệt (ghi nhận cả số liệu gợi ý gốc và số liệu thực tế được duyệt).<br>b. Tự động gom nhóm các SKU theo từng Nhà cung cấp đã chọn để khởi tạo các Đơn mua hàng (`Purchase Order`) ở trạng thái `Approved` (`BR-04`, `BR-06`). |
 | **8** | **Hệ thống** | Thông báo kết quả phê duyệt thành công (hiển thị danh sách các mã PO vừa được khởi tạo) và kết thúc phiên làm việc. |
 
 ---
@@ -103,34 +103,32 @@
 
 ## 7. Luồng Ngoại Lệ (Exception Flows)
 
-### EF-1: Dữ liệu vận hành đầu vào thiếu hoặc không hợp lệ
-* **Điều kiện:** Tại Bước 2, hệ thống phát hiện có SKU cần bổ sung hàng nhưng chưa được gán Nhà cung cấp khả dụng nào, hoặc thiếu dữ liệu tồn kho hiện tại.
+### EF-1: Dữ liệu vận hành đầu vào thiếu hoặc chưa sẵn sàng
+* **Điều kiện:** Tại Bước 2, hệ thống phát hiện có SKU cần bổ sung hàng nhưng chưa được gán Nhà cung cấp khả dụng nào, hoặc thiếu dữ liệu tồn kho kiểm kê hiện tại.
 * **Xử lý:**
-  1. Hệ thống gắn cờ cảnh báo bất thường (`Missing Data`) cho SKU đó.
-  2. SKU bị gắn cờ được loại trừ khỏi danh sách đề xuất mua tự động.
-  3. Hệ thống thông báo rõ nội dung thiếu sót và hướng dẫn người dùng hoàn thiện dữ liệu ở `UC-05` (Sản phẩm) hoặc `UC-06` (Nhà cung cấp) trước khi có thể tạo đơn mua cho mặt hàng này.
+  1. Hệ thống không âm thầm loại bỏ SKU; thay vào đó, tách các mặt hàng này vào danh sách cảnh báo riêng: **"Mặt hàng cần hoàn thiện dữ liệu"** (`Missing Master Data`).
+  2. Hiển thị rõ cờ cảnh báo rủi ro tồn kho kèm nguyên nhân thiếu hụt dữ liệu (ví dụ: `Chưa có NCC khả dụng`, `Chưa có số liệu kiểm kê`).
+  3. Khóa chức năng tạo đơn mua tự động đối với các SKU này để tránh phát sinh đơn không hợp lệ.
+  4. Hướng dẫn người dùng hoàn thiện dữ liệu tại `UC-04` (Kiểm kê tồn kho), `UC-05` (Sản phẩm), hoặc `UC-06` (Nhà cung cấp) trước khi có thể đưa mặt hàng vào đợt đặt hàng.
 
 ### EF-2: Dịch vụ LLM tạo giải thích gặp sự cố (Timeout hoặc mất kết nối)
-* **Điều kiện:** Tại Bước 5, khi Actor bấm xem giải thích AI cho một SKU, quá trình gọi mô hình ngôn ngữ không phản hồi hoặc trả về lỗi.
+* **Điều kiện:** Tại Bước 5, khi Actor yêu cầu xem giải thích AI cho một SKU, quá trình gọi mô hình ngôn ngữ không phản hồi hoặc trả về lỗi.
 * **Xử lý:**
-  1. Hệ thống hiển thị thông báo lỗi cục bộ ngay tại vùng/panel giải thích của SKU đó: *"Không thể tạo giải thích tự nhiên lúc này. Vui lòng thử lại sau."*
-  2. Bảng kết quả tổng thể và toàn bộ các chỉ số định lượng (Dự báo nhu cầu, Mức tồn kho, Số lượng đề xuất, Bảng xếp hạng NCC) vẫn hoạt động bình thường.
+  1. Hệ thống hiển thị thông báo lỗi cục bộ ngay tại phần hiển thị giải thích của SKU đó: *"Không thể tạo giải thích tự nhiên lúc này. Vui lòng thử lại sau."*
+  2. Danh sách kết quả tổng thể và toàn bộ các chỉ số định lượng (Dự báo nhu cầu, Mức tồn kho, Số lượng đề xuất, Bảng xếp hạng NCC) vẫn hiển thị và hoạt động bình thường.
   3. **Tiến trình nghiệp vụ xem xét, điều chỉnh và phê duyệt mua hàng của Actor không bị gián đoạn, vẫn tiếp diễn bình thường.**
 
 ---
 
 ## 8. Quy Tắc Nghiệp Vụ Liên Quan (Business Rules)
 
-* **BR-01 (Inventory & Demand Calculation):** Quy tắc tính toán nhu cầu mua (dự báo bán, `Safety Stock`, `Reorder Point`, và `Suggested Order Quantity` có tính đến tồn kho hiện tại và hàng đang trên đường về). Số lượng đề xuất ban đầu của hệ thống luôn tự động làm tròn tối thiểu bằng hoặc là bội số của `MOQ` của nhà cung cấp được chọn.
-* **BR-02 (Supplier Scoring & Ranking):** Quy tắc chuẩn hóa dữ liệu và tính điểm xếp hạng Nhà cung cấp dựa trên 4 tiêu chí trọng số: Đơn giá, `Lead Time`, `MOQ`, và Lịch sử giao hàng thực tế.
+* **BR-01 (Inventory & Demand Calculation):** Quy tắc tính toán nhu cầu mua (dự báo bán, `Safety Stock`, `Reorder Point`, và `Suggested Order Quantity` có tính đến tồn kho hiện tại và hàng đang trên đường về). Hỗ trợ công thức tồn kho an toàn dự phòng ($SS_{\text{fallback}}$) cho SKU có lịch sử ngắn.
+* **BR-02 (Supplier Scoring & Ranking):** Quy tắc chuẩn hóa dữ liệu và tính điểm xếp hạng Nhà cung cấp dựa trên 4 tiêu chí trọng số: Đơn giá, `Lead Time`, `MOQ`, và Lịch sử giao hàng thực tế. Kết hợp cơ chế Cold Start theo `BR-24` cho nhà cung cấp mới.
 * **BR-03 (Order Constraints & MOQ Check):** Quy tắc kiểm tra ràng buộc điều kiện đặt hàng:
-  * Hệ thống tự động làm tròn theo MOQ trong đề xuất ban đầu (BR-01).
+  * Hệ thống tự động làm tròn theo quy cách đóng gói và MOQ trong đề xuất ban đầu (BR-01).
   * Khi người dùng tự tay điều chỉnh số lượng mua nhỏ hơn `MOQ`, hệ thống hiển thị cảnh báo vi phạm và gợi ý nâng số lượng hoặc chọn NCC khác.
-* **BR-04 (Purchase Order Grouping):** Quy tắc gom các SKU có cùng Nhà cung cấp đã chọn vào duy nhất một bản ghi `Purchase Order` trong cùng một phiên phê duyệt.
-* **BR-05 (ABC-XYZ Classification):** Quy tắc phân loại mặt hàng dựa trên dữ liệu bán hàng lịch sử:
-  * Phân loại ABC theo tỷ trọng đóng góp doanh thu tích lũy: Nhóm A (~80%), Nhóm B (~15%), Nhóm C (~5%).
-  * Phân loại XYZ theo hệ số biến thiên nhu cầu $CV = \sigma / \mu$: Nhóm X ($CV \le 0.5$), Nhóm Y ($0.5 < CV \le 1.0$), Nhóm Z ($CV > 1.0$).
-  * Ngưỡng phân loại được cố định chuẩn công nghiệp trong mã nguồn hệ thống, phục vụ hiển thị nhãn ưu tiên và làm ngữ cảnh cho LLM Explainability khi được kích hoạt.
+* **BR-04 (Purchase Order Grouping):** Quy tắc gom các SKU có cùng Nhà cung cấp đã chọn vào duy nhất một Đơn mua hàng (`Purchase Order`) trong cùng một phiên phê duyệt.
+* **BR-05 (ABC-XYZ Classification):** Quy tắc phân loại mặt hàng dựa trên dữ liệu bán hàng lịch sử (doanh thu tích lũy Pareto ABC và độ biến động nhu cầu CV XYZ), kèm cơ chế gán nhóm mặc định cho SKU mới. Cung cấp ngữ cảnh ưu tiên và hỗ trợ giải thích khuyến nghị.
 
 ---
 
