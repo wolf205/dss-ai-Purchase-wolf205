@@ -312,9 +312,9 @@ Status: Confirmed
 
 Decision:
 
-1. **All-or-Nothing Validation:** File dữ liệu nạp vào (Bán hàng hoặc Tồn kho) phải hợp lệ 100% mới được chấp thuận ghi vào cơ sở dữ liệu. Nếu có bất kỳ dòng nào vi phạm, từ chối nạp toàn bộ tệp và báo lỗi chi tiết theo từng dòng để người dùng sửa triệt để.
+1. **All-or-Nothing Validation:** File dữ liệu nạp vào (Bán hàng hoặc Tồn kho) phải hợp lệ 100% mới được chấp thuận ghi nhận vào hệ thống (tự động loại bỏ các dòng hoàn toàn trống trước khi kiểm tra). Nếu có bất kỳ dòng nào vi phạm (SKU không tồn tại trong hệ thống, ô trống khuyết thiếu giá trị, số lượng âm, sai ngày, trùng lặp nội bộ tệp), từ chối nạp toàn bộ tệp và báo lỗi chi tiết theo từng dòng để người dùng sửa triệt để.
 2. **Sales De-duplication & Date Overwrite:** Dữ liệu bán hàng quản lý theo mốc ngày `(Date, SKU, Quantity, Revenue)`. Nếu phát hiện tệp chứa các ngày đã có dữ liệu trong hệ thống, bắt buộc phải cảnh báo người dùng và thực hiện **ghi đè (overwrite)** số liệu của ngày đó sau khi người dùng xác nhận, tuyệt đối không tự động cộng dồn làm nhân đôi doanh số bán hàng.
-3. **Physical Inventory Overwrite & On-Order Preservation:** Nạp tệp kiểm kê tồn kho chỉ ghi đè số lượng đếm được trên kệ vào `Current Inventory`, hoàn toàn bảo lưu số lượng hàng đang về (`On-order quantity`) của các PO đang ở trạng thái `Approved`.
+3. **Physical Inventory Overwrite, Partial Counting & On-Order Preservation:** Nạp tệp kiểm kê tồn kho cập nhật số lượng đếm được trên kệ vào `Current Inventory` cho các SKU có trong tệp, bảo lưu nguyên vẹn tồn kho của các SKU vắng mặt trong tệp (hỗ trợ kiểm kê luân phiên theo ngành hàng), và hoàn toàn bảo lưu số lượng hàng đang về (`On-order quantity`) của các PO đang ở trạng thái `Approved`.
 4. **Chuẩn hóa biểu mẫu:** Cung cấp sẵn file mẫu (`CSV`/`Excel`) chuẩn để người dùng tải về sử dụng.
 
 Reason:
@@ -334,10 +334,11 @@ Status: Confirmed
 Decision:
 
 1. **SKU Code Immutability:** Mã SKU là định danh duy nhất toàn cục, không phân biệt hoa/thường, và **bất biến (Immutable) sau khi tạo**. Tuyệt đối không cho phép chỉnh sửa mã SKU.
-2. **Soft Deactivation over Hard Delete:**
+2. **Soft Deactivation over Hard Delete & Sell-Off Continuity:**
    * Tuyệt đối cấm xóa vĩnh viễn (`Hard Delete`) đối với SKU đã phát sinh bất kỳ liên kết dữ liệu nào (bán hàng, tồn kho, đơn PO, hoặc nhà cung cấp).
    * Cửa hàng dừng kinh doanh thì chuyển trạng thái SKU sang `Inactive`.
-   * SKU `Inactive` tự động bị loại trừ khỏi bảng phân tích gợi ý mua hàng DSS tại `UC-01` và bị từ chối trong tệp nạp mới tại `UC-04`. Dữ liệu lịch sử cũ vẫn được bảo lưu nguyên vẹn.
+   * SKU `Inactive` tự động bị **loại trừ 100%** khỏi bảng phân tích gợi ý mua hàng DSS tại `UC-01` (không bao giờ sinh đề xuất mua mới).
+   * Tệp dữ liệu tại `UC-04` vẫn **tiếp nhận bình thường** các bản ghi bán hàng và kiểm kê của SKU `Inactive` để hỗ trợ xả nốt số tồn dư và theo dõi tồn kho thực tế cho đến khi về 0, không gây tắc nghẽn tệp nạp cuối ngày của cửa hàng.
    * Chỉ cho phép Hard Delete khi SKU vừa tạo mới và hoàn toàn chưa có liên kết dữ liệu nào.
 3. **Deactivation Guard (Chặn ngừng kinh doanh khi có On-order):** Chặn không cho chuyển SKU sang `Inactive` chừng nào SKU đó vẫn còn số lượng hàng đang chờ về (`On-order > 0`) trên các đơn mua hàng `Approved`.
 4. **Initial Inventory Zeroing:** Khi tạo mới SKU, tồn kho ban đầu mặc định bằng 0 (`Current Inventory = 0`, `On-order = 0`). Tồn kho thực tế được cập nhật thông qua kiểm kê (`UC-04`) hoặc nhận hàng (`UC-03`).
@@ -345,11 +346,11 @@ Decision:
 
 Reason:
 
-Bảo vệ tính toàn vẹn của chuỗi dữ liệu lịch sử bán hàng và đơn hàng (đầu vào cốt lõi của các mô hình dự báo AI và phân loại ABC-XYZ trong DSS); tránh lỗi phân mảnh hoặc mồ côi dữ liệu (orphaned records); đồng thời ngăn ngừa xung đột trạng thái khi hàng đang trên đường về kho.
+Bảo vệ tính toàn vẹn của chuỗi dữ liệu lịch sử bán hàng và đơn hàng (đầu vào cốt lõi của các mô hình dự báo AI và phân loại ABC-XYZ trong DSS); tránh lỗi phân mảnh hoặc mồ côi dữ liệu (orphaned records); đồng thời duy trì tính thông suốt cho quy trình xả hàng và kiểm soát kho thực tế mà không làm ảnh hưởng đến quyết định mua hàng của DSS.
 
 Impact:
 
-UC-05 được đặc tả chặt chẽ với cơ chế bảo vệ tham chiếu (BR-17, BR-18, BR-19, BR-20), giao diện tối giản qua form nhập liệu trực tiếp, hỗ trợ tìm kiếm/lọc ngành hàng và phân quyền rõ ràng giữa Store Manager (toàn quyền) và Purchasing Staff (chỉ xem).
+UC-05 được đặc tả chặt chẽ với cơ chế bảo vệ tham chiếu (BR-17, BR-18, BR-19, BR-20), giao diện tối giản qua form nhập liệu trực tiếp, hỗ trợ tìm kiếm/lọc ngành hàng và phân quyền rõ ràng giữa Store Manager (toàn quyền) và Purchasing Staff (chỉ xem). Đồng bộ với UC-04 và UC-01.
 
 ---
 
@@ -414,5 +415,103 @@ Impact:
 
 UC-07 hoàn tất chuỗi 7 Use Cases của dự án, cung cấp bộ quy tắc chuẩn hóa (BR-25, BR-26, BR-27, BR-28), phân quyền rõ ràng (Store Manager cấu hình, Purchasing Staff xem Read-only), kết nối trực tiếp với logic tính toán tại UC-01.
 
+---
+
+### Deterministic Inventory Formulas & Hybrid Fallback Strategy
+
+Status: Confirmed
+
+Decision:
+
+Hệ thống sử dụng các công thức học thuật chuẩn chuỗi cung ứng làm nòng cốt cho tầng tính toán nghiệp vụ tất định (Business Calculation):
+1. **Safety Stock:** $SS = Z \times \sigma_d \times \sqrt{L}$ với $Z$ ánh xạ từ Service Level và $\sigma_d$ đo lường biến động nhu cầu lịch sử.
+2. **Reorder Point:** $ROP = (d_{\text{forecast}} \times L) + SS$.
+3. **Suggested Order Quantity:** Bù đắp lượng hàng thiếu hụt đến mức mục tiêu trong khoảng thời gian bảo vệ $(L + R)$ trừ đi tồn kho khả dụng $(I_{\text{on\_hand}} + I_{\text{on\_order}})$, tự động nâng lên theo MOQ và làm tròn số nguyên.
+4. **Cơ chế Fallback:** Đối với SKU mới bán $< 14$ ngày chưa đủ mẫu tính $\sigma_d$ tin cậy, áp dụng ước lượng nhanh $SS_{\text{fallback}} = \bar{d} \times \text{Safety Days}$ (với Safety Days mặc định 5 ngày).
+
+Reason:
+
+Bảo đảm tính khoa học và cơ sở học thuật vững chắc cho đồ án tốt nghiệp ngành Hệ thống thông tin / Chuỗi cung ứng; đồng thời giải quyết triệt để bài toán thiếu dữ liệu thực tế tại cửa hàng bán lẻ mà không làm gián đoạn chu trình phân tích của DSS.
+
+Impact:
+
+Toàn bộ 28 Business Rules (đặc biệt là BR-01) có cơ sở toán học rõ ràng, vận hành tất định (cùng đầu vào luôn cho cùng đầu ra), minh bạch và giải thích được (Explainability), loại bỏ hoàn toàn hiện tượng "hộp đen" trong đề xuất mua hàng.
+
+---
+
+### Supplier Performance On-Time Penalty Decay Model
+
+Status: Confirmed
+
+Decision:
+
+Hệ thống áp dụng mô hình phạt trễ hạn suy giảm tuyến tính (Linear Penalty Decay) để tính hệ số thời gian (`On-Time Factor`) khi đánh giá đơn hàng hoàn tất tại UC-03, thay vì sử dụng mô hình nhị phân (0-1) cứng nhắc:
+1. Xác định số ngày trễ thực tế: $Days_{\text{late}} = \max(0, Date_{\text{actual}} - Date_{\text{expected}})$.
+2. Thiết lập ngưỡng trễ tối đa cho phép là $T_{\text{grace}} = 3$ ngày (tương đương khoảng 50% mức tồn kho an toàn chuẩn của cửa hàng).
+3. Công thức tính hệ số thời gian:
+   $$\text{On-Time Factor} = \begin{cases} 1.0 & \text{khi } Days_{\text{late}} = 0 \text{ (Đúng hạn)} \\ \max\left(0, 1 - \frac{Days_{\text{late}}}{3}\right) & \text{khi } Days_{\text{late}} > 0 \text{ (Trễ hạn)} \end{cases}$$
+   * Trễ 0 ngày: $\text{On-Time Factor} = 1.0 \rightarrow 50$ điểm thời gian.
+   * Trễ 1 ngày: $\text{On-Time Factor} \approx 0.67 \rightarrow 33$ điểm thời gian.
+   * Trễ 2 ngày: $\text{On-Time Factor} \approx 0.33 \rightarrow 17$ điểm thời gian.
+   * Trễ $\ge 3$ ngày: $\text{On-Time Factor} = 0.0 \rightarrow 0$ điểm thời gian.
+4. Điểm hiệu suất của một đơn hàng thành phần: $\text{Order Score} = (\text{On-Time Factor} \times 50) + (\text{Fulfillment Rate} \times 0.5)$.
+
+Reason:
+
+Phản ánh chính xác mức độ tác động thực tế của sự chậm trễ lên kệ hàng: trễ 1 ngày thì tồn kho an toàn (Safety Stock) vẫn hấp thụ được (chưa gây đứt hàng), trong khi trễ từ 3 ngày trở lên sẽ gây nguy cơ đứt hàng và mất doanh thu nghiêm trọng. Đồng thời, mô hình loại bỏ nghịch lý quản trị (perverse incentive), duy trì động lực cho nhà cung cấp khắc phục và giao hàng khẩn cấp ngay vào ngày hôm sau thay vì buông xuôi do bị mất trắng điểm. Đây cũng là điểm nhấn học thuật và giá trị thực tế quan trọng cho đồ án DSS.
+
+Impact:
+
+Đồng bộ công thức tính toán xuyên suốt BR-13, BR-24, UC-03 và thuật toán WSM tại UC-01/UC-06. Giao diện UC-03 và UC-06 ghi nhận số ngày trễ và điểm hiệu suất tương ứng, tạo cơ sở dữ liệu minh bạch cho đánh giá nhà cung cấp.
+
+---
+
+### Domain Model Architecture & Three-Tier Bounded Contexts
+
+Status: Confirmed
+
+Decision:
+
+Xác lập Mô hình Miền Nghiệp vụ (Domain Model) gồm chính xác 13 thực thể khái niệm được phân bổ chặt chẽ theo 3 phân vùng nghiệp vụ (Bounded Contexts) phản ánh đúng chu trình vận hành bán lẻ và triết lý "AI recommends. Human decides":
+1. **Dữ liệu Nền tảng (Master Data - 4 thực thể):** `Category`, `Product`, `Supplier`, `SupplyCondition`. Ràng buộc bất biến toàn cục của mã định danh; mô hình hóa quan hệ thương mại qua `SupplyCondition` (bảo lưu snapshot giá); hỗ trợ Inactive SKU khi còn hàng đang về trên PO để xả tồn.
+2. **Dữ liệu Vận hành & Cấu hình (Operational & Configuration - 3 thực thể):** `SalesRecord`, `InventorySnapshot`, `DSSConfiguration`. Dữ liệu bán hàng nạp nuôi AI dự báo (không tự động trừ tồn kho kệ, quy ước Zero-Demand); phân định rạch ròi giữa Trạng thái hiện hành trên kệ (`Product.currentInventory`) và Bản ghi kiểm toán lịch sử kiểm đếm (`InventorySnapshot.countedQuantity`); cấu hình Singleton toàn cửa hàng (tổng trọng số 100%, bảo đảm mặc định an toàn).
+3. **Động cơ Ra Quyết Định & Vòng Đời Mua Hàng Khép Kín (Decision Core & Procurement Lifecycle - 6 thực thể theo 3 cặp Cha-Con):**
+   * *Đề xuất DSS:* `RecommendationSession` *-- `RecommendationItem` (Mô hình Giỏ hàng kế hoạch thông minh; lưu vết song song số liệu gợi ý gốc vs thực tế chốt; tóm tắt LLM sinh On-demand tùy chọn).
+   * *Đơn mua hàng:* `PurchaseOrder` *-- `POLineItem` (Sinh ra ở trạng thái `Approved` từ DSS; vòng đời 1 chiều; cấm sửa lẻ dòng, chỉ cho phép Hủy cả đơn PO; tự động đồng bộ biến `On-order`).
+   * *Nhận hàng kho & Phản hồi khép kín:* `GoodsReceipt` *-- `ReceiptLineItem` (Đối chiếu 1:1 đơn nhất với PO; cập nhật tồn kho kệ và tất toán On-order; tính toán điểm OTIF suy giảm tuyến tính cập nhật phong độ 5 đơn gần nhất của NCC).
+
+Reason:
+
+Loại bỏ tư duy kế toán/ERP thụ động (nhập liệu thủ công từ đầu); tối ưu hóa luồng làm việc thành một chu trình khép kín mượt mà; bảo đảm tính toàn vẹn toán học và cơ chế kiểm toán đối soát minh bạch; chuẩn hóa 44 Business Invariants làm cầu nối vững chắc cho tầng thiết kế cơ sở dữ liệu kỹ thuật (Data Model).
+
+Impact:
+
+Toàn bộ 13 thực thể và 44 Bất biến nghiệp vụ được chuẩn hóa chính thức tại `docs/business/domain-model.md`, làm cơ sở duy nhất để bước sang thiết kế Data Model (CSDL vật lý), API Contracts và Kiến trúc hệ thống.
+
+---
+
+### Supplier-Level Committed Lead Time
+
+Status: Confirmed
+
+Decision:
+
+Thời gian giao hàng cam kết (`Committed Lead Time`) được quản lý ở cấp độ **Nhà cung cấp (`Supplier.committedLeadTime`)**, thay vì quản lý phân mảnh theo từng sản phẩm cụ thể (`SupplyCondition`). `SupplyCondition` giữa NCC và SKU chỉ quản lý `purchasePrice` (Đơn giá nhập) và `moq` (Số lượng đặt tối thiểu).
+
+Toàn bộ các mặt hàng do cùng một Nhà cung cấp phân phối khi được phê duyệt mua tại UC-01 sẽ được gom vào **duy nhất 1 Đơn mua hàng (`Purchase Order`)** với ngày giao hàng dự kiến được xác định thống nhất:
+$$\text{Expected Delivery Date} = \text{Approval Date} + \text{Supplier.committedLeadTime (ngày)}$$
+
+Reason:
+
+1. **Phù hợp bản chất logistics bán lẻ thực tế (Single Retail Store):** Cửa hàng bán lẻ nhập hàng từ các Nhà phân phối (NPP) theo tuyến giao nhận cố định hoặc theo lịch chuyến xe tải của đối tác tới cửa hàng. Toàn bộ các mặt hàng lấy từ một đối tác luôn được vận chuyển chung trên một chuyến xe, do đó Lead Time về bản chất phụ thuộc vào khoảng cách địa lý và lịch trình của NPP tới cửa hàng.
+2. **Loại bỏ xung đột gom đơn & nhận hàng:** Bảo toàn nguyên tắc "1 NCC = 1 PO duy nhất" và "Mỗi PO nhận hàng 1 lần duy nhất (No Partial Delivery)". Loại bỏ hoàn toàn nghịch lý lệch pha thời gian giao hàng giữa các SKU trong cùng một đơn PO, đảm bảo việc xác định ngày giao dự kiến và tính toán phạt trễ hạn (`BR-13`, `BR-24`) diễn ra minh bạch, không mâu thuẫn.
+3. **Tối ưu trải nghiệm nhập liệu (UX):** Người dùng chỉ cần khai báo Lead Time một lần duy nhất khi tạo/sửa hồ sơ NCC tại UC-06, thay vì phải gõ lặp lại trường này cho hàng chục hoặc hàng trăm SKU được gán.
+4. **Xử lý ngoại lệ chuẩn mực:** Trường hợp một đối tác cung ứng cả hai ngành hàng có chuỗi cung ứng độc lập (ví dụ hàng tươi sống giao trong ngày vs hàng khô giao sau vài ngày), cửa hàng sẽ đăng ký thành hai mã đối tác riêng biệt (ví dụ `VINAMILK-FRESH` và `VINAMILK-DRY`) tương ứng với 2 hợp đồng và 2 chuyến xe giao nhận tách biệt, phản ánh đúng chuẩn quản trị chuỗi cung ứng thực tế.
+
+Impact:
+
+- `domain-model.md`: Chuyển thuộc tính `committedLeadTime` từ `SupplyCondition` sang `Supplier`. Cập nhật công thức `PurchaseOrder.expectedDeliveryDate`.
+- `business-rules.md`: Cập nhật BR-02 (lấy Lead Time từ Supplier), BR-08 (công thức ngày giao dự kiến), và BR-22 (phạm vi điều kiện báo giá).
+- `uc-06-manage-suppliers.md`: Thêm trường `committedLeadTime` vào thông tin hồ sơ Nhà cung cấp; bỏ trường này khỏi bảng gán SKU.
 
 
