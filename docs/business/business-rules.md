@@ -573,7 +573,7 @@
   * Bảo vệ tính toàn vẹn của dữ liệu quá khứ phục vụ AI huấn luyện, ngăn chặn lỗi mồ côi dữ liệu khi xóa vật lý, duy trì tính thông suốt cho việc xả nốt hàng tồn của mặt hàng ngừng kinh doanh.
 * **Logic & Ràng buộc:**
   1. **Cấm Hard Delete:** Tuyệt đối không xóa vật lý bản ghi SKU nếu đã từng phát sinh bất kỳ liên kết nào (Sales History, Inventory, PO, hoặc Supplier). Chỉ cho phép xóa khi SKU vừa tạo và hoàn toàn chưa có liên kết.
-  2. **Chặn Deactivate khi có On-order:** Không cho phép chuyển trạng thái SKU sang `Inactive` nếu sản phẩm vẫn còn hàng đang chờ về ($I_{\text{on\_order}} > 0$).
+  2. **Chuyển Inactive khi còn On-order (Hỗ trợ xả tồn):** Cho phép chuyển trạng thái SKU sang `Inactive` khi đang có hàng đang về ($I_{\text{on\_order}} > 0$) kèm cảnh báo. Khi chuyển `Inactive`: SKU bị loại trừ 100% khỏi các đợt gợi ý mua mới tại `UC-01`, nhưng lượng hàng đang về vẫn được nhập kho bình thường tại `UC-03` để cửa hàng bán xả nốt số hàng tồn.
   3. **Quy tắc đối với SKU Inactive:**
      * **Tại UC-01 (Lõi DSS):** SKU `Inactive` tự động bị **loại trừ 100%** khỏi chu trình gợi ý mua hàng (không phân tích nhu cầu, không tính ROP, không bao giờ sinh đề xuất mua mới).
      * **Tại UC-04 (Dữ liệu vận hành):** Vẫn **tiếp nhận bình thường** các bản ghi bán hàng và kiểm kê tồn kho của SKU `Inactive` để phục vụ theo dõi việc bán nốt số tồn dư và cập nhật chính xác lượng hàng thực tế trên kệ. Hệ thống chỉ từ chối nạp khi mã SKU hoàn toàn không tồn tại trong danh mục hệ thống.

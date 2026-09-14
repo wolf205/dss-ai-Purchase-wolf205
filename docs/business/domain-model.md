@@ -108,12 +108,15 @@ classDiagram
         forecastedDemand : Dự báo nhu cầu chu kỳ
         safetyStock : Tồn kho an toàn (SS)
         reorderPoint : Điểm đặt hàng lại (ROP)
+        snapshotCurrentInventory : Tồn kho kệ lúc phân tích
+        snapshotOnOrderQuantity : Hàng đang về lúc phân tích
         abcXyzGroup : Phân loại ABC-XYZ
         stockRiskStatus : Rủi ro (Đỏ / Cam / Xanh / Xám)
         suggestedQuantity : Số lượng DSS gợi ý (theo MOQ)
-        suggestedSupplier : NCC tối ưu theo WSM
+        wsmEvaluationScore : Điểm WSM NCC gợi ý (%)
+        suggestedSupplier : NCC tối ưu theo WSM (Tùy chọn)
         approvedQuantity : Số lượng con người chốt
-        approvedSupplier : NCC con người chọn
+        approvedSupplier : NCC con người chọn (Tùy chọn)
         isOverridden : Đã can thiệp?
         whyBuyExplanation : Tóm tắt lý do AI (On-demand)
     }
@@ -125,6 +128,7 @@ classDiagram
         totalAmount : Tổng giá trị đơn hàng (VNĐ)
         status : Approved / Completed / Cancelled
         cancellationReason : Lý do hủy đơn
+        cancelledAt : Thời điểm hủy đơn
         lastExportedAt : Thời điểm xuất/in đơn gần nhất
     }
 
@@ -142,6 +146,7 @@ classDiagram
         overallFulfillmentRate : Tỷ lệ giao đủ đơn (%)
         orderPerformanceScore : Điểm hiệu suất đơn (%)
         notes : Ghi chú giao nhận kho
+        receivedBy : Người nhận hàng
     }
 
     class ReceiptLineItem {
@@ -153,6 +158,7 @@ classDiagram
     %% ================= RELATIONSHIPS =================
     %% Master Data Links
     Category "1" <-- "0..*" Product : Phân loại vào
+    Category "0..1" <-- "0..*" RecommendationSession : Lọc phạm vi phân tích
     Product "1" <-- "0..*" SupplyCondition : Được định giá qua
     Supplier "1" <-- "0..*" SupplyCondition : Cung ứng theo
 
@@ -162,16 +168,17 @@ classDiagram
 
     %% Core Decision & Procurement Links
     RecommendationSession "1" *-- "1..*" RecommendationItem : Sở hữu chi tiết
+    RecommendationSession "1" <-- "1" PurchaseOrder : Phát sinh từ phiên duyệt
     PurchaseOrder "1" *-- "1..*" POLineItem : Sở hữu chi tiết
     GoodsReceipt "1" *-- "1..*" ReceiptLineItem : Sở hữu chi tiết
 
-    RecommendationSession "1" --> "0..*" PurchaseOrder : Sinh ra khi Approved
     PurchaseOrder "1" --> "0..1" GoodsReceipt : Đối chiếu nhận hàng
-
     PurchaseOrder "1" --> "1" Supplier : Đặt tới NCC
     RecommendationItem "1" --> "1" Product : Đề xuất cho SKU
+    RecommendationItem "0..*" --> "0..1" Supplier : Đề xuất / Chốt NCC
     POLineItem "1" --> "1" Product : Đặt mua SKU
     ReceiptLineItem "1" --> "1" Product : Nhập kho SKU
+    ReceiptLineItem "1" --> "1" POLineItem : Đối soát dòng đặt hàng
 ```
 
 ---
@@ -188,7 +195,9 @@ classDiagram
   | `categoryCode` | Mã ngành hàng duy nhất toàn cục | Chuỗi ký tự không dấu (ví dụ: `BEV`, `SNK`) | Có |
   | `categoryName` | Tên hiển thị của ngành hàng | Chuỗi văn bản | Có |
   | `description` | Mô tả phạm vi mặt hàng | Chuỗi văn bản tùy chọn | Không |
-* **Mối quan hệ:** Chứa $0..*$ `Product`.
+* **Mối quan hệ:** 
+  * Chứa $0..*$ `Product` ($1 : 0..*$).
+  * Là tiêu chí lọc phạm vi phân tích tùy chọn cho $0..*$ `RecommendationSession` ($0..1 : 0..*$).
 * **Bất biến nghiệp vụ:**
   * `INV-CAT-01`: Mã `categoryCode` là duy nhất toàn cục và bất biến vĩnh viễn sau khi tạo (`BR-20`).
   * `INV-CAT-02`: Chặn xóa ngành hàng nếu đang chứa ít nhất 1 `Product` trong hệ thống (`BR-20`).
@@ -335,16 +344,18 @@ classDiagram
   | `sessionNumber` | Mã định danh phiên phân tích duy nhất | Chuỗi ký tự (ví dụ: `REC-20261025-01`) | Có |
   | `createdAt` | Thời điểm kích hoạt phiên | Mốc thời gian (Ngày và giờ) | Có |
   | `createdBy` | Người kích hoạt phiên | Tên/ID người dùng (`Purchasing Staff` hoặc `Store Manager`) | Có |
-  | `scope` | Phạm vi phân tích | `All Categories` hoặc tên Ngành hàng cụ thể | Có |
+  | `scopeCategory` | Phạm vi phân tích ngành hàng | Tham chiếu tới `Category` (`null` = Toàn cửa hàng `All Categories`) | Không |
   | `status` | Trạng thái của phiên | `Draft`, `Approved`, `Discarded` (Mặc định `Draft`) | Có |
   | `approvedAt` | Thời điểm người dùng phê duyệt phương án | Mốc thời gian (nếu `status = Approved`) | Không |
 * **Mối quan hệ:**
   * Sở hữu chặt chẽ ($1 : 1..*$) các dòng `RecommendationItem` (Composition).
-  * Khi `status = Approved`, sinh ra $0..*$ đơn `PurchaseOrder` (mỗi NCC có sản phẩm đặt $> 0$ sinh đúng 1 PO theo `BR-04`).
+  * Tham chiếu tùy chọn tới $0..1$ `Category` để xác định phạm vi phân tích.
+  * Khi `status = Approved`, sinh ra $0..*$ đơn `PurchaseOrder` (mỗi NCC có sản phẩm đặt $> 0$ sinh đúng 1 PO theo `BR-04`, và mỗi PO lưu vết tham chiếu ngược về phiên này).
 * **Bất biến nghiệp vụ:**
   * `INV-REC-01 (Single Approved Lifecycle)`: Vòng đời trạng thái chuyển dịch 1 chiều: `Draft` $\rightarrow$ `Approved` hoặc `Discarded`. Một khi đã `Approved`, toàn bộ phiên và các dòng chi tiết bị **khóa bất biến (Immutable)** để làm căn cứ đối soát (`UC-01`).
   * `INV-REC-02 (Atomic Direct PO Generation)`: Khi phiên chuyển sang `Approved`, hệ thống tự động sinh ra các đơn `PurchaseOrder` ở trạng thái `Approved` ngay lập tức (không qua bước Draft PO) cho các NCC có sản phẩm đặt $> 0$ (`BR-04`, `BR-06`).
   * `INV-REC-03 (Draft Session Re-analysis Safety)`: Nếu đang có một phiên nháp `Draft`, khi người dùng chọn tạo phiên phân tích mới, hệ thống chuyển phiên nháp cũ sang `Discarded`. Các phiên cũ đã `Approved` bảo lưu vĩnh viễn làm lịch sử (`UC-01`).
+  * `INV-REC-04 (Category Scoping Integrity)`: Nếu phiên có chỉ định `scopeCategory`, thuật toán chỉ quét và đề xuất cho các SKU thuộc ngành hàng đó; nếu `scopeCategory` để trống (`null`), hệ thống quét toàn bộ danh mục SKU `Active` trong cửa hàng (`UC-01`).
 
 ---
 
@@ -356,20 +367,25 @@ classDiagram
   | `forecastedDemand` | Nhu cầu dự báo tiêu thụ chu kỳ bảo vệ | Số lượng sản phẩm | Có |
   | `safetyStock` | Mức tồn kho an toàn tính toán ($SS$) | Số nguyên $\ge 0$ (`BR-01`) | Có |
   | `reorderPoint` | Điểm đặt hàng lại ($ROP$) | Số nguyên $\ge 0$ (`BR-01`) | Có |
+  | `snapshotCurrentInventory` | Tồn kho thực tế trên kệ tại thời điểm phân tích | Số nguyên $\ge 0$ (Căn cứ tính SOQ, `BR-01`) | Có |
+  | `snapshotOnOrderQuantity` | Lượng hàng đang chờ về tại thời điểm phân tích | Số nguyên $\ge 0$ (Căn cứ tính SOQ, `BR-01`) | Có |
   | `abcXyzGroup` | Nhóm phân loại ma trận tồn kho | 1 trong 9 nhóm: `AX`, `AY` ... `CZ` (`BR-05`) | Có |
   | `stockRiskStatus` | Nhãn phân loại rủi ro tồn kho trực quan | `🔴 Cần mua gấp`, `🟠 Sắp hết`, `🟢 An toàn`, `⚪ Dư thừa` | Có |
   | `suggestedQuantity`| Số lượng DSS đề xuất ban đầu (làm tròn MOQ) | Số nguyên $\ge 0$ (`BR-01`, `BR-03`) | Có |
-  | `suggestedSupplier`| Nhà cung cấp tối ưu nhất theo thuật toán WSM | Tham chiếu tới `Supplier` (`BR-02`) | Có |
+  | `wsmEvaluationScore`| Tổng điểm WSM của Nhà cung cấp được gợi ý | Tỷ lệ phần trăm ($0 - 100\%$, `BR-02`) | Không |
+  | `suggestedSupplier`| Nhà cung cấp tối ưu nhất theo thuật toán WSM | Tham chiếu tới `Supplier` (`BR-02`, null nếu chưa có NCC) | Không |
   | `approvedQuantity` | Số lượng con người phê duyệt thực tế | Số nguyên $\ge 0$ (Mặc định bằng `suggestedQuantity`) | Có |
-  | `approvedSupplier` | Nhà cung cấp con người lựa chọn thực tế | Tham chiếu tới `Supplier` (Mặc định bằng `suggestedSupplier`) | Có |
-  | `isOverridden` | Cờ nhận diện con người có can thiệp hay không | Logic: `approvedQuantity != suggestedQuantity` hoặc `approvedSupplier != suggestedSupplier` | Có |
+  | `approvedSupplier` | Nhà cung cấp con người lựa chọn thực tế | Tham chiếu tới `Supplier` (Mặc định bằng `suggestedSupplier`) | Không |
+  | `isOverridden` | Cờ nhận diện con người có can thiệp hay không | Logic: `approvedQuantity != suggestedQuantity` hoặc đổi NCC | Có |
   | `whyBuyExplanation`| Đoạn tóm tắt lý do đề xuất do LLM sinh | Chuỗi văn bản (Mặc định `null`, sinh On-demand) | Không |
 * **Mối quan hệ:**
   * Thuộc về chính xác $1$ `RecommendationSession` ($1..1$, Composition).
   * Tham chiếu tới chính xác $1$ `Product` ($1..1$).
+  * Tham chiếu tới $0..1$ `Supplier` cho `suggestedSupplier` và $0..1$ `Supplier` cho `approvedSupplier`.
 * **Bất biến nghiệp vụ:**
-  * `INV-REC-04 (Implicit Override Audit Trail)`: Hệ thống luôn lưu song song cả số liệu gợi ý gốc của thuật toán (`suggested`) và số liệu thực tế con người chốt (`approved`), tự động đánh dấu `isOverridden` mà không bắt buộc gõ lý do giải thích bằng văn bản (Quyết định dự án).
-  * `INV-REC-05 (On-Demand LLM Cache & Optional Nullable)`: Thuộc tính `whyBuyExplanation` mặc định là `null`. Chỉ khi người dùng chủ động click xem tại `UC-01` thì LLM mới được gọi để sinh giải thích cho riêng SKU đó. Các SKU không được click giữ nguyên là `null` vĩnh viễn; không bao giờ tự động gọi LLM chạy hàng loạt (`UC-01`).
+  * `INV-REC-05 (Implicit Override & Supplier Conditional Guard)`: Hệ thống luôn lưu song song cả số liệu gợi ý gốc của thuật toán (`suggested`) và số liệu thực tế con người chốt (`approved`), tự động đánh dấu `isOverridden`. Ràng buộc: Khi `approvedQuantity > 0`, bắt buộc `approvedSupplier` phải được chỉ định (`approvedSupplier != null`); khi `approvedQuantity = 0`, cho phép `approvedSupplier = null` (`BR-01`, `UC-01`).
+  * `INV-REC-06 (Snapshot Inventory Integrity & Auditability)`: Thuộc tính `snapshotCurrentInventory` và `snapshotOnOrderQuantity` được lưu cố định bất biến tại thời điểm phân tích, bảo đảm tính giải trình và khả năng tái lập 100% công thức tính SOQ của `BR-01` khi kiểm toán lại các phiên cũ.
+  * `INV-REC-07 (On-Demand LLM Cache & Optional Nullable)`: Thuộc tính `whyBuyExplanation` mặc định là `null`. Chỉ khi người dùng chủ động click xem tại `UC-01` thì LLM mới được gọi để sinh giải thích cho riêng SKU đó. Các SKU không được click giữ nguyên là `null` vĩnh viễn; không bao giờ tự động gọi LLM chạy hàng loạt (`UC-01`).
 
 ---
 
@@ -379,6 +395,7 @@ classDiagram
   | Tên thuộc tính | Ý nghĩa nghiệp vụ | Đơn vị / Định dạng | Bắt buộc |
   | :--- | :--- | :--- | :---: |
   | `poNumber` | Mã đơn mua hàng duy nhất toàn cục | Chuỗi ký tự (ví dụ: `PO-20261025-001`) | Có |
+  | `originSession` | Phiên đề xuất DSS nguồn sinh ra đơn hàng này | Tham chiếu tới `RecommendationSession` | Có |
   | `approvalDate` | Ngày giờ phê duyệt phát hành đơn | Mốc thời gian (Ngày và giờ) | Có |
   | `expectedDeliveryDate` | Ngày giao hàng cam kết dự kiến | Ngày lịch ($= \text{approvalDate} + \text{Supplier.committedLeadTime}$, `BR-08`) | Có |
   | `totalAmount` | Tổng giá trị thanh toán của đơn hàng | Số thực $> 0$ (Đơn vị: VNĐ) | Có |
@@ -388,6 +405,7 @@ classDiagram
   | `lastExportedAt` | Thời điểm xuất file PDF/Excel hoặc in gần nhất | Mốc thời gian (metadata phục vụ giám sát tiến độ) | Không |
 * **Mối quan hệ:**
   * Thuộc về chính xác $1$ `Supplier` ($1..1$).
+  * Xuất phát từ chính xác $1$ `RecommendationSession` ($1..1$, bắt buộc theo `INV-REC-02`).
   * Sở hữu chặt chẽ $1..*$ dòng `POLineItem` (Composition).
   * Liên kết với tối đa $1$ phiếu nhận hàng `GoodsReceipt` ($1 : 0..1$).
 * **Bất biến nghiệp vụ:**
@@ -397,6 +415,7 @@ classDiagram
   * `INV-PO-04 (On-Order Synchronization)`: Khi PO được tạo ở `Approved`, hệ thống tự động tăng `Product.onOrderQuantity` tương ứng. Khi PO chuyển sang `Cancelled`, hệ thống tự động hoàn trả/giảm trừ `Product.onOrderQuantity` về 0 (`BR-07`).
   * `INV-PO-05 (Immutable Expected Date)`: Ngày giao dự kiến `expectedDeliveryDate` được tính toán bằng $\text{approvalDate} + \text{Supplier.committedLeadTime}$ tại thời điểm duyệt đơn, lưu cố định vào đơn và **không bao giờ bị reset** (kể cả khi từ chối nhận hàng và giao lại) (`BR-08`).
   * `INV-PO-06 (Mandatory Cancellation Reason)`: Hủy đơn bắt buộc phải chọn hoặc nhập lý do hủy (`cancellationReason`) (`BR-10`).
+  * `INV-PO-07 (Order Total Integrity)`: Tổng giá trị thanh toán của đơn hàng `totalAmount` luôn bằng chính xác tổng thành tiền của các dòng con: $\text{totalAmount} = \sum \text{POLineItem.lineTotal}$.
 
 ---
 
@@ -411,6 +430,7 @@ classDiagram
 * **Mối quan hệ:**
   * Thuộc về chính xác $1$ `PurchaseOrder` ($1..1$, Composition).
   * Tham chiếu tới chính xác $1$ `Product` ($1..1$).
+  * Là đối tượng đối soát trực tiếp của $0..1$ `ReceiptLineItem` khi nhận hàng.
 * **Bất biến nghiệp vụ:**
   * `INV-POLINE-01 (Price Snapshot Integrity)`: Đơn giá `unitPrice` là snapshot bất biến lấy từ `SupplyCondition` tại thời điểm duyệt đơn. Mọi thay đổi giá tương lai của NCC không làm thay đổi `unitPrice` của dòng này (`BR-22`).
   * `INV-POLINE-02`: Số lượng đặt `orderedQuantity > 0` và thành tiền `lineTotal = orderedQuantity * unitPrice`.
@@ -454,6 +474,7 @@ classDiagram
   | `itemFulfillmentRate` | Tỷ lệ giao đủ của dòng sản phẩm (Cap 100%)| Tỷ lệ phần trăm ($= \min(100\%, \frac{\text{receivedQuantity}}{\text{orderedQuantity}} \times 100\%)$) | Có |
 * **Mối quan hệ:**
   * Thuộc về chính xác $1$ `GoodsReceipt` ($1..1$, Composition).
+  * Đối soát trực tiếp với chính xác $1$ `POLineItem` ($1..1$, bắt buộc).
   * Tham chiếu tới chính xác $1$ `Product` ($1..1$).
 * **Bất biến nghiệp vụ:**
   * `INV-RECLINE-01 (Over-delivery & Fulfillment Cap)`: Cho phép `receivedQuantity > orderedQuantity` để tồn kho thực tế phản ánh đúng hàng trên kệ, nhưng tỷ lệ giao đủ `itemFulfillmentRate` bị khóa trần tối đa ở $100\%$ (không cộng điểm thưởng cho giao thừa) (`BR-12`, `BR-13`).
@@ -474,20 +495,25 @@ classDiagram
 | `InventorySnapshot` | Kiểm đếm cho | `Product` | $N : 1$ (Bắt buộc) | Mỗi snapshot ghi nhận số lượng đếm thực tế của đúng 1 SKU |
 | `DSSConfiguration` | Điều khiển toàn cục | Toàn hệ thống | Singleton ($1$) | Duy nhất 1 bộ cấu hình tham số áp dụng chung cho toàn cửa hàng |
 | `RecommendationSession`| Sở hữu chi tiết | `RecommendationItem` | $1 : 1..*$ (Composition) | Phiên phân tích DSS chứa danh sách các mặt hàng được rà soát |
+| `RecommendationSession`| Lọc theo phạm vi | `Category` | $N : 0..1$ (Tùy chọn) | Phiên DSS có thể phân tích riêng cho 1 ngành hàng hoặc toàn cửa hàng |
 | `RecommendationSession`| Sinh ra khi duyệt | `PurchaseOrder` | $1 : 0..*$ | Khi duyệt phiên, tự động sinh các đơn PO theo từng NCC |
 | `RecommendationItem` | Tham chiếu tới | `Product` | $N : 1$ (Bắt buộc) | Mỗi dòng đề xuất phân tích cho đúng 1 SKU |
+| `RecommendationItem` | Đề xuất / Chốt mua | `Supplier` | $N : 0..1$ (Có điều kiện)| Tham chiếu NCC gợi ý và NCC chốt (chỉ bắt buộc khi số lượng đặt > 0) |
+| `PurchaseOrder` | Xuất phát từ | `RecommendationSession` | $N : 1$ (Bắt buộc) | 100% PO đều bắt nguồn từ một phiên đề xuất DSS đã được duyệt |
 | `PurchaseOrder` | Sở hữu chi tiết | `POLineItem` | $1 : 1..*$ (Composition) | Một đơn mua hàng chứa 1 hoặc nhiều mặt hàng đặt mua |
 | `PurchaseOrder` | Đặt hàng tới | `Supplier` | $N : 1$ (Bắt buộc) | Mỗi PO chỉ gửi tới duy nhất 1 Nhà cung cấp |
 | `PurchaseOrder` | Đối chiếu nhận hàng | `GoodsReceipt` | $1 : 0..1$ (Đơn nhất) | Mỗi PO chỉ được nhận hàng 1 lần duy nhất trong toàn bộ vòng đời |
 | `POLineItem` | Đặt mua mặt hàng | `Product` | $N : 1$ (Bắt buộc) | Mỗi dòng đơn hàng tham chiếu tới đúng 1 sản phẩm |
+| `POLineItem` | Đối soát thực nhận | `ReceiptLineItem` | $1 : 0..1$ (Đơn nhất) | Mỗi dòng đơn PO được đối soát trực tiếp với dòng nhận hàng tương ứng |
 | `GoodsReceipt` | Sở hữu chi tiết | `ReceiptLineItem` | $1 : 1..*$ (Composition) | Phiếu nhận hàng chứa chi tiết thực nhận của từng mặt hàng |
 | `ReceiptLineItem` | Nhận hàng cho | `Product` | $N : 1$ (Bắt buộc) | Mỗi dòng nhận hàng tương ứng với đúng 1 SKU vào kho |
+| `ReceiptLineItem` | Đối soát từ dòng PO | `POLineItem` | $N : 1$ (Bắt buộc) | Mỗi dòng nhận hàng gắn chặt với dòng mặt hàng đã đặt trên PO |
 
 ---
 
 ## 5. Bảng Truy Vết Toàn Diện Bất Biến Nghiệp Vụ (Invariants Traceability Matrix)
 
-Hệ thống bao gồm **44 Bất biến nghiệp vụ chuẩn hóa** bảo đảm tính toàn vẹn tuyệt đối xuyên suốt chu trình DSS:
+Hệ thống bao gồm **47 Bất biến nghiệp vụ chuẩn hóa** bảo đảm tính toàn vẹn tuyệt đối xuyên suốt chu trình DSS:
 
 | Thực thể (Entity) | Mã Invariant | Nội dung quy tắc bảo vệ | Nguồn Rule | Trạng thái |
 | :--- | :--- | :--- | :---: | :---: |
@@ -495,7 +521,7 @@ Hệ thống bao gồm **44 Bất biến nghiệp vụ chuẩn hóa** bảo đ�
 | `Category` | `INV-CAT-02` | Chặn xóa ngành hàng nếu đang có SKU trực thuộc | `BR-20` | `Confirmed` |
 | `Product` | `INV-PROD-01` | Mã SKU duy nhất toàn cục và bất biến vĩnh viễn | `BR-17` | `Confirmed` |
 | `Product` | `INV-PROD-02` | Cấm Hard Delete (ngoại lệ khi bản ghi vừa tạo chưa có liên kết) | `BR-18` | `Confirmed` |
-| `Product` | `INV-PROD-03` | Cho phép Inactive khi còn On-order (chặn gợi ý mới, vẫn nhận nốt hàng) | `BR-18` | `Confirmed` |
+| `Product` | `INV-PROD-03` | Cho phép Inactive khi còn On-order (chặn gợi ý mới, vẫn nhận nốt hàng xả tồn) | `BR-18` | `Confirmed` |
 | `Product` | `INV-PROD-04` | Khởi tạo mặc định: Active, tồn kho = 0, on-order = 0 | `BR-19` | `Confirmed` |
 | `Product` | `INV-PROD-05` | Tồn kho $\ge 0$; bán hàng không trừ tồn; tồn kho chỉ đổi qua nhận hàng và kiểm kê | `BR-16`, `BR-19` | `Confirmed` |
 | `Supplier` | `INV-SUPP-01` | Mã NCC duy nhất toàn cục và bất biến vĩnh viễn | `BR-21` | `Confirmed` |
@@ -503,8 +529,9 @@ Hệ thống bao gồm **44 Bất biến nghiệp vụ chuẩn hóa** bảo đ�
 | `Supplier` | `INV-SUPP-03` | Chặn Inactive NCC nếu đang còn đơn PO Approved chờ giao (bắt buộc hủy PO trước) | `BR-24` | `Confirmed` |
 | `Supplier` | `INV-SUPP-04` | Cold Start: NCC mới (< 3 đơn) khởi tạo 80% điểm hiệu suất WSM | `BR-24` | `Confirmed` |
 | `Supplier` | `INV-SUPP-05` | Phong độ tính theo cửa sổ trượt 5 đơn hoàn tất gần nhất | `BR-24` | `Confirmed` |
+| `Supplier` | `INV-SUPP-06` | Thời gian giao cam kết `committedLeadTime >= 1` ngày, áp dụng chung cho mọi SKU | `BR-08`, `BR-22` | `Confirmed` |
 | `SupplyCondition` | `INV-COND-01` | Cặp (Product, Supplier) là duy nhất toàn cục | `BR-22` | `Confirmed` |
-| `SupplyCondition` | `INV-COND-02` | Đơn giá $> 0$, Lead Time $\ge 1$ ngày, MOQ $\ge 1$ | `BR-22` | `Confirmed` |
+| `SupplyCondition` | `INV-COND-02` | Đơn giá $> 0$, MOQ $\ge 1$ (Lead Time quản lý tập trung ở cấp Supplier) | `BR-22` | `Confirmed` |
 | `SupplyCondition` | `INV-COND-03` | Chặn chuyển Discontinued nếu đang có đơn PO Approved chứa SKU này | `BR-23` | `Confirmed` |
 | `SupplyCondition` | `INV-COND-04` | Chỉ lưu báo giá hiện hành; bảo lưu lịch sử qua POLineItem cũ | `BR-22` | `Confirmed` |
 | `SalesRecord` | `INV-SALE-01` | Cặp (salesDate, Product) là duy nhất toàn cục | `BR-15` | `Confirmed` |
@@ -526,14 +553,17 @@ Hệ thống bao gồm **44 Bất biến nghiệp vụ chuẩn hóa** bảo đ�
 | `RecommendationSession`| `INV-REC-01` | Vòng đời 1 chiều Draft $\rightarrow$ Approved/Discarded. Khóa bất biến khi Approved | `UC-01` | `Confirmed` |
 | `RecommendationSession`| `INV-REC-02` | Phê duyệt phiên tự động sinh các đơn PO Approved (Direct PO Creation) | `BR-04`, `BR-06` | `Confirmed` |
 | `RecommendationSession`| `INV-REC-03` | An toàn tạo phiên mới: Phiên nháp cũ chuyển Discarded, phiên Approved bảo lưu | `UC-01` | `Confirmed` |
-| `RecommendationItem` | `INV-REC-04` | Lưu vết song song Suggested vs Approved, tự động gắn cờ `isOverridden` | `UC-01` | `Confirmed` |
-| `RecommendationItem` | `INV-REC-05` | LLM Explanation là tùy chọn (Nullable); chỉ sinh On-demand khi click | `UC-01` | `Confirmed` |
+| `RecommendationSession`| `INV-REC-04` | Lọc theo ngành phân tích chính xác SKU ngành đó; All Categories quét toàn bộ Active | `UC-01` | `Confirmed` |
+| `RecommendationItem` | `INV-REC-05` | Lưu vết song song Suggested vs Approved; bắt buộc chỉ định NCC khi đặt mua > 0 | `UC-01` | `Confirmed` |
+| `RecommendationItem` | `INV-REC-06` | Snapshot tồn kho kệ và hàng đang về cố định lúc chạy, bảo đảm tái lập công thức SOQ | `BR-01` | `Confirmed` |
+| `RecommendationItem` | `INV-REC-07` | LLM Explanation là tùy chọn (Nullable); chỉ sinh On-demand khi click | `UC-01` | `Confirmed` |
 | `PurchaseOrder` | `INV-PO-01` | 100% PO sinh ra ở trạng thái Approved từ DSS; cấm tạo đơn thủ công ngoài hệ thống | `BR-04`, `BR-06` | `Confirmed` |
 | `PurchaseOrder` | `INV-PO-02` | PO cố định tuyệt đối; chỉ cho phép Hủy cả đơn (Cancel PO), cấm sửa lẻ dòng | `BR-06` | `Confirmed` |
 | `PurchaseOrder` | `INV-PO-03` | Vòng đời 1 chiều: Approved $\rightarrow$ Completed / Cancelled. Cấm mở lại | `BR-06` | `Confirmed` |
 | `PurchaseOrder` | `INV-PO-04` | Duyệt PO tăng On-order; Hủy PO hoàn trả On-order về 0 ngay lập tức | `BR-07` | `Confirmed` |
 | `PurchaseOrder` | `INV-PO-05` | Ngày giao dự kiến bất biến cố định, không bao giờ bị reset | `BR-08` | `Confirmed` |
 | `PurchaseOrder` | `INV-PO-06` | Hủy đơn bắt buộc phải chọn hoặc nhập lý do hủy (`cancellationReason`) | `BR-10` | `Confirmed` |
+| `PurchaseOrder` | `INV-PO-07` | Tổng tiền đơn hàng `totalAmount` bằng chính xác tổng thành tiền các dòng `POLineItem` | `BR-04` | `Confirmed` |
 | `POLineItem` | `INV-POLINE-01` | Snapshot đơn giá nhập tại thời điểm duyệt, bảo lưu vĩnh viễn | `BR-22` | `Confirmed` |
 | `POLineItem` | `INV-POLINE-02` | Số lượng đặt $> 0$, thành tiền $= \text{orderedQuantity} \times \text{unitPrice}$ | `BR-06` | `Confirmed` |
 | `GoodsReceipt` | `INV-GR-01` | Chỉ nhận PO Approved; nhận 1 lần duy nhất trong vòng đời ($1 : 1$, No Partial) | `BR-11` | `Confirmed` |
@@ -544,18 +574,86 @@ Hệ thống bao gồm **44 Bất biến nghiệp vụ chuẩn hóa** bảo đ�
 
 ---
 
-## 6. Ranh Giới Chuyển Tiếp Sang Thiết Kế Kỹ Thuật (Handoff to Data Model)
+## 6. Kiến Trúc Miền & Ranh Giới Ngữ Cảnh (Domain Architecture & Bounded Contexts)
+
+Theo chuẩn thiết kế hướng miền (**Domain-Driven Design - DDD**), hệ thống phân định rạch ròi giữa Trọng tâm nghiệp vụ mua hàng và các phân hệ hạ tầng hỗ trợ nhằm duy trì tính độc lập cao (High Cohesion) và liên kết lỏng lẻo (Loose Coupling).
+
+### 6.1. Sơ Đồ Ranh Giới Ngữ Cảnh (Bounded Context Map)
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       PURCHASING CORE BOUNDED CONTEXT                       │
+│                                                                             │
+│  [Master Data]              [Operational & Config]      [Decision Core]     │
+│   - Category                 - SalesRecord               - Recommendation-  │
+│   - Product                  - InventorySnapshot           Session & Item   │
+│   - Supplier                 - DSSConfiguration          - PurchaseOrder    │
+│   - SupplyCondition                                        & POLineItem     │
+│                                                          - GoodsReceipt     │
+│                                                            & ReceiptLineItem│
+└─────────────────────────────────────────────────────────────────────────────┘
+                               ▲                           ▲
+              Actor Identity   │ (Loose Coupling via       │ Audit Trail Events
+              Value Objects    │  username String Snapshot)│ (Append-Only Log)
+                               ▼                           ▼
+┌──────────────────────────────────────────────┐ ┌────────────────────────────┐
+│      IAM SUPPORTING SUBDOMAIN                │ │ SYSTEM AUDIT SUBDOMAIN     │
+│  - User Accounts (Store Manager / Staff)     │ │ - ActivityLog              │
+│  - Authentication & JWT Refresh Tokens       │ │ - Operation Auditing       │
+│  - RBAC Permission Enforcement               │ │ - Point-in-time Snapshots │
+└──────────────────────────────────────────────┘ └────────────────────────────┘
+```
+
+* **Nguyên tắc phân tách (Decoupling Principle):**
+  * Các thực thể thuộc **Purchasing Core Domain** (`RecommendationSession`, `GoodsReceipt`, `InventorySnapshot`, `DSSConfiguration`) chỉ lưu vết người thực hiện dưới dạng **Actor Identity Value Object** (chuỗi ký tự `username` trên các thuộc tính `createdBy`, `receivedBy`, `countedBy`, `updatedBy`).
+  * Tuyệt đối không tạo liên kết cứng (Foreign Key / Tight Coupling) từ các thực thể mua hàng sang bảng tài khoản người dùng, giúp bảo tồn tính bất biến của lịch sử nghiệp vụ ngay cả khi tài khoản nhân viên bị vô hiệu hóa hoặc xóa bỏ ngoài hệ thống.
+
+---
+
+### 6.2. Đặc Tả Cụm Tổng Hợp (Aggregate Roots & Transactional Boundaries)
+
+Để bảo đảm tính toàn vẹn dữ liệu trong các giao dịch nghiệp vụ và định hướng trực tiếp cho việc triển khai **Repository Pattern** và ranh giới giao dịch (`Transactional Boundaries`) ở tầng Kiến trúc & Mã nguồn, 13 thực thể miền được phân bổ thành **9 Aggregates**:
+
+#### 1. Aggregate: `RecommendationSession Aggregate`
+* **Aggregate Root:** `RecommendationSession`.
+* **Thực thể con nội bộ:** `RecommendationItem` ($1 : 1..*$).
+* **Ranh giới giao dịch:** Toàn bộ đợt phân tích và điều chỉnh kế hoạch mua hàng được xử lý như một khối giao dịch nguyên tử. Lập trình viên chỉ tạo `RecommendationSessionRepository`. Mọi hành vi sửa đổi dòng đề xuất, thay đổi số lượng, chọn lại nhà cung cấp, hoặc phê duyệt phiên đều phải được thực hiện thông qua các phương thức của Aggregate Root `RecommendationSession`. Tuyệt đối cấm can thiệp trực tiếp vào từng dòng `RecommendationItem` từ bên ngoài root.
+
+#### 2. Aggregate: `PurchaseOrder Aggregate`
+* **Aggregate Root:** `PurchaseOrder`.
+* **Thực thể con nội bộ:** `POLineItem` ($1 : 1..*$).
+* **Ranh giới giao dịch:** Đơn mua hàng sau khi phát hành là chứng từ thương mại cố định tuyệt đối. Chỉ cung cấp `PurchaseOrderRepository`. Cấm hoàn toàn việc cập nhật, thêm mới, hoặc xóa lẻ từng dòng `POLineItem` sau khi đơn đã duyệt (`INV-PO-02`). Mọi hành vi Hủy đơn (`Cancel PO`) hoặc Hoàn tất (`Completed`) được kiểm soát tại Aggregate Root `PurchaseOrder`.
+
+#### 3. Aggregate: `GoodsReceipt Aggregate`
+* **Aggregate Root:** `GoodsReceipt`.
+* **Thực thể con nội bộ:** `ReceiptLineItem` ($1 : 1..*$).
+* **Ranh giới giao dịch:** Ghi nhận sự kiện nhận hàng là một hành động nguyên tử. Aggregate Root `GoodsReceipt` kiểm soát tính hợp lệ của toàn bộ các dòng hàng thực nhận, sau đó phát sinh sự kiện miền (`Domain Event`) để cập nhật trạng thái của `PurchaseOrder` sang `Completed`, cộng dồn tồn kho kệ `Product.currentInventory`, tất toán `Product.onOrderQuantity`, và cập nhật điểm phong độ `Supplier.performanceScore`.
+
+#### 4. Các Aggregate Master Data & Operational Độc Lập
+* **`Product Aggregate` (Root: `Product`):** Kiểm soát tính bất biến của mã SKU, trạng thái kinh doanh `Active/Inactive`, và bảo đảm các biến tồn kho không âm ($I_{\text{on\_hand}} \ge 0, I_{\text{on\_order}} \ge 0$).
+* **`Supplier Aggregate` (Root: `Supplier`):** Kiểm soát tính duy nhất của mã NCC, thời gian giao hàng cam kết `committedLeadTime`, và cửa sổ trượt 5 đơn gần nhất.
+* **`Category Aggregate` (Root: `Category`):** Kiểm soát phân nhóm ngành hàng và chặn xóa ngành hàng đang chứa sản phẩm.
+* **`SupplyCondition Aggregate` (Root: `SupplyCondition`):** Kiểm soát tính duy nhất của cặp `(Product, Supplier)`, báo giá hiện hành và ràng buộc MOQ.
+* **`SalesRecord Aggregate` (Root: `SalesRecord`):** Kiểm soát tính duy nhất của cặp `(salesDate, Product)` và cơ chế ghi đè dữ liệu bán hàng.
+* **`InventorySnapshot Aggregate` (Root: `InventorySnapshot`):** Đóng gói bản ghi kiểm toán kiểm kê vật lý phục vụ đối soát.
+* **`DSSConfiguration Aggregate` (Root: `DSSConfiguration` - Singleton):** Đóng gói bộ tham số chiến lược mua hàng toàn cửa hàng, bảo đảm chuẩn hóa tổng trọng số $100\%$.
+
+---
+
+## 7. Ranh Giới Chuyển Tiếp Sang Thiết Kế Kỹ Thuật (Handoff to Data Model)
 
 Khi chuyển giao sang giai đoạn thiết kế cơ sở dữ liệu kỹ thuật (**Data Model / Schema Design**), các kỹ sư phần mềm cần chú ý hiện thực hóa các điểm then chốt sau:
 
 1. **Hiện thực hóa quan hệ nhiều - nhiều giữa `Product` và `Supplier`:**
-   * Không dùng bảng nối trung gian vô nghĩa, mà sử dụng thực thể nghiệp vụ **`SupplyCondition`** làm thực thể liên kết mang thuộc tính (Báo giá, Lead Time cam kết, MOQ, Trạng thái cung ứng).
-2. **Cơ chế Snapshot bảo vệ lịch sử giao dịch:**
-   * Bảng `POLineItem` bắt buộc phải lưu snapshot trường `unit_price` cố định tại thời điểm tạo đơn, tách biệt hoàn toàn với bảng báo giá hiện hành `SupplyCondition`.
-   * Bảng `PurchaseOrder` bắt buộc lưu trường `expected_delivery_date` cố định để phục vụ tính toán phạt trễ hạn `daysLate`.
+   * Không dùng bảng nối trung gian vô nghĩa, mà sử dụng thực thể nghiệp vụ **`SupplyCondition`** làm thực thể liên kết mang thuộc tính (Báo giá, MOQ, Trạng thái cung ứng). Thời gian giao cam kết được quản lý tập trung ở cấp `Supplier`.
+2. **Cơ chế Snapshot bảo vệ lịch sử giao dịch & Khả năng Tái hiện Thuật toán DSS:**
+   * Bảng `po_line_items` bắt buộc phải lưu snapshot trường `unit_price` cố định tại thời điểm tạo đơn, tách biệt hoàn toàn với bảng báo giá hiện hành `SupplyCondition`.
+   * Bảng `recommendation_items` bắt buộc lưu snapshot trường `snapshot_current_inventory` và `snapshot_on_order_quantity` tại thời điểm chạy để bảo đảm khả năng giải trình và tái hiện 100% công thức tính SOQ của DSS.
+   * Bảng `purchase_orders` bắt buộc lưu trường `expected_delivery_date` cố định để phục vụ tính toán phạt trễ hạn `daysLate`.
 3. **Phân định ranh giới giữa Trạng Thái Hiện Hành và Bằng Chứng Kiểm Toán:**
    * Bảng `Product` lưu trực tiếp 2 trường số lượng: `current_inventory` và `on_order_quantity` để phục vụ truy vấn DSS tức thì ($< 1$ giây).
    * Bảng `InventorySnapshot` đóng vai trò bản ghi sự kiện thời điểm (Point-in-Time Audit Log), phục vụ đối soát và báo cáo thất thoát.
 4. **Vòng đời 1 chiều và Ràng buộc toàn vẹn:**
    * Áp dụng Check Constraint hoặc State Machine để đảm bảo trạng thái của `PurchaseOrder` và `RecommendationSession` chỉ dịch chuyển 1 chiều.
    * Áp dụng ràng buộc `cancellation_reason NOT NULL` khi trạng thái PO là `Cancelled`.
+   * Áp dụng ràng buộc có điều kiện: `approved_supplier_id` chỉ bắt buộc khi `approved_quantity > 0`.
