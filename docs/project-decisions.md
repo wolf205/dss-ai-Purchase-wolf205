@@ -340,7 +340,7 @@ Decision:
    * SKU `Inactive` tự động bị **loại trừ 100%** khỏi bảng phân tích gợi ý mua hàng DSS tại `UC-01` (không bao giờ sinh đề xuất mua mới).
    * Tệp dữ liệu tại `UC-04` vẫn **tiếp nhận bình thường** các bản ghi bán hàng và kiểm kê của SKU `Inactive` để hỗ trợ xả nốt số tồn dư và theo dõi tồn kho thực tế cho đến khi về 0, không gây tắc nghẽn tệp nạp cuối ngày của cửa hàng.
    * Chỉ cho phép Hard Delete khi SKU vừa tạo mới và hoàn toàn chưa có liên kết dữ liệu nào.
-3. **Deactivation Guard (Chặn ngừng kinh doanh khi có On-order):** Chặn không cho chuyển SKU sang `Inactive` chừng nào SKU đó vẫn còn số lượng hàng đang chờ về (`On-order > 0`) trên các đơn mua hàng `Approved`.
+3. **Deactivation with Pending On-Order (Cho phép ngừng kinh doanh khi có On-order để xả tồn):** Cho phép chuyển trạng thái SKU sang `Inactive` khi đang có hàng đang chờ về (`On-order > 0`) kèm cảnh báo. SKU `Inactive` bị loại trừ 100% khỏi các đợt gợi ý mua mới tại `UC-01`, nhưng lượng hàng đang về vẫn được nhập kho bình thường tại `UC-03` để cửa hàng bán xả nốt số hàng tồn.
 4. **Initial Inventory Zeroing:** Khi tạo mới SKU, tồn kho ban đầu mặc định bằng 0 (`Current Inventory = 0`, `On-order = 0`). Tồn kho thực tế được cập nhật thông qua kiểm kê (`UC-04`) hoặc nhận hàng (`UC-03`).
 5. **Form-only Catalog Management:** Quản lý danh mục sản phẩm qua Form giao diện trực quan; tính năng nạp hàng loạt danh mục từ tệp được đưa ra ngoài phạm vi ban đầu.
 
@@ -550,6 +550,205 @@ Impact:
 
 - Xuất bản tài liệu kỹ thuật chính thức `docs/technical/data-model.md` kèm mã DDL SQL hoàn chỉnh cho PostgreSQL 16+.
 - Đóng vai trò là nguồn sự thật kỹ thuật (Technical Source of Truth) duy nhất cho việc thiết kế Schema Migrations, Data Access Layer (Repository / ORM Models), và API Data Contracts ở các bước tiếp theo.
+
+---
+
+### Identity, Access Management & System Audit Specification (users, refresh_tokens, activity_logs)
+
+Status: Confirmed
+
+Decision:
+
+Mở rộng mô hình dữ liệu quan hệ vật lý chính thức trên PostgreSQL 16+ từ 13 bảng lên **16 bảng**, bổ sung **Phân Vùng 4: Identity, Access Management & System Audit (IAM & Audit)** gồm 3 bảng hạ tầng:
+
+1. **Bảng `users` (Quản trị tài khoản & Phân quyền RBAC):**
+   * Quản lý tài khoản đăng nhập với khóa chính `id BIGINT GENERATED ALWAYS AS IDENTITY`, tên tài khoản `username VARCHAR(50) UNIQUE NOT NULL` (kèm Functional Index `UPPER(username)` chống trùng lặp hoa thường), mật khẩu băm an toàn `password_hash VARCHAR(255) NOT NULL` (Bcrypt/Argon2).
+   * Phân quyền cứng 2 vai trò nghiệp vụ chuẩn hóa: `'STORE_MANAGER'` (Quản lý cửa hàng kiêm System Admin) và `'PURCHASING_STAFF'` (Nhân viên mua hàng tác nghiệp).
+   * Trạng thái tài khoản: `'Active'` hoặc `'Inactive'`.
+
+2. **Bảng `refresh_tokens` (Bảo mật phiên làm việc & JWT Lifecycle):**
+   * Quản lý Refresh Token theo chuẩn OWASP: Lưu chuỗi băm SHA-256 `token_hash VARCHAR(255) UNIQUE NOT NULL` (không lưu raw token).
+   * Khóa ngoại `user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE`.
+   * Hỗ trợ cơ chế quay vòng token (Token Rotation) và thu hồi token lập tức (`revoked_at TIMESTAMPTZ`) khi người dùng Đăng xuất hoặc bị khóa tài khoản.
+
+3. **Bảng `activity_logs` (Nhật ký hoạt động & Lưu vết kiểm toán toàn diện - Audit Trail):**
+   * Thiết kế theo nguyên tắc `APPEND-ONLY` bảo tồn tính pháp lý và minh bạch: Không cho phép chỉnh sửa (`UPDATE`) hay xóa (`DELETE`) trong quy trình thông thường.
+   * Ghi nhận toàn bộ các hành vi trọng yếu: Xác thực (`AUTH_LOGIN`, `AUTH_LOGOUT`), Quản lý tài khoản (`USER_CREATE`, `USER_UPDATE`), Nhập liệu vận hành (`DATA_IMPORT_SALES`, `DATA_IMPORT_INVENTORY` tại UC-04), Phê duyệt mua hàng (`DSS_APPROVE_RECOMMENDATION` tại UC-01), Thao tác đơn PO (`PO_CANCEL`, `PO_EXPORT` tại UC-02), Nhận hàng kho (`RECEIPT_CONFIRM` tại UC-03), Cập nhật cấu hình DSS (`CONFIG_UPDATE_PARAMETERS` tại UC-07).
+   * Khóa ngoại `user_id BIGINT NULL REFERENCES users(id) ON DELETE SET NULL` kết hợp snapshot `username VARCHAR(50) NOT NULL` để bảo toàn 100% lịch sử kiểm toán ngay cả khi tài khoản nhân viên bị vô hiệu hóa hoặc xóa bỏ.
+   * Cột `metadata JSONB` lưu trữ động chi tiết payload (số dòng import, diff cấu hình cũ/mới, IP...).
+
+4. **Chính sách liên kết phân tách lỏng lẻo (Loose Coupling Architecture):**
+   * Toàn bộ các bảng thuộc Core Purchasing Domain (`recommendation_sessions.created_by`, `goods_receipts.received_by`, `inventory_snapshots.counted_by`, `dss_configurations.updated_by`) tiếp tục duy trì kiểu `VARCHAR(50)` lưu snapshot `username`.
+   * Quyết định này bảo vệ nguyên tắc **Bất biến lịch sử (Historical Immutability)** và **Decoupling** — tránh việc tạo khóa ngoại cứng liên tầng gây thắt nút cổ chai (tight coupling) giữa nghiệp vụ mua hàng và phân hệ định danh người dùng.
+
+Reason:
+
+1. **Hiện thực hóa quyền hạn thực tế của 2 Actor:** Phục vụ trực tiếp việc triển khai Middleware Auth & Guards trong ứng dụng backend, cho phép phân biệt quyền hạn Store Manager vs Purchasing Staff theo đúng tài liệu `scope.md` và các Use Cases.
+2. **Bảo mật chuẩn mực & Kiểm toán minh bạch:** Triệt tiêu hoàn toàn rủi ro hardcode tài khoản; hỗ trợ thu hồi token khi đăng xuất; cung cấp bảng nhật ký kiểm toán `activity_logs` giúp giải trình rõ ràng "Ai đã làm gì, vào thời điểm nào, với dữ liệu nào".
+3. **Phù hợp quy mô Single Store:** Giữ phân quyền tinh gọn ở 2 vai trò (Store Manager kiêm System Admin), không làm phình to độ phức tạp ngoài phạm vi (Scope Creep) nhưng vẫn đạt chuẩn cao về mặt kỹ thuật cho đồ án tốt nghiệp.
+
+Impact:
+
+- Cập nhật tài liệu kỹ thuật [docs/technical/data-model.md](file:///d:/projects/dss-ai-Purchase-wolf205/docs/technical/data-model.md) lên 16 bảng (bổ sung ERD, Data Dictionary, Indexing Strategy và mã DDL SQL hoàn chỉnh cho PostgreSQL 16+).
+- Cung cấp nền tảng CSDL hoàn chỉnh để thiết kế API Authentication (Login, Refresh, Logout), RBAC Guards và Audit Interceptor ở giai đoạn thiết kế kiến trúc (`docs/technical/architecture.md`).
+
+---
+
+### Technical Data Model Production Hardening & Bug Fixes
+
+Status: Confirmed
+
+Decision:
+
+Tiến hành rà soát chuyên sâu và thực hiện 7 tinh chỉnh kỹ thuật nhằm triệt tiêu hoàn toàn rủi ro văng lỗi CSDL trong môi trường thực tế (PostgreSQL 16+):
+
+1. **Khắc phục lỗi Non-immutable Function trong `CHECK` Constraint:**
+   * Loại bỏ các ràng buộc `CHECK (date <= CURRENT_DATE)` trên 3 bảng `sales_records`, `inventory_snapshots`, `goods_receipts` do PostgreSQL không cho phép hàm biến thiên (STABLE) trong DDL schema.
+   * Chuyển hóa toàn bộ việc kiểm tra ngày không vượt quá hiện tại lên **Tier 3 (Application Service Validation / DTOs)**.
+
+2. **Khắc phục lỗi khóa cứng `NOT NULL` trên Nhà cung cấp ở `recommendation_items`:**
+   * Chuyển `suggested_supplier_id` và `approved_supplier_id` sang kiểu `BIGINT NULL`.
+   * Bổ sung ràng buộc logic: `CHECK ((approved_quantity > 0 AND approved_supplier_id IS NOT NULL) OR (approved_quantity = 0))`.
+   * Đảm bảo thuật toán DSS Engine không bị crash khi chạy phân tích toàn cửa hàng cho những SKU chưa kịp gán NCC hoặc khi mặt hàng ở trạng thái an toàn không cần mua.
+
+3. **Khắc phục Trigger 5 chặn xuất/in lại đơn PO cũ (`trg_prevent_immutable_po_modification`):**
+   * Cho phép cập nhật cột `last_exported_at` trên đơn PO đã `Completed` hoặc `Cancelled` để phục vụ tác vụ in lại đơn hoặc xuất file PDF/Excel gửi đối tác và kế toán đối soát theo `UC-02`. Vẫn khóa cứng 100% các cột dữ liệu nghiệp vụ còn lại.
+
+4. **Khắc phục Trigger 1 ghi đè tồn kho khi nạp dữ liệu kiểm kê lịch sử (`trg_sync_inventory_on_snapshot`):**
+   * Bổ sung điều kiện `IF (NEW.snapshot_date >= CURRENT_DATE)` trước khi gán đè `products.current_inventory = NEW.counted_quantity`.
+   * Bảo vệ tồn kho thực tế trên kệ không bị ghi đè bởi các bản ghi kiểm kê cũ trong quá khứ khi thực hiện Import hàng loạt tại `UC-04`.
+
+5. **Hiện thực hóa Trigger bảo vệ dòng hàng đơn PO đã phát hành (`INV-34`):**
+   * Bổ sung Function & Trigger `trg_prevent_po_line_items_modification` chặn mọi thao tác `UPDATE` hoặc `DELETE` trên `po_line_items` khi đơn PO cha đã ở trạng thái `Approved`, `Completed`, hoặc `Cancelled`.
+
+6. **Bổ sung Trigger chặn nhận hàng cho đơn PO đã bị Hủy (`INV-38`):**
+   * Bổ sung Function & Trigger `trg_validate_po_status_before_receipt` trên `goods_receipts` (BEFORE INSERT): Yêu cầu đơn PO tương ứng bắt buộc phải đang ở trạng thái `Approved`.
+
+7. **Bổ sung Dữ liệu mồi chuẩn hóa (Seed Data Baseline):**
+   * Bổ sung script nạp bản ghi Singleton mặc định cho `dss_configurations (id = 1)` và tài khoản quản trị viên khởi tạo `users` (`username = 'admin'`, role `'STORE_MANAGER'`).
+
+Reason:
+
+Đảm bảo script DDL chạy thành công 100% trên PostgreSQL 16+ chuẩn, loại trừ triệt để các lỗi runtime tiềm ẩn, bảo toàn tính toàn vẹn nghiệp vụ và sẵn sàng triển khai mã nguồn Backend ở các giai đoạn tiếp theo.
+
+Impact:
+
+- Cập nhật đồng bộ các mục Data Dictionary, Bảng ma trận 44 Invariants (Tier 2 & 3), và toàn văn DDL SQL trong [docs/technical/data-model.md](file:///d:/projects/dss-ai-Purchase-wolf205/docs/technical/data-model.md).
+
+---
+
+### Polyglot Decoupled Architecture & Tech Stack Selection
+
+Status: Confirmed
+
+Decision:
+
+Xác lập mô hình kiến trúc kỹ thuật chính thức cho hệ thống là **Polyglot Decoupled Architecture** được đóng gói trọn gói qua Docker Compose gồm 4 containers độc lập:
+1. **Frontend Web App:** React 18+ + Vite + TailwindCSS + TanStack Query (Single Page Application, Port 80 / 5173).
+2. **Backend Web API:** NestJS (TypeScript) + Prisma ORM (Modular Monolith chuẩn Enterprise, Port 3000).
+3. **AI Forecasting Service:** Python 3.11+ + FastAPI + Statsforecast/LightGBM (Stateless Compute Service, Port 8000).
+4. **Database:** PostgreSQL 16+ (16 Tables, DDL Constraints, Triggers, Indexes, Port 5432).
+5. **External LLM:** Google Gemini 1.5 Flash API (qua SDK chính thức `@google/genai`).
+
+Reason:
+
+Tối ưu hóa thế mạnh của từng công nghệ: Python mạnh nhất về xử lý chuỗi thời gian AI/ML; NestJS cung cấp cấu trúc Clean Architecture, Guards, Interceptors và Swagger mạnh mẽ nhất cho backend doanh nghiệp; React+Vite đem lại trải nghiệm giao diện mượt mà và trực quan; Prisma ORM đảm bảo Type-safe tuyệt đối và kiểm soát transaction ACID chặt chẽ. Đóng gói Docker Compose giúp triển khai tinh gọn, loại bỏ over-engineering của Microservices/Kafka đối với quy mô một cửa hàng bán lẻ đơn lẻ.
+
+Impact:
+
+- Định hình toàn bộ cấu trúc dự án và môi trường phát triển mã nguồn ở giai đoạn Implementation tiếp theo.
+- Xuất bản tài liệu kiến trúc toàn cảnh [docs/technical/architecture.md](file:///d:/projects/dss-ai-Purchase-wolf205/docs/technical/architecture.md).
+
+---
+
+### Hub & Spoke Technical Documentation Architecture
+
+Status: Confirmed
+
+Decision:
+
+Phân tách tài liệu kỹ thuật kiến trúc thành 2 tài liệu tương hỗ theo mô hình **Hub & Spoke**:
+1. **Hub (Tài liệu Trung tâm):** [docs/technical/architecture.md](file:///d:/projects/dss-ai-Purchase-wolf205/docs/technical/architecture.md) — Bản thiết kế kiến trúc toàn cảnh (C4 Model, Tech Stack Rationale, Phân rã Component, Bảo mật, Quản lý giao dịch Tier 3, Docker Compose).
+2. **Spoke (Tài liệu Vệ tinh):** [docs/technical/api-specification.md](file:///d:/projects/dss-ai-Purchase-wolf205/docs/technical/api-specification.md) — Hợp đồng giao tiếp chi tiết (100% Endpoints, Request/Response DTOs, API Envelope, Error Taxonomy cho 7 Use Cases + Auth).
+
+Reason:
+
+Tối ưu hóa ngữ cảnh (Context Window) cho AI Agent và lập trình viên khi bước vào giai đoạn Implementation: Khi code Frontend/Backend, lập trình viên chỉ cần mở đúng hợp đồng API, không bị quá tải bởi các sơ đồ C4 hay Docker. Đồng thời, `architecture.md` giữ được sự mạch lạc, súc tích và đạt chuẩn cao phục vụ báo cáo và bảo vệ đồ án tốt nghiệp.
+
+Impact:
+
+Loại bỏ hiện tượng file kiến trúc phình to quá tải (> 2.000 dòng); thiết lập nguồn sự thật kỹ thuật chuẩn mực cho cả Frontend và Backend.
+
+---
+
+### Three-Engine DSS Isolation & Non-blocking On-Demand LLM
+
+Status: Confirmed
+
+Decision:
+
+Hệ thống phân lập rạch ròi 3 động cơ tính toán độc lập:
+1. **AI Demand Forecasting Engine (Python):** Nhận payload chuỗi thời gian, tự động bù trừ Zero-Demand, chạy AutoARIMA / Croston dự báo 14 ngày tới; hỗ trợ Graceful Fallback sang trung bình lịch sử khi mất kết nối mạng.
+2. **Deterministic Business Calculation Engine (NestJS):** Chạy 100% tất định trong bộ nhớ Backend (Ma trận ABC-XYZ theo ngưỡng cố định 80/15/5% và CV, tính SS, ROP, SOQ khớp MOQ, và chấm điểm WSM xếp hạng NCC).
+3. **On-Demand LLM Explainability Service (Google Gemini 1.5 Flash):** Chỉ kích hoạt khi người dùng bấm xem chi tiết giải thích cho một SKU cụ thể tại UC-01; tuyệt đối không nằm trên critical path khi phân tích bảng đề xuất ban đầu; kết quả được lưu cache vào `recommendation_items.llm_explanation` (0ms và 0 token cho các lần đọc sau); timeout 3.0 giây kèm fallback text tất định an toàn.
+
+Reason:
+
+Đảm bảo chu kỳ phân tích mua hàng ban đầu phản hồi tức thì (< 1 giây); bảo vệ hệ thống không bao giờ bị nghẽn quy trình phê duyệt do phụ thuộc vào mạng ngoài; tiết kiệm chi phí token và minh bạch hóa 100% cơ sở ra quyết định của DSS.
+
+Impact:
+
+UC-01 hoạt động siêu tốc, mượt mà và tin cậy tuyệt đối; giao diện người dùng hiển thị trực quan badge ABC-XYZ, biểu đồ chuỗi thời gian Recharts và tóm tắt diễn giải thông minh từ LLM.
+
+---
+
+### JWT Token Rotation, httpOnly Cookie & RBAC Security Model
+
+Status: Confirmed
+
+Decision:
+
+1. **Xác thực Stateless 2 Tầng:** Access Token (JWT 15 phút) mang claims `sub, username, role`; Refresh Token (7 ngày) dạng chuỗi ngẫu nhiên bảo mật cao được băm SHA-256 lưu trong bảng `refresh_tokens`.
+2. **Lưu trữ Client Miễn Nhiễm XSS:** Refresh Token được truyền và lưu trữ độc quyền qua Cookie `Set-Cookie: refreshToken=...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth`. JavaScript phía Client không thể truy cập, chống rò rỉ token tuyệt đối.
+3. **Cơ chế Token Rotation:** Mỗi khi gọi `/auth/refresh` thành công, hệ thống thu hồi Refresh Token cũ (`revoked_at = now()`) và phát hành cặp token mới. Thu hồi toàn bộ session nếu phát hiện token bị tái sử dụng (chống Replay Attack).
+4. **Phân Quyền Cứng RBAC:** Áp dụng `@UseGuards(JwtAuthGuard, RolesGuard)` trên các Controller NestJS:
+   * `STORE_MANAGER`: Toàn quyền trên toàn bộ hệ thống.
+   * `PURCHASING_STAFF`: Toàn quyền tác nghiệp (UC-01, UC-02, UC-03, UC-04); Chế độ Chỉ xem (Read-only) trên Danh mục SKU (UC-05), NCC (UC-06), Cấu hình DSS (UC-07); Chặn hoàn toàn truy cập Audit Logs.
+5. **Nhật Ký Kiểm Toán Append-Only:** `AuditLogInterceptor` tự động ghi nhận các hành vi thành công vào bảng `activity_logs` (User, Action, Entity, Metadata diff, IP) dưới dạng background promise không gây trễ response.
+
+Reason:
+
+Bảo mật chuẩn mực theo khuyến nghị OWASP; phân định đúng quyền hạn vận hành thực tế của cửa hàng; bảo toàn tính pháp lý và kiểm toán minh bạch của các giao dịch mua bán hàng hóa.
+
+Impact:
+
+Bảo vệ an toàn tuyệt đối cho hệ thống; cung cấp cơ sở dữ liệu kiểm toán đầy đủ cho Quản lý cửa hàng.
+
+---
+
+### Tier 3 Application Transaction Defense & Error Taxonomy
+
+Status: Confirmed
+
+Decision:
+
+1. **Ranh Giới Giao Dịch ACID (`prisma.$transaction`):** Bắt buộc bọc trong một transaction duy nhất đối với 3 nghiệp vụ phức hợp:
+   * *UC-01 Approve PO:* Cập nhật session Approved $\rightarrow$ Chốt items $\rightarrow$ Sinh đơn POs gom theo NCC $\rightarrow$ Trigger tự động tăng On-order.
+   * *UC-03 Goods Receipt:* Kiểm tra PO Approved $\rightarrow$ Tạo Receipt $\rightarrow$ Trigger tăng tồn kệ, trừ On-order, đóng đơn PO $\rightarrow$ Trigger tính OTIF linear penalty decay và cập nhật phong độ 5 đơn gần nhất của NCC.
+   * *UC-04 Data Import:* Thẩm định tệp 100%; nếu có trùng lặp ngày cũ thì xóa sạch dữ liệu cũ rồi mới chèn dữ liệu mới theo cơ chế All-or-Nothing.
+2. **Quét Lỗi Toàn Diện File Nạp:** Khi nạp file bán hàng/kiểm kê bị lỗi, hệ thống quét toàn bộ tệp và trả về danh sách chi tiết tất cả các dòng vi phạm (`row`, `field`, `issue`) trong phản hồi HTTP 400 `ALL_OR_NOTHING_IMPORT_FAILED` để người dùng sửa một lần.
+3. **Chuẩn Hóa API Envelope & Error Taxonomy:** Mọi phản hồi API đều đóng gói theo cấu trúc `{ success, data, meta }` hoặc `{ success, error: { code, message, details } }`.
+
+Reason:
+
+Bảo vệ triệt để tính toàn vẹn dữ liệu ở tầng ứng dụng cho các bất biến không thể khóa bằng DDL/Trigger; tối ưu hóa trải nghiệm người dùng khi nạp dữ liệu vận hành.
+
+Impact:
+
+Triệt tiêu hoàn toàn rủi ro sai lệch tồn kho, nhân đôi doanh số hoặc rác dữ liệu; chuẩn hóa hợp đồng giao tiếp cho Frontend React.
+
+
+
 
 
 
