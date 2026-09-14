@@ -514,4 +514,42 @@ Impact:
 - `business-rules.md`: Cập nhật BR-02 (lấy Lead Time từ Supplier), BR-08 (công thức ngày giao dự kiến), và BR-22 (phạm vi điều kiện báo giá).
 - `uc-06-manage-suppliers.md`: Thêm trường `committedLeadTime` vào thông tin hồ sơ Nhà cung cấp; bỏ trường này khỏi bảng gán SKU.
 
+---
+
+### Technical Data Model Specification (PostgreSQL 16+)
+
+Status: Confirmed
+
+Decision:
+
+Thiết lập mô hình dữ liệu quan hệ vật lý chính thức cho hệ thống trên nền tảng **PostgreSQL 16+**, bao gồm **13 Tables** được chia theo 3 Bounded Contexts, hiện thực hóa trực tiếp 13 Domain Entities và 44 Business Invariants:
+
+1. **Khóa & Toàn vẹn tham chiếu (Keys & Referential Integrity):**
+   * Sử dụng khóa chính kỹ thuật vô nghĩa `id BIGINT GENERATED ALWAYS AS IDENTITY` cho toàn bộ 13 bảng.
+   * Toàn bộ mã định danh tự nhiên (`sku_code`, `supplier_code`, `po_number`, `receipt_number`, `category_code`, `session_code`) được bảo vệ bằng `UNIQUE NOT NULL` và Functional Index `UPPER(...)` chống trùng lặp không phân biệt hoa/thường.
+   * Chính sách khóa ngoại: Mặc định áp dụng `ON DELETE RESTRICT` để bảo vệ nguyên tắc Zero-Link Hard Delete. Chỉ áp dụng `ON DELETE CASCADE` cho 3 bảng con phụ thuộc 100% vòng đời cha (`recommendation_items`, `po_line_items`, `receipt_line_items`).
+
+2. **Bảo tồn Bất biến Lịch sử & Khả năng Giải trình (Historical Immutability & Auditability):**
+   * Áp dụng lưu thừa có kiểm soát (`Controlled Denormalization`): Sao chép snapshot giá (`historical_unit_price`), MOQ (`historical_moq`) và thời gian giao cam kết (`historical_lead_time_days`) tại thời điểm duyệt đơn PO.
+   * Bảng `recommendation_items` lưu snapshot tồn kho kệ (`snapshot_current_inventory`) và hàng đang về (`snapshot_on_order_quantity`) tại thời điểm phân tích để bảo tồn 100% căn cứ tính toán nhu cầu của thuật toán DSS khi kiểm toán lại các phiên cũ.
+
+3. **Lưu trữ Bán cấu trúc JSONB Cho Trực quan hóa & LLM Explainability:**
+   * Bổ sung cột `daily_forecasts JSONB` vào `recommendation_items` lưu mảng điểm dự báo từng ngày tương lai kèm biên độ tin cậy để Frontend vẽ biểu đồ chuỗi thời gian biến động chi tiết.
+   * Bổ sung cột `supplier_rankings JSONB` vào `recommendation_items` lưu bảng điểm so sánh WSM của các NCC khả dụng tại thời điểm chạy để hiển thị modal so sánh và cung cấp ngữ cảnh cho LLM giải thích.
+
+4. **Chuyển hóa 44 Business Invariants sang Cơ chế 3 Tầng Kỹ thuật:**
+   * *Tier 1 (Database Constraints):* 33 Invariants được khóa cứng vật lý ngay tại schema (`NOT NULL`, `CHECK`, `UNIQUE`, Generated Stored Columns).
+   * *Tier 2 (Database Triggers):* 5 Triggers cốt lõi tự động đồng bộ tồn kho kệ từ kiểm kê, đồng bộ On-order khi PO duyệt/hủy, tất toán On-order và hoàn tất PO khi nhận hàng, cập nhật điểm phong độ OTIF trượt 5 đơn gần nhất của NCC, và chặn sửa đổi PO đã đóng.
+   * *Tier 3 (Application Transaction Layer):* 6 Invariants phức hợp (All-or-Nothing khi Import lô file, đối chiếu tập SKU nhận hàng với đơn PO gốc, và cảnh báo Inactive SKU).
+
+Reason:
+
+Đảm bảo tính toàn vẹn vật lý tuyệt đối cho dữ liệu giao dịch bán lẻ; triệt tiêu hoàn toàn lỗi làm tròn số thực bằng `NUMERIC(15, 2)` và `NUMERIC(5, 4)`; tối ưu hóa hiệu năng truy vấn cho AI Forecasting và DSS Engine thông qua B-Tree, Composite Time-series và Partial Indexes; đồng thời phục vụ trọn vẹn trải nghiệm người dùng trực quan trên giao diện mà không làm phình to số lượng bảng quan hệ không cần thiết.
+
+Impact:
+
+- Xuất bản tài liệu kỹ thuật chính thức `docs/technical/data-model.md` kèm mã DDL SQL hoàn chỉnh cho PostgreSQL 16+.
+- Đóng vai trò là nguồn sự thật kỹ thuật (Technical Source of Truth) duy nhất cho việc thiết kế Schema Migrations, Data Access Layer (Repository / ORM Models), và API Data Contracts ở các bước tiếp theo.
+
+
 
