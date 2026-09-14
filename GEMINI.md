@@ -46,7 +46,7 @@ Tạo / Cập nhật tài liệu chính thức
 
 * Không coi câu trả lời ban đầu là requirement cuối cùng.
 * Luôn xác lập **Confirmation Gate** (tóm tắt Proposed Final Understanding và Remaining Uncertainty = None) trước khi ghi nhận chính thức.
-* Chi tiết quy trình trao đổi và phản biện tuân thủ [.agents/rules/analysis-conversation.md](file:///c:/my_project/DATN/dss-ai-purchase/.agents/rules/analysis-conversation.md).
+* Chi tiết quy trình trao đổi và phản biện tuân thủ [.agents/rules/analysis-conversation.md](.agents/rules/analysis-conversation.md).
 
 ---
 
@@ -55,7 +55,7 @@ Tạo / Cập nhật tài liệu chính thức
 Thứ tự ưu tiên khi có xung đột thông tin:
 1. **Quyết định rõ ràng của người dùng** qua hội thoại gần nhất.
 2. **Tài liệu project đã được xác nhận** (`Status: Confirmed`).
-3. **Quyết định đã chốt** trong [docs/project-decisions.md](file:///c:/my_project/DATN/dss-ai-purchase/docs/project-decisions.md).
+3. **Quyết định đã chốt** trong [docs/project-decisions.md](docs/project-decisions.md).
 4. **Đề xuất của Agent** (`Status: Proposed`). Đề xuất không tự động trở thành quyết định chính thức.
 
 Tuyệt đối không tự ý thay đổi quyết định mà người dùng đã chốt.
@@ -81,13 +81,14 @@ Business Problem → Scope → Use Cases → Business Rules → Domain Model →
 * **Không dùng quyết định ở tầng thấp hơn** để áp đặt cho tầng cao hơn nếu chưa có căn cứ nghiệp vụ rõ ràng.
 * **Cơ chế Feedback Loop:** Khi phân tích ở tầng dưới mà phát hiện mâu thuẫn với tầng trên, Agent phải nêu rõ mâu thuẫn, phạm vi ảnh hưởng, đề xuất phương án và chờ người dùng phê duyệt trước khi cập nhật tầng trên.
 * **Ranh giới Domain vs Technical:**
-  * Tầng nghiệp vụ (`docs/business/*`) thuần túy mô tả quy trình, chính sách toán học và thực thể khái niệm; tuyệt đối không chứa chi tiết kỹ thuật CSDL/API (xem [.agents/rules/domain-modeling-rules.md](file:///c:/my_project/DATN/dss-ai-purchase/.agents/rules/domain-modeling-rules.md)).
-  * Tầng kỹ thuật (`docs/technical/*` hoặc mã nguồn) tập trung vào Schema, API contracts, thuật toán ML, code structure và deployment.
+  * Tầng nghiệp vụ (`docs/business/*`) thuần túy mô tả quy trình, chính sách toán học và thực thể khái niệm; tuyệt đối không chứa chi tiết kỹ thuật CSDL/API (xem [.agents/rules/domain-modeling-rules.md](.agents/rules/domain-modeling-rules.md)).
+  * Tầng kỹ thuật (`docs/technical/*` hoặc mã nguồn) tập trung vào Schema, API contracts, thuật toán ML, code structure và deployment (xem [.agents/rules/data-modeling-rules.md](.agents/rules/data-modeling-rules.md) và [.agents/rules/architecture-rules.md](.agents/rules/architecture-rules.md)).
 
 ---
 
 ## 7. Tiêu Chuẩn Tài Liệu & Giao Tiếp
 
-* **Định dạng & Thuật ngữ:** Tuân thủ chặt chẽ [.agents/rules/documentation-rules.md](file:///c:/my_project/DATN/dss-ai-purchase/.agents/rules/documentation-rules.md).
+* **Định dạng & Thuật ngữ:** Tuân thủ chặt chẽ [.agents/rules/documentation-rules.md](.agents/rules/documentation-rules.md).
 * **Ngôn ngữ khách quan:** Không dùng cam kết marketing (như "đảm bảo chính xác", "tối ưu nhất", "loại bỏ hoàn toàn stockout"). Luôn dùng từ ngữ kỹ thuật trung lập ("hỗ trợ", "giảm rủi ro", "phát hiện sớm", "cải thiện").
 * **Trạng thái minh bạch:** Mọi đề xuất chưa được người dùng duyệt phải đánh dấu rõ `Status: Proposed`. Chỉ chuyển sang `Status: Confirmed` khi người dùng đã chốt.
+
