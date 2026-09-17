@@ -32,11 +32,12 @@ Toàn bộ tài liệu phân tích nghiệp vụ và thiết kế kỹ thuật �
 Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần tự. Mỗi giai đoạn chỉ được đánh dấu hoàn thành khi đã qua kiểm thử xác minh (Verification).
 
 - [ ] **Giai đoạn 1: Nền tảng Khởi tạo (Scaffolding, Docker & Database Setup)**
-  - [ ] Khởi tạo 3 thư mục Monorepo (`backend/`, `ai-service/`, `frontend/`).
-  - [ ] Cấu hình `docker-compose.yml` (PostgreSQL 16+ container, volume, healthcheck).
-  - [ ] Thiết lập Prisma ORM trong `backend/`: Đồng bộ 16 bảng chuẩn khớp `data-model.md` (chốt tên cột `why_buy_explanation` cho bảng `recommendation_items`).
-  - [ ] Tích hợp đầy đủ 8 Trigger Functions + 8 CREATE TRIGGER qua Prisma Custom SQL Migration theo đúng DDL Section `PHÂN VÙNG TRIGGERS` trong `data-model.md` (đồng bộ `current_inventory`, `on_order_quantity`, tính OTIF, chặn sửa PO/Line bất biến).
-  - [ ] Viết script `seed.ts`: Cấu hình DSS Configuration singleton (`id = 1`), Danh mục ngành hàng mẫu, và 2 tài khoản kiểm thử RBAC (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF).
+  - [ ] **Task 1.1: Hạ tầng CSDL Docker** — Cấu hình `docker-compose.yml` (PostgreSQL 16+ Alpine, healthcheck, volume `pgdata`, port 5432, network `dss_network`), cập nhật `.gitignore` và `.env.example`.
+  - [ ] **Task 1.2: Scaffolding Backend Core (NestJS)** — Khởi tạo `backend/` với NestJS 10, TypeScript Strict Mode, Global Prefix `/api/v1`, CORS, Cookie-parser, Swagger setup và Health check endpoint `GET /api/v1/health`.
+  - [ ] **Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL** — Viết `backend/prisma/schema.prisma` khớp 100% `data-model.md` (chốt tên cột `why_buy_explanation` trên `recommendation_items`), chạy initial migration tạo 16 bảng vật lý trong PostgreSQL.
+  - [ ] **Task 1.4: Tích hợp 8 Triggers CSDL Phòng Thủ** — Viết Prisma Custom SQL Migration triển khai đầy đủ 8 Trigger Functions + 8 CREATE TRIGGER từ Section DDL `PHÂN VÙNG TRIGGERS` trong `data-model.md` (đồng bộ tồn kho kệ, hàng đang về, tính OTIF, chặn sửa PO/Line bất biến).
+  - [ ] **Task 1.5: Script Seed Data Ban Đầu** — Viết `backend/prisma/seed.ts` nạp 2 tài khoản test (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF đã hash bcrypt), bản ghi singleton `DSSConfiguration` (`id = 1`), và danh mục ngành hàng mẫu.
+  - [ ] **Task 1.6: Scaffolding AI Service & Frontend** — Khởi tạo `ai-service/` (Python 3.12 FastAPI, requirements.txt, Pydantic config, `GET /health`) và `frontend/` (React 18+ Vite, TypeScript Strict, cấu hình TailwindCSS, proxy `/api`, layout shell).
 
 - [ ] **Giai đoạn 2: Hạ tầng Backend Core, Bảo mật IAM / RBAC & Swagger API Docs**
   - [ ] Cấu hình Swagger UI (`@nestjs/swagger`) tại `/api/docs` phục vụ nghiệm thu sớm từng endpoint.
@@ -93,3 +94,4 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 | :--- | :--- | :--- | :---: |
 | 17/09/2026 | Chốt Tài Liệu & Chuyển Phase | Hoàn tất 100% Phase Phân tích & Thiết kế; chuyển vai trò sang Implementation; cấu hình quy trình `implement-task` 5 bước. | `077aa59` |
 | 17/09/2026 | Khởi Tạo & Chuẩn Hóa Project Index | Hoàn thiện Master Implementation Tracker 8 giai đoạn sau khi đối chiếu chuyên sâu 6 Technical Contracts. | `1d44232` |
+| 17/09/2026 | Phân Rã Giai Đoạn 1 | Phân rã Giai đoạn 1 thành 6 task nguyên tử (Task 1.1 $\to$ 1.6) độc lập, kiểm chứng được từng bước. | *Current* |
