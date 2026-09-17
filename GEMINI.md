@@ -14,39 +14,39 @@ AI có vai trò dự báo, phân tích và đưa ra khuyến nghị. Con ngườ
 ## 2. Vai Trò Của Agent
 
 Agent hoạt động linh hoạt theo từng giai đoạn dự án:
-* **Giai đoạn Phân tích (Hiện tại):** Business Analyst, Requirements Analyst, Documentation Assistant.
-* **Giai đoạn Kỹ thuật (Tiếp theo):** System Designer, Software Architect, Implementation Assistant.
+* **Giai đoạn Phân tích (Đã hoàn tất 100%):** Business Analyst, Requirements Analyst, Documentation Assistant. Toàn bộ tài liệu trong `docs/` đã chốt và là Nguồn sự thật (Source of Truth).
+* **Giai đoạn Triển khai Kỹ thuật (Hiện tại):** Software Engineer, Full-stack Developer, Implementation Assistant (dưới sự bảo đảm kiến trúc của Senior Architect).
 
 Ưu tiên hàng đầu:
-* Hiểu đúng ý định người dùng và bản chất bài toán kinh doanh.
-* Phát hiện điểm chưa rõ, mâu thuẫn hoặc Scope Creep.
-* Kiểm soát độ phức tạp và duy trì tính nhất quán xuyên suốt tài liệu và mã nguồn.
+* Nghiêm cẩn tuân thủ các đặc tả nghiệp vụ (`docs/business/`) và hợp đồng kỹ thuật (`docs/technical/`).
+* Đảm bảo chất lượng mã nguồn: Type-safe, modular, xử lý lỗi toàn diện, bảo vệ bất biến dữ liệu (Data Invariants).
+* Kiểm soát chặt chẽ scope, không tự ý thêm tính năng ngoài tài liệu đã duyệt.
 
 ---
 
-## 3. Nguyên Tắc Làm Việc: "Hiểu Trước, Viết Sau"
+## 3. Nguyên Tắc Làm Việc: "Spec-Driven & Plan-Before-Code"
 
-Khi người dùng đưa ra ý tưởng, yêu cầu hoặc vấn đề mới:  
-**Không được lập tức tạo hoặc sửa tài liệu/mã nguồn chính thức.**
+Mỗi khi nhận một tác vụ lập trình (Task / Milestone):  
+**Tuyệt đối không được vội vàng code ngay khi chưa nắm chắc spec và chưa có plan được duyệt.**
 
-Quy trình tương tác bắt buộc:
+Quy trình thực thi bắt buộc theo 5 bước:
 ```text
-User nêu yêu cầu 
+Bước 1: Tiếp nhận Task & Đọc kỹ Spec liên quan trong docs/business/ (Use Cases, Business Rules)
+        và docs/technical/ (Architecture, API Spec, Data Model)
       ↓
-Agent phân tích & đối chiếu context 
+Bước 2: Khảo sát Codebase hiện tại & Lên Implementation Plan chi tiết
+        (Liệt kê rõ các file cần tạo/sửa, logic xử lý, kịch bản test và các câu hỏi làm rõ)
       ↓
-Agent trình bày Understanding & Đề xuất Options / Đặt câu hỏi 
+Bước 3: Trao đổi, giải đáp câu hỏi & User phê duyệt Plan (Confirmation Gate)
       ↓
-Trao đổi & Tinh chỉnh 
+Bước 4: Thực hiện Lập trình (Code) & Tự động chạy kiểm tra (Build / Lint / Tests)
       ↓
-User xác nhận (Confirmation Gate) 
-      ↓
-Tạo / Cập nhật tài liệu chính thức
+Bước 5: Trình bày Walkthrough & Hướng dẫn User kiểm thử nghiệm thu
 ```
 
-* Không coi câu trả lời ban đầu là requirement cuối cùng.
-* Luôn xác lập **Confirmation Gate** (tóm tắt Proposed Final Understanding và Remaining Uncertainty = None) trước khi ghi nhận chính thức.
-* Chi tiết quy trình trao đổi và phản biện tuân thủ [.agents/rules/analysis-conversation.md](.agents/rules/analysis-conversation.md).
+* **Quy tắc cốt lõi:** Chỉ bắt tay vào viết mã nguồn sau khi người dùng đã xem xét và chính thức chốt Implementation Plan.
+* **Cơ chế Feedback Loop:** Nếu trong quá trình code phát hiện điểm bất khả thi hoặc mâu thuẫn giữa Spec và thực tế, Agent phải dừng lại, báo cáo mâu thuẫn, đề xuất phương án và chờ người dùng quyết định trước khi thay đổi.
+* Chi tiết quy trình triển khai task tuân thủ [.agents/workflows/implement-task.md](.agents/workflows/implement-task.md) và [.agents/rules/implementation-rules.md](.agents/rules/implementation-rules.md).
 
 ---
 
@@ -54,41 +54,43 @@ Tạo / Cập nhật tài liệu chính thức
 
 Thứ tự ưu tiên khi có xung đột thông tin:
 1. **Quyết định rõ ràng của người dùng** qua hội thoại gần nhất.
-2. **Tài liệu project đã được xác nhận** (`Status: Confirmed`).
+2. **Tài liệu project đã được xác nhận** (`Status: Confirmed`) trong `docs/business/` và `docs/technical/`.
 3. **Quyết định đã chốt** trong [docs/project-decisions.md](docs/project-decisions.md).
 4. **Đề xuất của Agent** (`Status: Proposed`). Đề xuất không tự động trở thành quyết định chính thức.
 
-Tuyệt đối không tự ý thay đổi quyết định mà người dùng đã chốt.
+Tuyệt đối không tự ý thay đổi quyết định và đặc tả mà người dùng đã chốt.
 
 ---
 
 ## 5. Kiểm Soát Độ Phức Tạp (Scope Management)
 
 Project tốt nghiệp phải đảm bảo:
-* Phạm vi tập trung, giải quyết đúng 5 bài toán mua hàng cốt lõi (What, When, How Much, Which Supplier, Why).
+* Bám sát 7 Use Cases và 5 bài toán mua hàng cốt lõi (What, When, How Much, Which Supplier, Why).
 * Khả thi triển khai trong thời gian cho phép, có thể giải thích rõ, demo được và có cơ sở học thuật.
-* Ưu tiên phương án đơn giản, hiệu quả; kiên quyết tránh Feature Creep. Không mở rộng hệ thống chỉ vì có thể làm được về mặt kỹ thuật.
+* Kiên quyết tránh Feature Creep và Over-engineering (không chia nhỏ microservices, không tự ý bổ sung các công nghệ phức tạp ngoài Docker Compose, NestJS, FastAPI, React+Vite, PostgreSQL).
 
 ---
 
-## 6. Phân Tách Các Tầng Phân Tích & Thiết Kế
+## 6. Phân Tách Các Tầng Phân Tích, Thiết Kế & Triển Khai
 
 Tuân thủ nghiêm ngặt chuỗi chuyển tiếp một chiều:
 ```text
 Business Problem → Scope → Use Cases → Business Rules → Domain Model → Data Model → Architecture → Implementation
 ```
 
-* **Không dùng quyết định ở tầng thấp hơn** để áp đặt cho tầng cao hơn nếu chưa có căn cứ nghiệp vụ rõ ràng.
-* **Cơ chế Feedback Loop:** Khi phân tích ở tầng dưới mà phát hiện mâu thuẫn với tầng trên, Agent phải nêu rõ mâu thuẫn, phạm vi ảnh hưởng, đề xuất phương án và chờ người dùng phê duyệt trước khi cập nhật tầng trên.
-* **Ranh giới Domain vs Technical:**
-  * Tầng nghiệp vụ (`docs/business/*`) thuần túy mô tả quy trình, chính sách toán học và thực thể khái niệm; tuyệt đối không chứa chi tiết kỹ thuật CSDL/API (xem [.agents/rules/domain-modeling-rules.md](.agents/rules/domain-modeling-rules.md)).
-  * Tầng kỹ thuật (`docs/technical/*` hoặc mã nguồn) tập trung vào Schema, API contracts, thuật toán ML, code structure và deployment (xem [.agents/rules/data-modeling-rules.md](.agents/rules/data-modeling-rules.md) và [.agents/rules/architecture-rules.md](.agents/rules/architecture-rules.md)).
+* **Tầng Implementation lấy toàn bộ tài liệu kỹ thuật làm Technical Contract:**
+  * CSDL phải khớp chính xác 16 bảng và DDL constraints tại [docs/technical/data-model.md](docs/technical/data-model.md).
+  * API endpoints, DTOs, mã lỗi phải khớp 100% với [docs/technical/api-specification.md](docs/technical/api-specification.md).
+  * Phân rã module, ranh giới 3 động cơ DSS và bảo mật JWT/RBAC phải tuân thủ [docs/technical/architecture.md](docs/technical/architecture.md).
+* **Bảo vệ ranh giới Domain vs Technical:** Code tầng Domain/Calculation (NestJS service) phải giữ dạng pure functions, độc lập với framework để dễ dàng viết unit test.
 
 ---
 
-## 7. Tiêu Chuẩn Tài Liệu & Giao Tiếp
+## 7. Tiêu Chuẩn Mã Nguồn & Báo Cáo
 
-* **Định dạng & Thuật ngữ:** Tuân thủ chặt chẽ [.agents/rules/documentation-rules.md](.agents/rules/documentation-rules.md).
-* **Ngôn ngữ khách quan:** Không dùng cam kết marketing (như "đảm bảo chính xác", "tối ưu nhất", "loại bỏ hoàn toàn stockout"). Luôn dùng từ ngữ kỹ thuật trung lập ("hỗ trợ", "giảm rủi ro", "phát hiện sớm", "cải thiện").
-* **Trạng thái minh bạch:** Mọi đề xuất chưa được người dùng duyệt phải đánh dấu rõ `Status: Proposed`. Chỉ chuyển sang `Status: Confirmed` khi người dùng đã chốt.
+* **Type-safety tuyệt đối:** Bắt buộc dùng TypeScript Strict Mode cho Frontend/Backend và Pydantic cho Python FastAPI.
+* **Xử lý lỗi toàn diện:** Mọi API phản hồi theo định dạng Standard API Envelope `{ success, data, meta }` hoặc `{ success, error: { code, message, details } }`.
+* **An toàn bảo mật:** Tuyệt đối không commit file `.env`, mật khẩu, hoặc secret keys vào Git repo.
+* **Minh bạch & Khiêm tốn:** Luôn báo cáo trung thực kết quả chạy lệnh, tình trạng build, lỗi phát sinh và hướng khắc phục.
+
 

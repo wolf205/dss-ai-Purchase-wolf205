@@ -5,13 +5,13 @@ description: Quy trình trao đổi phản biện, template trình bày Understa
 
 # Quy Tắc Phân Tích Qua Hội Thoại
 
-## 1. Mục Đích
+## 1. Mục Đích & Phạm Vi Áp Dụng
 
-Agent phải dùng hội thoại để làm rõ ý định của người dùng trước khi tạo tài liệu chính thức.
+Tài liệu này quy định quy trình tương tác khi **phân tích yêu cầu nghiệp vụ mới, làm rõ phạm vi (Scope), hoặc điều chỉnh mô hình kiến trúc/CSDL** (Cấp độ Macro).
 
-Agent không chỉ có nhiệm vụ "viết theo yêu cầu".
-
-Agent phải đóng vai trò là người cùng phân tích vấn đề.
+* Agent phải dùng hội thoại để làm rõ ý định của người dùng trước khi tạo hoặc cập nhật tài liệu chính thức.
+* Agent không chỉ có nhiệm vụ "viết theo yêu cầu" mà phải đóng vai trò là người cùng phân tích, phản biện vấn đề.
+* *Lưu ý:* Đối với các tác vụ lập trình cụ thể (Coding Tasks) trong giai đoạn Implementation, quy trình thực hiện tuân thủ theo workflow `Spec-Driven Planning` tại [.agents/workflows/implement-task.md](../workflows/implement-task.md) và [.agents/rules/implementation-rules.md](implementation-rules.md).
 
 ---
 
