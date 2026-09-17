@@ -209,7 +209,7 @@ Toàn bộ logic tính toán được thực thi 100% tất định trong bộ n
 * **SDK:** `@google/genai` với model `gemini-1.5-flash`.
 * **Cơ chế kích hoạt:** Chỉ chạy khi người dùng bấm xem chi tiết giải thích cho một SKU cụ thể tại UC-01 (`POST /api/v1/dss/items/{id}/explain`). Hoàn toàn không nằm trên blocking critical path khi tải bảng đề xuất ban đầu.
 * **Ngữ cảnh Prompt:** Ghép nối số liệu định lượng (Tên SKU, Nhóm ABC-XYZ, Tồn kệ, Hàng đang về, ROP, SS, SOQ, Tên NCC được chọn, Điểm WSM).
-* **Bộ nhớ đệm (Caching):** Kết quả phản hồi được lưu trực tiếp vào cột `recommendation_items.llm_explanation`. Các lần mở sau đọc trực tiếp từ CSDL (0ms độ trễ, 0 token phát sinh).
+* **Bộ nhớ đệm (Caching):** Kết quả phản hồi được lưu trực tiếp vào cột CSDL `recommendation_items.why_buy_explanation` (tương ứng trường DTO `llmExplanation`). Các lần mở sau đọc trực tiếp từ CSDL (0ms độ trễ, 0 token phát sinh).
 * **Cơ chế Timeout:** Timeout 3.0 giây; nếu lỗi mạng trả về đoạn văn mẫu tất định an toàn.
 
 ---

@@ -136,7 +136,14 @@ Mọi phản hồi từ Backend NestJS về Client React đều tuân thủ cấ
 ### 3.1. Khởi Tạo Phiên Phân Tích Mua Hàng
 * **Endpoint:** `POST /api/v1/dss/sessions/analyze`
 * **Quyền hạn:** `STORE_MANAGER`, `PURCHASING_STAFF`
-* **Mô tả:** Kích hoạt chuỗi phân tích DSS: Gọi Python AI Service dự báo 14 ngày tới $\rightarrow$ Chạy thuật toán tất định (ABC-XYZ, SS, ROP, SOQ, WSM) $\rightarrow$ Lưu bản ghi `recommendation_sessions` ở trạng thái `Pending`.
+* **Request DTO (`AnalyzeSessionRequestDto`):**
+```json
+{
+  "categoryId": 1
+}
+```
+*(Ghi chú: `categoryId` là tùy chọn; nếu `null` hoặc không truyền, hệ thống quét toàn bộ danh mục SKU Active).*
+* **Mô tả:** Kích hoạt chuỗi phân tích DSS: Lọc danh mục SKU theo phạm vi $\rightarrow$ Gọi Python AI Service dự báo 14 ngày tới $\rightarrow$ Chạy thuật toán tất định (ABC-XYZ, SS, ROP, SOQ, WSM) $\rightarrow$ Tự động chuyển phiên nháp cũ sang `Discarded` (INV-REC-03) $\rightarrow$ Lưu bản ghi `recommendation_sessions` ở trạng thái `Draft`.
 * **Response DTO (HTTP 201):**
 ```json
 {
@@ -161,7 +168,7 @@ Mọi phản hồi từ Backend NestJS về Client React đều tuân thủ cấ
   "data": {
     "sessionId": 105,
     "sessionCode": "REC-20260915-001",
-    "status": "Pending",
+    "status": "Draft",
     "items": [
       {
         "itemId": 1001,
@@ -201,6 +208,7 @@ Mọi phản hồi từ Backend NestJS về Client React đều tuân thủ cấ
   }
 }
 ```
+*(Ghi chú: Trường DTO `llmExplanation` được ánh xạ trực tiếp từ cột CSDL `recommendation_items.why_buy_explanation` - mặc định `null`, chỉ sinh khi gọi endpoint explain).*
 
 ### 3.3. Điều Chỉnh Số Lượng / NCC Được Chọn (Human Adjustment)
 * **Endpoint:** `PATCH /api/v1/dss/items/{itemId}`

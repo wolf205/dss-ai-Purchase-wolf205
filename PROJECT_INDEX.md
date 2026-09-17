@@ -34,14 +34,15 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 - [ ] **Giai đoạn 1: Nền tảng Khởi tạo (Scaffolding, Docker & Database Setup)**
   - [ ] Khởi tạo 3 thư mục Monorepo (`backend/`, `ai-service/`, `frontend/`).
   - [ ] Cấu hình `docker-compose.yml` (PostgreSQL 16+ container, volume, healthcheck).
-  - [ ] Thiết lập Prisma ORM trong `backend/`: Đồng bộ 16 bảng chuẩn khớp `data-model.md`.
-  - [ ] Tích hợp Triggers CSDL (tự động cập nhật `current_inventory`, `on_order_quantity`, tính OTIF).
-  - [ ] Viết script `seed.ts` (2 tài khoản test, Danh mục ngành hàng mẫu, DSS Configuration singleton).
+  - [ ] Thiết lập Prisma ORM trong `backend/`: Đồng bộ 16 bảng chuẩn khớp `data-model.md` (chốt tên cột `why_buy_explanation` cho bảng `recommendation_items`).
+  - [ ] Tích hợp đầy đủ 8 Trigger Functions + 8 CREATE TRIGGER qua Prisma Custom SQL Migration theo đúng DDL Section `PHÂN VÙNG TRIGGERS` trong `data-model.md` (đồng bộ `current_inventory`, `on_order_quantity`, tính OTIF, chặn sửa PO/Line bất biến).
+  - [ ] Viết script `seed.ts`: Cấu hình DSS Configuration singleton (`id = 1`), Danh mục ngành hàng mẫu, và 2 tài khoản kiểm thử RBAC (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF).
 
-- [ ] **Giai đoạn 2: Hạ tầng Backend Core & Bảo mật IAM / RBAC**
-  - [ ] Thiết lập Global `ValidationPipe` và Global `AllExceptionsFilter` (chuẩn hóa Standard API Envelope).
-  - [ ] Triển khai `AuthModule`: Đăng nhập, đăng xuất, cấp Access Token JWT (15m) + Refresh Token HttpOnly Cookie (7d).
-  - [ ] Triển khai cơ chế Token Rotation và tự động thu hồi session khi phát hiện Replay Attack.
+- [ ] **Giai đoạn 2: Hạ tầng Backend Core, Bảo mật IAM / RBAC & Swagger API Docs**
+  - [ ] Cấu hình Swagger UI (`@nestjs/swagger`) tại `/api/docs` phục vụ nghiệm thu sớm từng endpoint.
+  - [ ] Thiết lập Global `ValidationPipe` và Global `AllExceptionsFilter` (chuẩn hóa Standard API Envelope `{ success, data, meta }` / `{ success, error }` và Error Code Taxonomy 12 mã lỗi).
+  - [ ] Triển khai `AuthModule`: Đăng nhập (`POST /auth/login`), đăng xuất (`POST /auth/logout`), lấy thông tin (`GET /auth/me`), cấp Access Token JWT (15m) + Refresh Token HttpOnly Cookie (7d).
+  - [ ] Triển khai cơ chế Token Rotation (`POST /auth/refresh`) và tự động thu hồi session khi phát hiện Replay Attack.
   - [ ] Triển khai `JwtAuthGuard` và `RolesGuard` phân quyền 2 vai trò (`STORE_MANAGER` vs `PURCHASING_STAFF`).
   - [ ] Triển khai `AuditLogInterceptor` ghi nhận vết hoạt động vào bảng `activity_logs`.
 
@@ -54,18 +55,18 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 - [ ] **Giai đoạn 4: Danh mục Nền tảng & Nạp Dữ liệu Vận hành (Master Data & Data Import)**
   - [ ] `CatalogModule` (UC-05): CRUD Categories, Products, quản lý trạng thái Active/Inactive, theo dõi tồn kho kệ.
   - [ ] `SupplierModule` (UC-06): Hồ sơ NCC, Supply Conditions (giá nhập, MOQ), theo dõi điểm OTIF 5 đơn gần nhất.
-  - [ ] `ConfigurationModule` (UC-07): Quản trị singleton bộ tham số DSS (trọng số WSM, Target Service Level).
-  - [ ] `DataImportModule` (UC-04): Nạp file Excel/CSV (doanh số POS và kiểm kê kho); cơ chế All-or-Nothing bọc trong `prisma.$transaction`.
+  - [ ] `ConfigurationModule` (UC-07): Quản trị singleton bộ tham số DSS (trọng số WSM, Target Service Level, Z-factor mapping, Review period).
+  - [ ] `DataImportModule` (UC-04): Cung cấp endpoint tải tệp biểu mẫu chuẩn `GET /api/v1/data-imports/templates/{type}` (sales/inventory); Nạp file Excel/CSV; cơ chế All-or-Nothing bọc trong `prisma.$transaction`; ghi đè doanh số theo cặp (Date, SKU).
 
 - [ ] **Giai đoạn 5: Động cơ Ra quyết định DSS & Giải thích Gemini On-Demand (Trọng tâm)**
-  - [ ] `DssModule` (UC-01): Điều phối gọi Python AI Service (kèm Graceful Fallback sang trung bình lịch sử).
-  - [ ] `DssCalculationEngineService` (Domain Layer): Thuật toán tất định ABC-XYZ, SS, ROP, SOQ khớp MOQ, WSM Supplier Ranking.
-  - [ ] Lưu kết quả phân tích và toàn bộ snapshot dữ liệu vào `recommendation_sessions` & `recommendation_items`.
-  - [ ] `LlmExplanationService`: Tích hợp Google Gemini 1.5 Flash On-demand theo từng SKU, lưu cache CSDL (0ms / 0 token cho các lần sau).
+  - [ ] `DssModule` (UC-01): Endpoint `POST /api/v1/dss/sessions/analyze` hỗ trợ lọc theo phạm vi toàn cửa hàng (`categoryId = null`) hoặc theo ngành hàng cụ thể (`categoryId`); tự động chuyển phiên `Draft` cũ sang `Discarded` (INV-REC-03); điều phối gọi Python AI Service (kèm Graceful Fallback sang trung bình lịch sử).
+  - [ ] `DssCalculationEngineService` (Domain Layer Pure Functions): Thuật toán tất định ABC-XYZ, SS, ROP, SOQ khớp MOQ, WSM Supplier Ranking.
+  - [ ] Lưu kết quả phân tích và toàn bộ snapshot dữ liệu vào `recommendation_sessions` (trạng thái ban đầu `Draft`) & `recommendation_items`.
+  - [ ] `LlmExplanationService`: Tích hợp Google Gemini 1.5 Flash On-demand theo từng SKU (`POST /api/v1/dss/items/{itemId}/explain`), lưu cache vào cột CSDL `why_buy_explanation` (0ms / 0 token cho các lần sau; fallback mẫu khi timeout 3s).
 
 - [ ] **Giai đoạn 6: Vòng đời Đơn hàng & Đóng kín Vòng lặp Phản hồi (PO & Goods Receipt)**
-  - [ ] `PurchaseOrderModule` (UC-02): Duyệt đề xuất sinh POs gom theo NCC, cập nhật hàng đang về (`on_order_quantity`), hủy đơn hoàn trả hàng, xuất PDF.
-  - [ ] `GoodsReceiptModule` (UC-03): Nhận hàng kho 1:1 với PO, bọc ACID Transaction tăng tồn kệ, giảm hàng về, đóng PO.
+  - [ ] `PurchaseOrderModule` (UC-02): Duyệt đề xuất (`POST /dss/sessions/{id}/approve`) sinh các đơn PO gom theo NCC ở trạng thái `Approved` trong Database Transaction; cập nhật hàng đang về (`on_order_quantity`); logic tính toán runtime `isOverdue` (BR-09) và query filter `isOverdue` trên `GET /purchase-orders`; hủy đơn hoàn trả hàng; xuất PDF.
+  - [ ] `GoodsReceiptModule` (UC-03): Nhận hàng kho 1:1 với PO, bọc ACID Transaction tăng tồn kệ, giải phóng hàng đang về, chuyển PO sang `Completed`.
   - [ ] Kích hoạt trigger tính tỷ lệ giao đủ hàng (`Fulfillment Rate`), OTIF linear penalty decay, cập nhật rolling 5 đơn của NCC.
 
 - [ ] **Giai đoạn 7: Giao diện Người dùng Web UI (React + Vite)**
@@ -73,10 +74,10 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
   - [ ] Quản lý trạng thái xác thực và Axios Interceptor tự động Refresh Token.
   - [ ] 7 màn hình tính năng hoàn chỉnh:
     - [ ] Màn hình Đăng nhập (Auth).
-    - [ ] Màn hình Bảng đề xuất DSS (UC-01): Badges ABC-XYZ, Modal Explain Gemini, Biểu đồ Recharts kết hợp (Lịch sử + Dự báo 14 ngày + Vùng tin cậy 95%).
-    - [ ] Màn hình Quản lý Đơn mua hàng (UC-02): Danh sách PO, In/Xuất PDF.
+    - [ ] Màn hình Bảng đề xuất DSS (UC-01): Bộ lọc ngành hàng, Badges ABC-XYZ, Modal Explain Gemini, Biểu đồ Recharts kết hợp (Lịch sử + Dự báo 14 ngày + Vùng tin cậy 95%).
+    - [ ] Màn hình Quản lý Đơn mua hàng (UC-02): Danh sách PO, Cảnh báo Overdue (BR-09), In/Xuất PDF.
     - [ ] Màn hình Nhận hàng kho (UC-03): Form nhận hàng, Soft warning giao thừa.
-    - [ ] Màn hình Nạp dữ liệu vận hành (UC-04): Kéo thả file, xem trước lỗi chi tiết từng dòng.
+    - [ ] Màn hình Nạp dữ liệu vận hành (UC-04): Nút tải file mẫu chuẩn, Kéo thả file, xem trước lỗi chi tiết từng dòng.
     - [ ] Màn hình Danh mục sản phẩm (UC-05), Nhà cung cấp (UC-06), Cấu hình tham số DSS (UC-07).
 
 - [ ] **Giai đoạn 8: Tích hợp Toàn diện E2E, Kiểm thử & Đóng gói Docker 1-Click**
