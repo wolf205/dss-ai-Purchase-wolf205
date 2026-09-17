@@ -1,0 +1,90 @@
+services:
+  # ============================================================================
+  # 1. Cơ Sở Dữ Liệu Quan Hệ (PostgreSQL 16+ Alpine)
+  # Quản lý 16 bảng dữ liệu, 54 Invariants, Triggers đồng bộ tồn kho kệ/on-order
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: dss_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dss_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dss_secret_pass}
+      POSTGRES_DB: ${POSTGRES_DB:-dss_retail_db}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dss_admin} -d ${POSTGRES_DB:-dss_retail_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - dss_network
+
+  # ============================================================================
+  # 2. Dịch Vụ Dự Báo AI (Python FastAPI - Sẽ kích hoạt tại Task 1.6 & Giai đoạn 3)
+  # ============================================================================
+  # ai-service:
+  #   build:
+  #     context: ./ai-service
+  #     dockerfile: Dockerfile
+  #   container_name: dss_ai_service
+  #   restart: always
+  #   environment:
+  #     PORT: 8000
+  #   ports:
+  #     - "8000:8000"
+  #   networks:
+  #     - dss_network
+
+  # ============================================================================
+  # 3. Backend Web API (NestJS Modular Monolith - Sẽ kích hoạt tại Task 1.2/Giai đoạn 2)
+  # ============================================================================
+  # backend:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: dss_backend
+  #   restart: always
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   environment:
+  #     PORT: 3000
+  #     DATABASE_URL: postgresql://${POSTGRES_USER:-dss_admin}:${POSTGRES_PASSWORD:-dss_secret_pass}@postgres:5432/${POSTGRES_DB:-dss_retail_db}?schema=public
+  #     AI_SERVICE_URL: http://ai-service:8000
+  #     GEMINI_API_KEY: ${GEMINI_API_KEY}
+  #     JWT_SECRET: ${JWT_SECRET:-super_secret_jwt_key_at_least_32_characters_for_dss_purchase_system}
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - dss_network
+
+  # ============================================================================
+  # 4. Frontend Web App (React + Vite SPA - Sẽ kích hoạt tại Task 1.6 & Giai đoạn 7)
+  # ============================================================================
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: dss_frontend
+  #   restart: always
+  #   depends_on:
+  #     - backend
+  #   ports:
+  #     - "80:80"
+  #   networks:
+  #     - dss_network
+
+volumes:
+  pgdata:
+    name: dss_pgdata
+    driver: local
+
+networks:
+  dss_network:
+    name: dss_network
+    driver: bridge

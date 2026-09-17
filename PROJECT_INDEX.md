@@ -32,7 +32,7 @@ Toàn bộ tài liệu phân tích nghiệp vụ và thiết kế kỹ thuật �
 Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần tự. Mỗi giai đoạn chỉ được đánh dấu hoàn thành khi đã qua kiểm thử xác minh (Verification).
 
 - [ ] **Giai đoạn 1: Nền tảng Khởi tạo (Scaffolding, Docker & Database Setup)**
-  - [ ] **Task 1.1: Hạ tầng CSDL Docker** — Cấu hình `docker-compose.yml` (PostgreSQL 16+ Alpine, healthcheck, volume `pgdata`, port 5432, network `dss_network`), cập nhật `.gitignore` và `.env.example`.
+  - [x] **Task 1.1: Hạ tầng CSDL Docker** — Cấu hình `docker-compose.yml` (PostgreSQL 16+ Alpine, healthcheck, volume `pgdata`, port 5432, network `dss_network`), cập nhật `.gitignore` và `.env.example`.
   - [ ] **Task 1.2: Scaffolding Backend Core (NestJS)** — Khởi tạo `backend/` với NestJS 10, TypeScript Strict Mode, Global Prefix `/api/v1`, CORS, Cookie-parser, Swagger setup và Health check endpoint `GET /api/v1/health`.
   - [ ] **Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL** — Viết `backend/prisma/schema.prisma` khớp 100% `data-model.md` (chốt tên cột `why_buy_explanation` trên `recommendation_items`), chạy initial migration tạo 16 bảng vật lý trong PostgreSQL.
   - [ ] **Task 1.4: Tích hợp 8 Triggers CSDL Phòng Thủ** — Viết Prisma Custom SQL Migration triển khai đầy đủ 8 Trigger Functions + 8 CREATE TRIGGER từ Section DDL `PHÂN VÙNG TRIGGERS` trong `data-model.md` (đồng bộ tồn kho kệ, hàng đang về, tính OTIF, chặn sửa PO/Line bất biến).
@@ -95,3 +95,4 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 | 17/09/2026 | Chốt Tài Liệu & Chuyển Phase | Hoàn tất 100% Phase Phân tích & Thiết kế; chuyển vai trò sang Implementation; cấu hình quy trình `implement-task` 5 bước. | `077aa59` |
 | 17/09/2026 | Khởi Tạo & Chuẩn Hóa Project Index | Hoàn thiện Master Implementation Tracker 8 giai đoạn sau khi đối chiếu chuyên sâu 6 Technical Contracts. | `1d44232` |
 | 17/09/2026 | Phân Rã Giai Đoạn 1 | Phân rã Giai đoạn 1 thành 6 task nguyên tử (Task 1.1 $\to$ 1.6) độc lập, kiểm chứng được từng bước. | `b0698ec` |
+| 17/09/2026 | Task 1.1: Hạ Tầng CSDL Docker | Cấu hình docker-compose.yml (PostgreSQL 16+ Alpine), .env.example, .gitignore; container dss_postgres chạy healthy trên port 5432. | *Current* |
