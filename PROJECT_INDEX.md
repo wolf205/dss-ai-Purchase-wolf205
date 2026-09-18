@@ -96,3 +96,4 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 | 17/09/2026 | Khởi Tạo & Chuẩn Hóa Project Index | Hoàn thiện Master Implementation Tracker 8 giai đoạn sau khi đối chiếu chuyên sâu 6 Technical Contracts. | `1d44232` |
 | 17/09/2026 | Phân Rã Giai Đoạn 1 | Phân rã Giai đoạn 1 thành 6 task nguyên tử (Task 1.1 $\to$ 1.6) độc lập, kiểm chứng được từng bước. | `b0698ec` |
 | 17/09/2026 | Task 1.1: Hạ Tầng CSDL Docker | Cấu hình docker-compose.yml (PostgreSQL 16+ Alpine), .env.example, .gitignore; container dss_postgres chạy healthy trên port 5432. | `9426481` |
+| 18/09/2026 | Task 1.2: Scaffolding Backend Core | Khởi tạo NestJS 10, TypeScript Strict, Global Prefix /api/v1, CORS, Cookie-parser, Swagger UI (/api/docs), Standard API Envelope, Health check GET /api/v1/health. | `e5a1945` |
