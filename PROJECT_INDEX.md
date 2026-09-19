@@ -40,9 +40,9 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
   - [x] **Task 1.6: Scaffolding AI Service & Frontend** — Khởi tạo `ai-service/` (Python 3.12 FastAPI, requirements.txt, Pydantic config, `GET /health`) và `frontend/` (React 18+ Vite, TypeScript Strict, cấu hình TailwindCSS, proxy `/api`, layout shell).
 
 - [ ] **Giai đoạn 2: Hệ thống Bảo mật IAM, Phân quyền RBAC & Nhật ký Kiểm toán**
-  - [ ] **Task 2.1: Phân Hệ Xác Thực IAM (JWT & Token Rotation)** — Triển khai `AuthModule`, `UsersModule`: đăng nhập (`POST /auth/login`), đăng xuất (`POST /auth/logout`), lấy thông tin (`GET /auth/me`), cơ chế Refresh Token Rotation (`POST /auth/refresh`) qua HttpOnly Cookie và `JwtAuthGuard`.
-  - [ ] **Task 2.2: Chế Độ Phân Quyền RBAC** — Khởi tạo `@Roles()` decorator và `RolesGuard` để bảo vệ tài nguyên theo chuẩn 2 vai trò (`STORE_MANAGER` và `PURCHASING_STAFF`).
-  - [ ] **Task 2.3: Nhật Ký Kiểm Toán (Audit Trail) & Interceptor** — Viết `AuditLogInterceptor` bắt sự kiện ghi dữ liệu tự động lưu vết vào bảng `activity_logs` và API tra cứu.
+  - [x] **Task 2.1: Phân Hệ Xác Thực IAM (JWT & Token Rotation)** — Triển khai `AuthModule`, `UsersModule`: đăng nhập (`POST /auth/login`), đăng xuất (`POST /auth/logout`), lấy thông tin (`GET /auth/me`), cơ chế Refresh Token Rotation (`POST /auth/refresh`) qua HttpOnly Cookie và `JwtAuthGuard`. (✅ Hoàn thành)
+  - [ ] **Task 2.2: Chế Độ Phân Quyền RBAC** — Khởi tạo `@Roles()` decorator và `RolesGuard` để bảo vệ tài nguyên theo chuẩn 2 vai trò (`STORE_MANAGER` và `PURCHASING_STAFF`). (⏳ Đang thực hiện)
+  - [ ] **Task 2.3: Nhật Ký Kiểm Toán (Audit Trail) & Interceptor** — Viết `AuditLogInterceptor` bắt sự kiện ghi dữ liệu tự động lưu vết vào bảng `activity_logs` và API tra cứu. (Sắp tới)
 
 - [ ] **Giai đoạn 3: Phân hệ Dự báo Nhu cầu AI (Python FastAPI)**
   - [ ] Khởi tạo FastAPI service tại port 8000, cấu hình Pydantic schemas.

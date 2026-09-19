@@ -5,6 +5,9 @@ import { UsersService } from '../users/users.service';
 import { LoginRequestDto, LoginResponseDto, RefreshResponseDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { Role } from '../../common/enums/role.enum';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { Request, Response } from 'express';
 
 @ApiTags('Auth')
@@ -112,5 +115,14 @@ export class AuthController {
       ...result,
       id: result.id.toString(), // Convert BigInt
     };
+  }
+
+  @ApiOperation({ summary: 'Test endpoint cho STORE_MANAGER' })
+  @ApiBearerAuth('access-token')
+  @Roles(Role.STORE_MANAGER)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Get('admin-only')
+  adminOnly() {
+    return { message: 'Bạn đang truy cập với quyền STORE_MANAGER' };
   }
 }
