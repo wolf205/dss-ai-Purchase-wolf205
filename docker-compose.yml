@@ -27,18 +27,18 @@ services:
   # ============================================================================
   # 2. Dịch Vụ Dự Báo AI (Python FastAPI - Sẽ kích hoạt tại Task 1.6 & Giai đoạn 3)
   # ============================================================================
-  # ai-service:
-  #   build:
-  #     context: ./ai-service
-  #     dockerfile: Dockerfile
-  #   container_name: dss_ai_service
-  #   restart: always
-  #   environment:
-  #     PORT: 8000
-  #   ports:
-  #     - "8000:8000"
-  #   networks:
-  #     - dss_network
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: dss_ai_service
+    restart: always
+    env_file:
+      - ./ai-service/.env
+    ports:
+      - "8000:8000"
+    networks:
+      - dss_network
 
   # ============================================================================
   # 3. Backend Web API (NestJS Modular Monolith - Sẽ kích hoạt tại Task 1.2/Giai đoạn 2)
@@ -65,18 +65,20 @@ services:
   # ============================================================================
   # 4. Frontend Web App (React + Vite SPA - Sẽ kích hoạt tại Task 1.6 & Giai đoạn 7)
   # ============================================================================
-  # frontend:
-  #   build:
-  #     context: ./frontend
-  #     dockerfile: Dockerfile
-  #   container_name: dss_frontend
-  #   restart: always
-  #   depends_on:
-  #     - backend
-  #   ports:
-  #     - "80:80"
-  #   networks:
-  #     - dss_network
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dss_frontend
+    restart: always
+    depends_on:
+      - backend
+    env_file:
+      - ./frontend/.env
+    ports:
+      - "5173:5173"
+    networks:
+      - dss_network
 
 volumes:
   pgdata:
