@@ -87,4 +87,35 @@ describe('AuthService', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('login', () => {
+    it('should generate tokens and save refresh token', async () => {
+      const mockUser = { id: 1n, username: 'admin', role: 'STORE_MANAGER' };
+      (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
+
+      const result = await service.login(mockUser, '127.0.0.1', 'jest-agent');
+      
+      expect(result).toHaveProperty('accessToken');
+      expect(result).toHaveProperty('refreshToken');
+      expect(result.accessToken).toBe('mock-jwt-token');
+      expect(prisma.refreshToken.create).toHaveBeenCalled();
+    });
+  });
+
+  describe('refreshTokens', () => {
+    it('should throw UnauthorizedException if token is revoked', async () => {
+      const mockToken = { 
+        id: 1n, userId: 1n, revokedAt: new Date(),
+        user: { status: 'Active' }
+      };
+      (prisma.refreshToken.findUnique as jest.Mock).mockResolvedValue(mockToken);
+      (prisma.refreshToken.updateMany as jest.Mock).mockResolvedValue({});
+
+      await expect(service.refreshTokens('old-token', '127.0.0.1', 'jest')).rejects.toThrow(UnauthorizedException);
+      expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
+        where: { userId: 1n },
+        data: { revokedAt: expect.any(Date) },
+      });
+    });
+  });
 });

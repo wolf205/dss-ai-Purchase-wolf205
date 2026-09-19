@@ -39,4 +39,15 @@ describe('UsersService', () => {
       expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { username: 'admin' } });
     });
   });
+
+  describe('findById', () => {
+    it('should return a user by id', async () => {
+      const mockUser = { id: 1n, username: 'admin', role: 'STORE_MANAGER' };
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockUser);
+
+      const result = await service.findById(1n);
+      expect(result).toEqual(mockUser);
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 1n } });
+    });
+  });
 });
