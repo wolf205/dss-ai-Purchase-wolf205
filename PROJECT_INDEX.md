@@ -39,13 +39,10 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
   - [x] **Task 1.5: Script Seed Data Ban Đầu** — Viết `backend/prisma/seed.ts` nạp 2 tài khoản test (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF đã hash bcrypt), bản ghi singleton `DSSConfiguration` (`id = 1`), và danh mục ngành hàng mẫu.
   - [x] **Task 1.6: Scaffolding AI Service & Frontend** — Khởi tạo `ai-service/` (Python 3.12 FastAPI, requirements.txt, Pydantic config, `GET /health`) và `frontend/` (React 18+ Vite, TypeScript Strict, cấu hình TailwindCSS, proxy `/api`, layout shell).
 
-- [ ] **Giai đoạn 2: Hạ tầng Backend Core, Bảo mật IAM / RBAC & Swagger API Docs**
-  - [ ] Cấu hình Swagger UI (`@nestjs/swagger`) tại `/api/docs` phục vụ nghiệm thu sớm từng endpoint.
-  - [ ] Thiết lập Global `ValidationPipe` và Global `AllExceptionsFilter` (chuẩn hóa Standard API Envelope `{ success, data, meta }` / `{ success, error }` và Error Code Taxonomy 12 mã lỗi).
-  - [ ] Triển khai `AuthModule`: Đăng nhập (`POST /auth/login`), đăng xuất (`POST /auth/logout`), lấy thông tin (`GET /auth/me`), cấp Access Token JWT (15m) + Refresh Token HttpOnly Cookie (7d).
-  - [ ] Triển khai cơ chế Token Rotation (`POST /auth/refresh`) và tự động thu hồi session khi phát hiện Replay Attack.
-  - [ ] Triển khai `JwtAuthGuard` và `RolesGuard` phân quyền 2 vai trò (`STORE_MANAGER` vs `PURCHASING_STAFF`).
-  - [ ] Triển khai `AuditLogInterceptor` ghi nhận vết hoạt động vào bảng `activity_logs`.
+- [ ] **Giai đoạn 2: Hệ thống Bảo mật IAM, Phân quyền RBAC & Nhật ký Kiểm toán**
+  - [ ] **Task 2.1: Phân Hệ Xác Thực IAM (JWT & Token Rotation)** — Triển khai `AuthModule`, `UsersModule`: đăng nhập (`POST /auth/login`), đăng xuất (`POST /auth/logout`), lấy thông tin (`GET /auth/me`), cơ chế Refresh Token Rotation (`POST /auth/refresh`) qua HttpOnly Cookie và `JwtAuthGuard`.
+  - [ ] **Task 2.2: Chế Độ Phân Quyền RBAC** — Khởi tạo `@Roles()` decorator và `RolesGuard` để bảo vệ tài nguyên theo chuẩn 2 vai trò (`STORE_MANAGER` và `PURCHASING_STAFF`).
+  - [ ] **Task 2.3: Nhật Ký Kiểm Toán (Audit Trail) & Interceptor** — Viết `AuditLogInterceptor` bắt sự kiện ghi dữ liệu tự động lưu vết vào bảng `activity_logs` và API tra cứu.
 
 - [ ] **Giai đoạn 3: Phân hệ Dự báo Nhu cầu AI (Python FastAPI)**
   - [ ] Khởi tạo FastAPI service tại port 8000, cấu hình Pydantic schemas.
