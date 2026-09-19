@@ -34,8 +34,8 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 - [ ] **Giai đoạn 1: Nền tảng Khởi tạo (Scaffolding, Docker & Database Setup)**
   - [x] **Task 1.1: Hạ tầng CSDL Docker** — Cấu hình `docker-compose.yml` (PostgreSQL 16+ Alpine, healthcheck, volume `pgdata`, port 5432, network `dss_network`), cập nhật `.gitignore` và `.env.example`.
   - [x] **Task 1.2: Scaffolding Backend Core (NestJS)** — Khởi tạo `backend/` với NestJS 10, TypeScript Strict Mode, Global Prefix `/api/v1`, CORS, Cookie-parser, Swagger setup và Health check endpoint `GET /api/v1/health`.
-  - [ ] **Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL** — Viết `backend/prisma/schema.prisma` khớp 100% `data-model.md` (chốt tên cột `why_buy_explanation` trên `recommendation_items`), chạy initial migration tạo 16 bảng vật lý trong PostgreSQL.
-  - [ ] **Task 1.4: Tích hợp 8 Triggers CSDL Phòng Thủ** — Viết Prisma Custom SQL Migration triển khai đầy đủ 8 Trigger Functions + 8 CREATE TRIGGER từ Section DDL `PHÂN VÙNG TRIGGERS` trong `data-model.md` (đồng bộ tồn kho kệ, hàng đang về, tính OTIF, chặn sửa PO/Line bất biến).
+  - [x] **Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL** — Viết `backend/prisma/schema.prisma` khớp 100% `data-model.md` (chốt tên cột `why_buy_explanation` trên `recommendation_items`), chạy initial migration tạo 16 bảng vật lý trong PostgreSQL.
+  - [x] **Task 1.4: Dọn dẹp Migration & Chuyển đổi Kiến trúc Thin DB** — Hủy bỏ tích hợp Trigger; dọn dẹp các ràng buộc thủ công trong migration `init` và reset CSDL về trạng thái cơ bản (chỉ bảng và khóa). Toàn bộ logic bảo vệ dữ liệu được chuyển lên Application Layer.
   - [ ] **Task 1.5: Script Seed Data Ban Đầu** — Viết `backend/prisma/seed.ts` nạp 2 tài khoản test (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF đã hash bcrypt), bản ghi singleton `DSSConfiguration` (`id = 1`), và danh mục ngành hàng mẫu.
   - [ ] **Task 1.6: Scaffolding AI Service & Frontend** — Khởi tạo `ai-service/` (Python 3.12 FastAPI, requirements.txt, Pydantic config, `GET /health`) và `frontend/` (React 18+ Vite, TypeScript Strict, cấu hình TailwindCSS, proxy `/api`, layout shell).
 
@@ -68,7 +68,7 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 - [ ] **Giai đoạn 6: Vòng đời Đơn hàng & Đóng kín Vòng lặp Phản hồi (PO & Goods Receipt)**
   - [ ] `PurchaseOrderModule` (UC-02): Duyệt đề xuất (`POST /dss/sessions/{id}/approve`) sinh các đơn PO gom theo NCC ở trạng thái `Approved` trong Database Transaction; cập nhật hàng đang về (`on_order_quantity`); logic tính toán runtime `isOverdue` (BR-09) và query filter `isOverdue` trên `GET /purchase-orders`; hủy đơn hoàn trả hàng; xuất PDF.
   - [ ] `GoodsReceiptModule` (UC-03): Nhận hàng kho 1:1 với PO, bọc ACID Transaction tăng tồn kệ, giải phóng hàng đang về, chuyển PO sang `Completed`.
-  - [ ] Kích hoạt trigger tính tỷ lệ giao đủ hàng (`Fulfillment Rate`), OTIF linear penalty decay, cập nhật rolling 5 đơn của NCC.
+  - [ ] Tính toán tỷ lệ giao đủ hàng (`Fulfillment Rate`), OTIF linear penalty decay, cập nhật rolling 5 đơn của NCC ngay trong Application Layer.
 
 - [ ] **Giai đoạn 7: Giao diện Người dùng Web UI (React + Vite)**
   - [ ] Thiết lập layout responsive, Sidebar, Navbar, Toast notifications, Design tokens.
@@ -97,3 +97,5 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 | 17/09/2026 | Phân Rã Giai Đoạn 1 | Phân rã Giai đoạn 1 thành 6 task nguyên tử (Task 1.1 $\to$ 1.6) độc lập, kiểm chứng được từng bước. | `b0698ec` |
 | 17/09/2026 | Task 1.1: Hạ Tầng CSDL Docker | Cấu hình docker-compose.yml (PostgreSQL 16+ Alpine), .env.example, .gitignore; container dss_postgres chạy healthy trên port 5432. | `9426481` |
 | 18/09/2026 | Task 1.2: Scaffolding Backend Core | Khởi tạo NestJS 10, TypeScript Strict, Global Prefix /api/v1, CORS, Cookie-parser, Swagger UI (/api/docs), Standard API Envelope, Health check GET /api/v1/health. | `e5a1945` |
+| 18/09/2026 | Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL | Viết schema.prisma 16 bảng khớp data-model và apply thành công vào PostgreSQL. | `Done` |
+| 19/09/2026 | Task 1.4: Chuyển đổi Kiến trúc Thin DB | Cập nhật tài liệu data-model loại bỏ yêu cầu dùng Database Triggers và CHECK constraints, chuyển trách nhiệm bảo vệ dữ liệu lên Application Layer. | `Done` |

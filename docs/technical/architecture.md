@@ -23,7 +23,7 @@ Hệ thống hoạt động theo triết lý nền tảng:
 AI đóng vai trò dự báo nhu cầu chuỗi thời gian, phân tích dữ liệu và đưa ra khuyến nghị; con người (Store Manager và Purchasing Staff) luôn giữ quyền thẩm định, điều chỉnh và đưa ra quyết định mua hàng cuối cùng.
 
 ### 1.2. Các Động Lực Kiến Trúc Cốt Lõi (Architectural Drivers)
-1. **Tính Đúng Đắn & Bất Biến Lịch Sử (Correctness & Historical Immutability):** Hiện thực hóa trọn vẹn 44 Business Invariants qua mô hình phòng thủ 3 tầng (3-Tier Defense: Database Constraints, Triggers và Application Transactions). Toàn bộ đơn hàng đã duyệt bảo lưu vĩnh viễn mức giá, MOQ và Lead Time snapshot tại thời điểm phê duyệt.
+1. **Tính Đúng Đắn & Bất Biến Lịch Sử (Correctness & Historical Immutability):** Hiện thực hóa trọn vẹn 44 Business Invariants qua mô hình Application-Centric (Validation, Services và Application Transactions). Toàn bộ đơn hàng đã duyệt bảo lưu vĩnh viễn mức giá, MOQ và Lead Time snapshot tại thời điểm phê duyệt.
 2. **Tốc Độ Phản Hồi Tức Thì (Sub-second Responsiveness):** Chuỗi tính toán DSS ban đầu tại UC-01 hoàn tất trong thời gian < 1 giây thông qua việc phân lập rạch ròi 3 động cơ tính toán và tách mô hình ngôn ngữ lớn (LLM) ra khỏi đường dẫn tới hạn (Critical Path).
 3. **Tính Minh Bạch & Giải Thích Được (Explainability):** Kết hợp hài hòa giữa số liệu định lượng khách quan (phân loại ABC-XYZ, Reorder Point, khoảng dự báo tin cậy 95%, bảng so sánh WSM) và tóm tắt diễn giải ngôn ngữ tự nhiên On-demand từ Google Gemini Flash.
 4. **Chu Trình Phản Hồi Khép Kín (Closed-Loop Feedback):** Dữ liệu giao nhận hàng thực tế tại UC-03 tự động kích hoạt tính toán điểm OTIF theo mô hình phạt trễ hạn suy giảm tuyến tính, làm mới phong độ 5 đơn gần nhất của NCC để nuôi lại thuật toán chấm điểm cho các đợt DSS tiếp theo.
@@ -35,7 +35,7 @@ AI đóng vai trò dự báo nhu cầu chuỗi thời gian, phân tích dữ li�
 
 | Phân tầng / Thành phần | Công nghệ lựa chọn | Vai trò & Căn cứ kỹ thuật |
 | :--- | :--- | :--- |
-| **Cơ Sở Dữ Liệu (Database)** | **PostgreSQL 16+** | Hỗ trợ kiểu dữ liệu chính xác `NUMERIC(15,2)`, trường bán cấu trúc `JSONB` cho dự báo/ranking, Stored Generated Columns, Database Triggers đồng bộ tồn kho và hệ thống chỉ mục B-Tree/Partial Indexes tối ưu. |
+| **Cơ Sở Dữ Liệu (Database)** | **PostgreSQL 16+** | Hỗ trợ kiểu dữ liệu chính xác `NUMERIC(15,2)`, trường bán cấu trúc `JSONB` cho dự báo/ranking và hệ thống chỉ mục B-Tree/Partial Indexes tối ưu. Cơ sở dữ liệu đóng vai trò lưu trữ thuần túy (Thin DB). |
 | **Data Access Layer** | **Prisma ORM** | Type-safe tuyệt đối từ Database Schema đến TypeScript DTOs, hỗ trợ Prisma Client Transaction (`$transaction`) cho các nghiệp vụ nguyên tử Tier 3, quản lý Schema Migrations tự động và an toàn. |
 | **Backend Web API** | **NestJS (TypeScript)** | Kiến trúc **Modular Monolith** chuẩn Enterprise, Dependency Injection (DI), tích hợp sẵn Guards (RBAC), Interceptors (Audit Trail), Pipes validation tự động (`class-validator`) và tự sinh Swagger UI. |
 | **Dịch Vụ AI (AI Service)** | **Python 3.11+ (FastAPI)** | Hệ sinh thái khoa học dữ liệu mạnh mẽ (`statsforecast`, `pandas`, `numpy`, `scipy`), chuyên trách tiền xử lý chuỗi thời gian, xử lý ngày không bán (Zero-Demand) và chạy các thuật toán dự báo nhu cầu bán lẻ. |
@@ -83,7 +83,7 @@ C4Container
         
         Container(ai, "AI Forecasting Service", "Python 3.11, FastAPI, Statsforecast, Pandas", "Dịch vụ tính toán khoa học chuyên biệt: tiền xử lý chuỗi thời gian, huấn luyện và suy luận Daily Demand 14 ngày tới", "Port 8000")
         
-        ContainerDb(db, "Cơ Sở Dữ Liệu Quan Hệ", "PostgreSQL 16+", "Lưu trữ 16 bảng dữ liệu, thực thi DDL constraints, Triggers đồng bộ tồn kho kệ/on-order và tính điểm OTIF 5 đơn gần nhất", "Port 5432")
+        ContainerDb(db, "Cơ Sở Dữ Liệu Quan Hệ", "PostgreSQL 16+", "Lưu trữ 16 bảng dữ liệu. Hoạt động như Thin DB, mọi logic ràng buộc do Application xử lý", "Port 5432")
     }
 
     System_Ext(gemini, "Google Gemini API", "Mô hình Gemini 1.5 Flash sinh giải thích tự nhiên On-demand")
@@ -116,15 +116,15 @@ graph TD
     subgraph G3 ["3. Duyệt & Phát Hành Đơn (UC-01, UC-02)"]
         SESS -->|Người Dùng Duyệt| PO_CREATE[Sinh Đơn POs: Status Approved]
         PO_CREATE --> PO[(purchase_orders & po_line_items)]
-        PO_CREATE -->|Trigger 2| PROD_ON[(products.on_order_quantity tăng)]
+        PO_CREATE -->|Code: Tăng on_order| PROD_ON[(products.on_order_quantity tăng)]
         PO -->|Xuất PDF/Excel| PARTNER[Gửi Đối Tác NCC]
     end
 
     subgraph G4 ["4. Nhận Hàng & Phản Hồi Khép Kín (UC-03)"]
         PARTNER -->|Giao Hàng| RECEIPT[Nhập Phiếu Nhận Hàng Kho]
         RECEIPT --> GR[(goods_receipts & receipt_line_items)]
-        GR -->|Trigger 3: Tăng Tồn Kệ & Xóa On-order| PROD
-        GR -->|Trigger 4: OTIF Linear Penalty Decay| SUPP_PERF[(suppliers.rolling_5_order_otif_rate)]
+        GR -->|Code: Tăng Tồn Kệ & Xóa On-order| PROD
+        GR -->|Code: OTIF Linear Penalty Decay| SUPP_PERF[(suppliers.rolling_5_order_otif_rate)]
         SUPP_PERF -.->|Cập nhật Phong Độ 5 Đơn Gần Nhất| CALC
     end
 ```
@@ -142,7 +142,7 @@ Mỗi module bên trong Backend NestJS được tổ chức nhất quán theo 4 
 2. **Application Layer (Services & Use Case Orchestrators):**
    * Điều phối quy trình nghiệp vụ theo từng Use Case.
    * Thiết lập ranh giới giao dịch CSDL (`Prisma.$transaction`) đảm bảo tính nguyên tử ACID.
-   * Xử lý các quy tắc nghiệp vụ phức hợp thuộc Tier 3 Invariants.
+   * Xử lý các quy tắc nghiệp vụ phức hợp, ràng buộc toàn vẹn và đồng bộ dữ liệu (Application-Centric Validation).
 3. **Domain Layer (Engines, Mathematical Formulas, Invariants):**
    * Chứa các thuật toán tính toán tất định thuần túy (Pure Functions): công thức SS, ROP, SOQ, phân loại ABC-XYZ, mô hình chấm điểm WSM.
    * Hoàn toàn độc lập với database và framework, thuận tiện cho việc viết Unit Test.
@@ -160,7 +160,7 @@ Kiến trúc Backend được chia thành chính xác 9 Modules độc lập:
 | **`SupplierModule`**| Quản trị hồ sơ NCC, Lead Time cam kết, điều kiện báo giá (giá nhập, MOQ), theo dõi điểm OTIF. | UC-06 | `suppliers`, `supply_conditions` |
 | **`DssModule`** | Khởi tạo phiên phân tích, điều phối dự báo AI, tính toán tất định, gọi LLM giải thích On-demand. | UC-01, UC-07 | `recommendation_sessions`, `recommendation_items`, `dss_configurations` |
 | **`PurchaseOrderModule`**| Quản lý vòng đời đơn PO, xuất file PDF/Excel (`last_exported_at`), hủy đơn và hoàn trả On-order. | UC-02 | `purchase_orders`, `po_line_items` |
-| **`GoodsReceiptModule`** | Nhận hàng kho đơn giản, đối soát 1:1 với PO, kích hoạt trigger cập nhật tồn kho và tính OTIF. | UC-03 | `goods_receipts`, `receipt_line_items` |
+| **`GoodsReceiptModule`** | Nhận hàng kho đơn giản, đối soát 1:1 với PO, sử dụng code để cập nhật tồn kho và tính OTIF. | UC-03 | `goods_receipts`, `receipt_line_items` |
 | **`DataImportModule`** | Nạp dữ liệu doanh số POS và kiểm kê kệ với cơ chế All-or-Nothing, ghi đè ngày trùng lặp. | UC-04 | `sales_records`, `inventory_snapshots` |
 | **`ConfigurationModule`**| Quản trị bản ghi Singleton cấu hình tham số toàn cửa hàng (bộ trọng số WSM, Service Level). | UC-07 | `dss_configurations` |
 | **`AuditModule`** | Cung cấp `AuditLogInterceptor` tự động ghi nhận nhật ký hoạt động Append-Only. | Giám sát hệ thống | `activity_logs` |

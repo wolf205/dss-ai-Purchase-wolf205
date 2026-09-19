@@ -20,9 +20,9 @@
 2. **Khóa Kỹ Thuật & Khóa Tự Nhiên (Key Management):**
    * Mọi bảng đều sử dụng khóa chính kỹ thuật vô nghĩa `id BIGINT GENERATED ALWAYS AS IDENTITY` để tối ưu hóa hiệu năng B-Tree Index, bộ nhớ đệm và các phép nối JOIN.
    * Toàn bộ mã nghiệp vụ tự nhiên (`sku_code`, `supplier_code`, `po_number`, `receipt_number`, `session_code`, `username`) được bảo vệ bằng ràng buộc `UNIQUE NOT NULL` kết hợp chỉ mục không phân biệt hoa thường (`Functional Unique Index UPPER(...)`).
-3. **Toàn vẹn dữ liệu đa tầng (Defense-in-Depth):**
-   * Chuyển hóa tối đa 44 Business Invariants xuống kiểm tra cứng tại tầng CSDL (`NOT NULL`, `CHECK`, `UNIQUE`, `EXCLUDE`, Generated Columns).
-   * Áp dụng Database Triggers cho các nghiệp vụ đồng bộ trạng thái liên bảng tự động (Tồn kho kệ, Hàng đang về, Phong độ OTIF).
+3. **Toàn vẹn dữ liệu đa tầng (Thin DB Architecture):**
+   * Các ràng buộc khóa chính, khóa ngoại và unique index vẫn được áp dụng ở DB (`NOT NULL`, `UNIQUE`). Tuy nhiên, toàn bộ logic kiểm tra ràng buộc (CHECK constraints) và đồng bộ dữ liệu tự động (Database Triggers) được loại bỏ khỏi tầng CSDL.
+   * Toàn bộ 44 Business Invariants và các nghiệp vụ đồng bộ trạng thái (Tồn kho kệ, Hàng đang về, Phong độ OTIF) được chuyển lên xử lý và bảo vệ tại **Application Layer (Tier 3)**.
 4. **Bảo tồn Bất biến Lịch sử (Historical Immutability & Auditability):**
    * Áp dụng kỹ thuật lưu thừa có kiểm soát (`Controlled Denormalization`) tại các bảng giao dịch: Sao chép snapshot đơn giá nhập (`historical_unit_price`), MOQ (`historical_moq`) và thời gian giao cam kết (`historical_lead_time_days`) tại thời điểm duyệt đơn. Tuyệt đối không JOIN ngược về bảng báo giá hiện hành khi truy vấn đơn hàng quá khứ.
    * Lưu snapshot tồn kho thực tế (`snapshot_current_inventory`) và hàng đang về (`snapshot_on_order_quantity`) tại thời điểm phân tích DSS để bảo tồn 100% tính giải trình của thuật toán.
@@ -138,7 +138,7 @@ erDiagram
     }
 
     dss_configurations {
-        integer id PK "CHECK (id = 1)"
+        integer id PK
         numeric price_weight
         numeric lead_time_weight
         numeric moq_weight
@@ -295,7 +295,7 @@ erDiagram
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_categories` (PK) | Khóa chính kỹ thuật 64-bit tự tăng |
 | `category_code` | `VARCHAR(50)` | **NO** | | `uq_categories_category_code` (UK) | Mã ngành hàng tự nhiên (`BEV`, `SNK`), bất biến |
-| `category_name` | `VARCHAR(100)` | **NO** | | `chk_categories_name_not_empty` | Tên hiển thị ngành hàng, cấm chuỗi rỗng |
+| `category_name` | `VARCHAR(100)` | **NO** | | | Tên hiển thị ngành hàng, cấm chuỗi rỗng |
 | `description` | `TEXT` | YES | `NULL` | | Mô tả phạm vi mặt hàng |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm tạo bản ghi (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật cuối (UTC) |
@@ -303,8 +303,6 @@ erDiagram
 * **Danh sách Ràng buộc (Constraints):**
   * `pk_categories`: `PRIMARY KEY (id)`
   * `uq_categories_category_code`: `UNIQUE (category_code)`
-  * `chk_categories_code_format`: `CHECK (category_code ~ '^[A-Za-z0-9_-]+$')`
-  * `chk_categories_name_not_empty`: `CHECK (trim(category_name) <> '')`
 * **Chỉ mục (Indexes):**
   * `uq_categories_code_upper`: Functional Unique Index `CREATE UNIQUE INDEX uq_categories_code_upper ON categories (UPPER(category_code));`
 
@@ -318,12 +316,12 @@ erDiagram
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_products` (PK) | Khóa chính kỹ thuật |
 | `sku_code` | `VARCHAR(50)` | **NO** | | `uq_products_sku_code` (UK) | Mã định danh SKU tự nhiên (`MILK-180ML`), bất biến |
-| `product_name` | `VARCHAR(255)` | **NO** | | `chk_products_name_not_empty` | Tên thương mại sản phẩm |
+| `product_name` | `VARCHAR(255)` | **NO** | | | Tên thương mại sản phẩm |
 | `barcode` | `VARCHAR(50)` | YES | `NULL` | `uq_products_barcode` (UK) | Mã vạch sản phẩm (nếu có thì duy nhất) |
-| `unit` | `VARCHAR(30)` | **NO** | | `chk_products_unit_not_empty` | Đơn vị tính (`Chai`, `Hộp`, `Gói`, `Lon`) |
-| `status` | `VARCHAR(20)` | **NO** | `'Active'` | `chk_products_status` | Trạng thái kinh doanh (`Active`, `Inactive`) |
-| `current_inventory` | `INTEGER` | **NO** | `0` | `chk_products_inventory_non_negative` | Tồn kho thực tế trên kệ ($\ge 0$, khởi tạo = 0) |
-| `on_order_quantity`| `INTEGER` | **NO** | `0` | `chk_products_on_order_non_negative` | Lượng hàng đang về từ PO Approved ($\ge 0$, khởi tạo = 0) |
+| `unit` | `VARCHAR(30)` | **NO** | | | Đơn vị tính (`Chai`, `Hộp`, `Gói`, `Lon`) |
+| `status` | `VARCHAR(20)` | **NO** | `'Active'` | | Trạng thái kinh doanh (`Active`, `Inactive`) |
+| `current_inventory` | `INTEGER` | **NO** | `0` | | Tồn kho thực tế trên kệ ($\ge 0$, khởi tạo = 0) |
+| `on_order_quantity`| `INTEGER` | **NO** | `0` | | Lượng hàng đang về từ PO Approved ($\ge 0$, khởi tạo = 0) |
 | `category_id` | `BIGINT` | **NO** | | `fk_products_categories` (FK) | Tham chiếu ngành hàng bắt buộc (`ON DELETE RESTRICT`) |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm tạo bản ghi (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật cuối (UTC) |
@@ -333,12 +331,6 @@ erDiagram
   * `uq_products_sku_code`: `UNIQUE (sku_code)`
   * `uq_products_barcode`: `UNIQUE (barcode)`
   * `fk_products_categories`: `FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT`
-  * `chk_products_sku_code_format`: `CHECK (sku_code ~ '^[A-Za-z0-9_-]+$')`
-  * `chk_products_name_not_empty`: `CHECK (trim(product_name) <> '')`
-  * `chk_products_unit_not_empty`: `CHECK (trim(unit) <> '')`
-  * `chk_products_status`: `CHECK (status IN ('Active', 'Inactive'))`
-  * `chk_products_inventory_non_negative`: `CHECK (current_inventory >= 0)`
-  * `chk_products_on_order_non_negative`: `CHECK (on_order_quantity >= 0)`
 * **Chỉ mục (Indexes):**
   * `uq_products_sku_code_upper`: Functional Unique Index `CREATE UNIQUE INDEX uq_products_sku_code_upper ON products (UPPER(sku_code));`
   * `idx_products_category_id`: B-Tree trên `(category_id)`
@@ -354,29 +346,22 @@ erDiagram
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_suppliers` (PK) | Khóa chính kỹ thuật |
 | `supplier_code` | `VARCHAR(50)` | **NO** | | `uq_suppliers_supplier_code` (UK) | Mã định danh NCC tự nhiên (`VINAMILK`), bất biến |
-| `supplier_name` | `VARCHAR(255)` | **NO** | | `chk_suppliers_name_not_empty` | Tên doanh nghiệp đối tác |
+| `supplier_name` | `VARCHAR(255)` | **NO** | | | Tên doanh nghiệp đối tác |
 | `contact_person` | `VARCHAR(100)` | YES | `NULL` | | Người đại diện liên hệ |
 | `phone_number` | `VARCHAR(50)` | YES | `NULL` | | Số điện thoại liên hệ |
 | `email` | `VARCHAR(100)` | YES | `NULL` | | Email giao dịch |
 | `address` | `TEXT` | YES | `NULL` | | Địa chỉ văn phòng / kho xuất hàng |
-| `committed_lead_time_days` | `INTEGER` | **NO** | | `chk_suppliers_lead_time_positive` | Lead Time giao hàng cam kết chuẩn ($\ge 1$ ngày) |
-| `status` | `VARCHAR(20)` | **NO** | `'Active'` | `chk_suppliers_status` | Trạng thái hợp tác (`Active`, `Inactive`) |
-| `performance_score` | `NUMERIC(5, 4)` | **NO** | `0.8000` | `chk_suppliers_performance_score` | Phong độ 5 đơn gần nhất ($0.0 - 1.0$), Cold start = $0.8000$ |
-| `all_time_performance_score` | `NUMERIC(5, 4)` | **NO** | `0.8000` | `chk_suppliers_all_time_score` | Điểm tích lũy toàn thời gian ($0.0 - 1.0$), mặc định $0.8000$ |
-| `completed_order_count` | `INTEGER` | **NO** | `0` | `chk_suppliers_order_count_non_negative` | Tổng số đơn PO đã hoàn tất nhận hàng ($\ge 0$) |
+| `committed_lead_time_days` | `INTEGER` | **NO** | | | Lead Time giao hàng cam kết chuẩn ($\ge 1$ ngày) |
+| `status` | `VARCHAR(20)` | **NO** | `'Active'` | | Trạng thái hợp tác (`Active`, `Inactive`) |
+| `performance_score` | `NUMERIC(5, 4)` | **NO** | `0.8000` | | Phong độ 5 đơn gần nhất ($0.0 - 1.0$), Cold start = $0.8000$ |
+| `all_time_performance_score` | `NUMERIC(5, 4)` | **NO** | `0.8000` | | Điểm tích lũy toàn thời gian ($0.0 - 1.0$), mặc định $0.8000$ |
+| `completed_order_count` | `INTEGER` | **NO** | `0` | | Tổng số đơn PO đã hoàn tất nhận hàng ($\ge 0$) |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm tạo hồ sơ (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật cuối (UTC) |
 
 * **Danh sách Ràng buộc (Constraints):**
   * `pk_suppliers`: `PRIMARY KEY (id)`
   * `uq_suppliers_supplier_code`: `UNIQUE (supplier_code)`
-  * `chk_suppliers_code_format`: `CHECK (supplier_code ~ '^[A-Za-z0-9_-]+$')`
-  * `chk_suppliers_name_not_empty`: `CHECK (trim(supplier_name) <> '')`
-  * `chk_suppliers_lead_time_positive`: `CHECK (committed_lead_time_days >= 1)`
-  * `chk_suppliers_status`: `CHECK (status IN ('Active', 'Inactive'))`
-  * `chk_suppliers_performance_score`: `CHECK (performance_score >= 0.0000 AND performance_score <= 1.0000)`
-  * `chk_suppliers_all_time_score`: `CHECK (all_time_performance_score >= 0.0000 AND all_time_performance_score <= 1.0000)`
-  * `chk_suppliers_order_count_non_negative`: `CHECK (completed_order_count >= 0)`
 * **Chỉ mục (Indexes):**
   * `uq_suppliers_code_upper`: Functional Unique Index `CREATE UNIQUE INDEX uq_suppliers_code_upper ON suppliers (UPPER(supplier_code));`
   * `idx_suppliers_status`: B-Tree trên `(status)`
@@ -392,9 +377,9 @@ erDiagram
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_supply_conditions` (PK) | Khóa chính kỹ thuật |
 | `product_id` | `BIGINT` | **NO** | | `fk_supply_conditions_products` (FK) | Tham chiếu SKU (`ON DELETE RESTRICT`) |
 | `supplier_id` | `BIGINT` | **NO** | | `fk_supply_conditions_suppliers` (FK) | Tham chiếu NCC (`ON DELETE RESTRICT`) |
-| `purchase_price` | `NUMERIC(15, 2)` | **NO** | | `chk_supply_conditions_price_positive` | Đơn giá nhập hiện hành ($> 0$ VNĐ) |
-| `moq` | `INTEGER` | **NO** | `1` | `chk_supply_conditions_moq_positive` | Số lượng đặt hàng tối thiểu ($\ge 1$) |
-| `status` | `VARCHAR(20)` | **NO** | `'Active'` | `chk_supply_conditions_status` | Trạng thái cung ứng (`Active`, `Discontinued`) |
+| `purchase_price` | `NUMERIC(15, 2)` | **NO** | | | Đơn giá nhập hiện hành ($> 0$ VNĐ) |
+| `moq` | `INTEGER` | **NO** | `1` | | Số lượng đặt hàng tối thiểu ($\ge 1$) |
+| `status` | `VARCHAR(20)` | **NO** | `'Active'` | | Trạng thái cung ứng (`Active`, `Discontinued`) |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm tạo báo giá (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật cuối (UTC) |
 
@@ -403,9 +388,6 @@ erDiagram
   * `uq_supply_conditions_product_supplier`: `UNIQUE (product_id, supplier_id)`
   * `fk_supply_conditions_products`: `FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT`
   * `fk_supply_conditions_suppliers`: `FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT`
-  * `chk_supply_conditions_price_positive`: `CHECK (purchase_price > 0)`
-  * `chk_supply_conditions_moq_positive`: `CHECK (moq >= 1)`
-  * `chk_supply_conditions_status`: `CHECK (status IN ('Active', 'Discontinued'))`
 * **Chỉ mục (Indexes):**
   * `idx_supply_conditions_product_id`: B-Tree trên `(product_id)`
   * `idx_supply_conditions_supplier_id`: B-Tree trên `(supplier_id)`
@@ -424,8 +406,8 @@ erDiagram
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_sales_records` (PK) | Khóa chính kỹ thuật |
 | `product_id` | `BIGINT` | **NO** | | `fk_sales_records_products` (FK) | Tham chiếu SKU (`ON DELETE RESTRICT`) |
 | `sale_date` | `DATE` | **NO** | | | Ngày bán hàng lịch ($\le$ Ngày hiện tại, kiểm soát tại Tier 3) |
-| `quantity_sold` | `INTEGER` | **NO** | | `chk_sales_records_quantity_positive` | Số lượng bán trong ngày ($> 0$) |
-| `revenue` | `NUMERIC(15, 2)` | **NO** | `0.00` | `chk_sales_records_revenue_non_negative` | Doanh thu thuần thu được ($\ge 0$ VNĐ) |
+| `quantity_sold` | `INTEGER` | **NO** | | | Số lượng bán trong ngày ($> 0$) |
+| `revenue` | `NUMERIC(15, 2)` | **NO** | `0.00` | | Doanh thu thuần thu được ($\ge 0$ VNĐ) |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm nạp bản ghi lần đầu (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật / ghi đè (UTC) |
 
@@ -433,8 +415,6 @@ erDiagram
   * `pk_sales_records`: `PRIMARY KEY (id)`
   * `uq_sales_records_product_date`: `UNIQUE (product_id, sale_date)`
   * `fk_sales_records_products`: `FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT`
-  * `chk_sales_records_quantity_positive`: `CHECK (quantity_sold > 0)`
-  * `chk_sales_records_revenue_non_negative`: `CHECK (revenue >= 0.00)`
   * *(Ghi chú kỹ thuật: Ràng buộc `sale_date <= CURRENT_DATE` được thẩm định tại Application Layer (Tier 3) do hàm CURRENT_DATE là Non-immutable trong PostgreSQL).*
 * **Chỉ mục (Indexes):**
   * `idx_sales_records_product_date`: Composite Index `CREATE INDEX idx_sales_records_product_date ON sales_records (product_id, sale_date DESC);`
@@ -451,7 +431,7 @@ erDiagram
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_inventory_snapshots` (PK) | Khóa chính kỹ thuật |
 | `product_id` | `BIGINT` | **NO** | | `fk_inventory_snapshots_products` (FK) | Tham chiếu SKU (`ON DELETE RESTRICT`) |
 | `snapshot_date` | `DATE` | **NO** | | | Ngày thực hiện kiểm kê kho ($\le$ Ngày hiện tại, kiểm soát tại Tier 3) |
-| `counted_quantity` | `INTEGER` | **NO** | | `chk_inventory_snapshots_counted_non_negative` | Số lượng hàng thực tế đếm được ($\ge 0$) |
+| `counted_quantity` | `INTEGER` | **NO** | | | Số lượng hàng thực tế đếm được ($\ge 0$) |
 | `counted_by` | `VARCHAR(100)` | YES | `NULL` | | Người thực hiện kiểm kê kho |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm nạp bản ghi kiểm kê (UTC) |
 
@@ -459,7 +439,6 @@ erDiagram
   * `pk_inventory_snapshots`: `PRIMARY KEY (id)`
   * `uq_inventory_snapshots_product_date`: `UNIQUE (product_id, snapshot_date)`
   * `fk_inventory_snapshots_products`: `FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT`
-  * `chk_inventory_snapshots_counted_non_negative`: `CHECK (counted_quantity >= 0)`
   * *(Ghi chú kỹ thuật: Ràng buộc `snapshot_date <= CURRENT_DATE` được thẩm định tại Application Layer (Tier 3) do hàm CURRENT_DATE là Non-immutable trong PostgreSQL).*
 * **Chỉ mục (Indexes):**
   * `idx_inventory_snapshots_product_date`: Composite Index `CREATE INDEX idx_inventory_snapshots_product_date ON inventory_snapshots (product_id, snapshot_date DESC);`
@@ -473,33 +452,19 @@ erDiagram
 | Tên Cột | Kiểu Dữ Liệu | Nullable | Mặc Định | Ràng Buộc / Khóa | Ý Nghĩa Nghiệp Vụ |
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `INTEGER` | **NO** | `1` | `pk_dss_configurations` (PK) | Khóa chính khóa cứng = 1 (Singleton) |
-| `price_weight` | `NUMERIC(5, 4)` | **NO** | `0.4000` | `chk_weights_non_negative` | Trọng số Đơn giá ($w_{\text{Price}}$, mặc định $40\%$) |
-| `lead_time_weight` | `NUMERIC(5, 4)` | **NO** | `0.2000` | `chk_weights_non_negative` | Trọng số Lead Time ($w_{\text{LeadTime}}$, mặc định $20\%$) |
-| `moq_weight` | `NUMERIC(5, 4)` | **NO** | `0.1500` | `chk_weights_non_negative` | Trọng số MOQ ($w_{\text{MOQ}}$, mặc định $15\%$) |
-| `history_weight` | `NUMERIC(5, 4)` | **NO** | `0.2500` | `chk_weights_non_negative` | Trọng số Lịch sử ($w_{\text{History}}$, mặc định $25\%$) |
-| `target_service_level`| `NUMERIC(5, 4)` | **NO** | `0.9500` | `chk_target_service_level_values` | Mức phục vụ mong muốn ($90\%, 95\%, 98\%, 99\%$) |
-| `z_factor` | `NUMERIC(4, 2)` | **NO** | `1.65` | `chk_z_factor_service_level_mapping` | Hệ số an toàn Z tương ứng ($1.28, 1.65, 2.05, 2.33$) |
-| `review_period_days` | `INTEGER` | **NO** | `7` | `chk_review_period_bounds` | Chu kỳ rà soát mua hàng định kỳ ($1 \le R \le 30$ ngày) |
+| `price_weight` | `NUMERIC(5, 4)` | **NO** | `0.4000` | | Trọng số Đơn giá ($w_{\text{Price}}$, mặc định $40\%$) |
+| `lead_time_weight` | `NUMERIC(5, 4)` | **NO** | `0.2000` | | Trọng số Lead Time ($w_{\text{LeadTime}}$, mặc định $20\%$) |
+| `moq_weight` | `NUMERIC(5, 4)` | **NO** | `0.1500` | | Trọng số MOQ ($w_{\text{MOQ}}$, mặc định $15\%$) |
+| `history_weight` | `NUMERIC(5, 4)` | **NO** | `0.2500` | | Trọng số Lịch sử ($w_{\text{History}}$, mặc định $25\%$) |
+| `target_service_level`| `NUMERIC(5, 4)` | **NO** | `0.9500` | | Mức phục vụ mong muốn ($90\%, 95\%, 98\%, 99\%$) |
+| `z_factor` | `NUMERIC(4, 2)` | **NO** | `1.65` | | Hệ số an toàn Z tương ứng ($1.28, 1.65, 2.05, 2.33$) |
+| `review_period_days` | `INTEGER` | **NO** | `7` | | Chu kỳ rà soát mua hàng định kỳ ($1 \le R \le 30$ ngày) |
 | `updated_by` | `VARCHAR(100)` | **NO** | `'Store Manager'` | | Quản lý cửa hàng cập nhật cấu hình |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm khởi tạo cấu hình (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật cuối (UTC) |
 
 * **Danh sách Ràng buộc (Constraints):**
   * `pk_dss_configurations`: `PRIMARY KEY (id)`
-  * `chk_dss_configurations_singleton_id`: `CHECK (id = 1)`
-  * `chk_dss_configurations_weights_sum`: `CHECK (price_weight + lead_time_weight + moq_weight + history_weight = 1.0000)`
-  * `chk_dss_configurations_weights_non_negative`: `CHECK (price_weight >= 0 AND lead_time_weight >= 0 AND moq_weight >= 0 AND history_weight >= 0)`
-  * `chk_dss_configurations_service_level_values`: `CHECK (target_service_level IN (0.9000, 0.9500, 0.9800, 0.9900))`
-  * `chk_dss_configurations_z_factor_mapping`:
-    ```sql
-    CHECK (
-        (target_service_level = 0.9000 AND z_factor = 1.28) OR
-        (target_service_level = 0.9500 AND z_factor = 1.65) OR
-        (target_service_level = 0.9800 AND z_factor = 2.05) OR
-        (target_service_level = 0.9900 AND z_factor = 2.33)
-    )
-    ```
-  * `chk_dss_configurations_review_period_bounds`: `CHECK (review_period_days >= 1 AND review_period_days <= 30)`
 
 ---
 
@@ -515,11 +480,11 @@ erDiagram
 | `session_code` | `VARCHAR(50)` | **NO** | | `uq_recommendation_sessions_code` (UK) | Mã phiên tự nhiên (`REC-20261025-01`), bất biến |
 | `category_id` | `BIGINT` | YES | `NULL` | `fk_sessions_categories` (FK) | Ngành hàng lọc phân tích (`NULL` = Toàn bộ cửa hàng / `All Categories`, `INV-REC-04`) |
 | `scope` | `VARCHAR(100)` | **NO** | `'All Categories'` | | Phạm vi phân tích (`All Categories` hoặc Tên ngành hàng snapshot) |
-| `status` | `VARCHAR(20)` | **NO** | `'Draft'` | `chk_recommendation_sessions_status` | Trạng thái (`Draft`, `Approved`, `Discarded`) |
-| `total_suggested_amount` | `NUMERIC(15, 2)` | **NO** | `0.00` | `chk_sessions_suggested_amt_non_negative` | Tổng ngân sách dự kiến theo gợi ý ban đầu |
-| `total_approved_amount` | `NUMERIC(15, 2)` | **NO** | `0.00` | `chk_sessions_approved_amt_non_negative` | Tổng ngân sách thực tế sau khi con người thẩm định |
+| `status` | `VARCHAR(20)` | **NO** | `'Draft'` | | Trạng thái (`Draft`, `Approved`, `Discarded`) |
+| `total_suggested_amount` | `NUMERIC(15, 2)` | **NO** | `0.00` | | Tổng ngân sách dự kiến theo gợi ý ban đầu |
+| `total_approved_amount` | `NUMERIC(15, 2)` | **NO** | `0.00` | | Tổng ngân sách thực tế sau khi con người thẩm định |
 | `created_by` | `VARCHAR(100)` | **NO** | | | Người kích hoạt phiên phân tích |
-| `approved_at` | `TIMESTAMPTZ` | YES | `NULL` | `chk_sessions_approved_at_consistency` | Thời điểm phê duyệt chốt phương án |
+| `approved_at` | `TIMESTAMPTZ` | YES | `NULL` | | Thời điểm phê duyệt chốt phương án |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm tạo phiên (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật cuối (UTC) |
 
@@ -527,10 +492,6 @@ erDiagram
   * `pk_recommendation_sessions`: `PRIMARY KEY (id)`
   * `uq_recommendation_sessions_code`: `UNIQUE (session_code)`
   * `fk_sessions_categories`: `FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT`
-  * `chk_recommendation_sessions_status`: `CHECK (status IN ('Draft', 'Approved', 'Discarded'))`
-  * `chk_sessions_approved_at_consistency`: `CHECK ((status = 'Approved' AND approved_at IS NOT NULL) OR (status <> 'Approved'))`
-  * `chk_sessions_suggested_amt_non_negative`: `CHECK (total_suggested_amount >= 0.00)`
-  * `chk_sessions_approved_amt_non_negative`: `CHECK (total_approved_amount >= 0.00)`
 * **Chỉ mục (Indexes):**
   * `idx_recommendation_sessions_status`: B-Tree trên `(status)`
   * `idx_recommendation_sessions_category_id`: B-Tree trên `(category_id)`
@@ -546,19 +507,19 @@ erDiagram
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_recommendation_items` (PK) | Khóa chính kỹ thuật |
 | `session_id` | `BIGINT` | **NO** | | `fk_rec_items_sessions` (FK) | Thuộc về phiên nào (`ON DELETE CASCADE`) |
 | `product_id` | `BIGINT` | **NO** | | `fk_rec_items_products` (FK) | Đề xuất cho SKU nào (`ON DELETE RESTRICT`) |
-| `forecasted_demand` | `NUMERIC(10, 2)` | **NO** | `0.00` | `chk_rec_items_forecast_non_negative` | Tổng nhu cầu dự báo chu kỳ bảo vệ ($L+R$) từ AI |
+| `forecasted_demand` | `NUMERIC(10, 2)` | **NO** | `0.00` | | Tổng nhu cầu dự báo chu kỳ bảo vệ ($L+R$) từ AI |
 | `daily_forecasts` | `JSONB` | YES | `NULL` | | Mảng chuỗi ngày dự báo tương lai kèm min/max phục vụ vẽ biểu đồ |
-| `snapshot_current_inventory`| `INTEGER` | **NO** | `0` | `chk_rec_items_snap_inv_non_negative` | Snapshot tồn kho kệ thực tế tại thời điểm chạy DSS |
-| `snapshot_on_order_quantity`| `INTEGER` | **NO** | `0` | `chk_rec_items_snap_order_non_negative` | Snapshot lượng hàng đang về tại thời điểm chạy DSS |
-| `safety_stock` | `INTEGER` | **NO** | `0` | `chk_rec_items_ss_non_negative` | Mức tồn kho an toàn tính toán ($SS \ge 0$) |
-| `reorder_point` | `INTEGER` | **NO** | `0` | `chk_rec_items_rop_non_negative` | Điểm đặt hàng lại ($ROP \ge 0$) |
-| `abc_xyz_group` | `VARCHAR(2)` | **NO** | | `chk_rec_items_abc_xyz` | Phân loại ma trận tồn kho (`AX`...`CZ`) |
-| `stock_risk_status` | `VARCHAR(30)` | **NO** | | `chk_rec_items_risk_status` | Phân loại rủi ro (`Critical`, `Warning`, `Safe`, `Overstock`) |
-| `suggested_quantity` | `INTEGER` | **NO** | `0` | `chk_rec_items_suggested_qty` | Số lượng DSS tính toán gợi ý (làm tròn MOQ) |
-| `suggested_supplier_wsm_score`| `NUMERIC(5, 4)` | YES | `NULL` | `chk_rec_items_wsm_score_range` | Điểm WSM của NCC được gợi ý ($0.0000 - 1.0000$, `BR-02`) |
+| `snapshot_current_inventory`| `INTEGER` | **NO** | `0` | | Snapshot tồn kho kệ thực tế tại thời điểm chạy DSS |
+| `snapshot_on_order_quantity`| `INTEGER` | **NO** | `0` | | Snapshot lượng hàng đang về tại thời điểm chạy DSS |
+| `safety_stock` | `INTEGER` | **NO** | `0` | | Mức tồn kho an toàn tính toán ($SS \ge 0$) |
+| `reorder_point` | `INTEGER` | **NO** | `0` | | Điểm đặt hàng lại ($ROP \ge 0$) |
+| `abc_xyz_group` | `VARCHAR(2)` | **NO** | | | Phân loại ma trận tồn kho (`AX`...`CZ`) |
+| `stock_risk_status` | `VARCHAR(30)` | **NO** | | | Phân loại rủi ro (`Critical`, `Warning`, `Safe`, `Overstock`) |
+| `suggested_quantity` | `INTEGER` | **NO** | `0` | | Số lượng DSS tính toán gợi ý (làm tròn MOQ) |
+| `suggested_supplier_wsm_score`| `NUMERIC(5, 4)` | YES | `NULL` | | Điểm WSM của NCC được gợi ý ($0.0000 - 1.0000$, `BR-02`) |
 | `suggested_supplier_id`| `BIGINT` | YES | `NULL` | `fk_rec_items_sugg_supplier` (FK) | NCC tối ưu do WSM gợi ý (NULL nếu SKU chưa có NCC hoặc gợi ý mua = 0) |
 | `supplier_rankings` | `JSONB` | YES | `NULL` | | Bảng điểm so sánh chi tiết toàn bộ NCC khả dụng cho SKU |
-| `approved_quantity` | `INTEGER` | **NO** | `0` | `chk_rec_items_approved_qty` | Số lượng con người phê duyệt thực tế ($\ge 0$) |
+| `approved_quantity` | `INTEGER` | **NO** | `0` | | Số lượng con người phê duyệt thực tế ($\ge 0$) |
 | `approved_supplier_id` | `BIGINT` | YES | `NULL` | `fk_rec_items_appr_supplier` (FK) | NCC con người lựa chọn (Bắt buộc có nếu `approved_quantity > 0`) |
 | `is_overridden` | `BOOLEAN` | **NO** | `FALSE` | | Cờ tự động: `TRUE` nếu con người can thiệp số lượng/NCC |
 | `why_buy_explanation` | `TEXT` | YES | `NULL` | | Đoạn tóm tắt lý do do LLM sinh On-demand khi click |
@@ -572,17 +533,6 @@ erDiagram
   * `fk_rec_items_products`: `FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT`
   * `fk_rec_items_sugg_supplier`: `FOREIGN KEY (suggested_supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT`
   * `fk_rec_items_appr_supplier`: `FOREIGN KEY (approved_supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT`
-  * `chk_rec_items_forecast_non_negative`: `CHECK (forecasted_demand >= 0.00)`
-  * `chk_rec_items_snap_inv_non_negative`: `CHECK (snapshot_current_inventory >= 0)`
-  * `chk_rec_items_snap_order_non_negative`: `CHECK (snapshot_on_order_quantity >= 0)`
-  * `chk_rec_items_ss_non_negative`: `CHECK (safety_stock >= 0)`
-  * `chk_rec_items_rop_non_negative`: `CHECK (reorder_point >= 0)`
-  * `chk_rec_items_abc_xyz`: `CHECK (abc_xyz_group IN ('AX','AY','AZ','BX','BY','BZ','CX','CY','CZ'))`
-  * `chk_rec_items_risk_status`: `CHECK (stock_risk_status IN ('Critical', 'Warning', 'Safe', 'Overstock'))`
-  * `chk_rec_items_suggested_qty`: `CHECK (suggested_quantity >= 0)`
-  * `chk_rec_items_wsm_score_range`: `CHECK (suggested_supplier_wsm_score IS NULL OR (suggested_supplier_wsm_score >= 0.0000 AND suggested_supplier_wsm_score <= 1.0000))`
-  * `chk_rec_items_approved_qty`: `CHECK (approved_quantity >= 0)`
-  * `chk_rec_items_approved_supplier`: `CHECK ((approved_quantity > 0 AND approved_supplier_id IS NOT NULL) OR (approved_quantity = 0))`
 * **Chỉ mục (Indexes):**
   * `idx_rec_items_session_id`: B-Tree trên `(session_id)`
   * `idx_rec_items_product_id`: B-Tree trên `(product_id)`
@@ -599,12 +549,12 @@ erDiagram
 | `po_number` | `VARCHAR(50)` | **NO** | | `uq_purchase_orders_po_number` (UK) | Mã đơn mua hàng tự nhiên (`PO-20261025-001`), bất biến |
 | `supplier_id` | `BIGINT` | **NO** | | `fk_po_suppliers` (FK) | Gửi tới NCC nào (`ON DELETE RESTRICT`) |
 | `session_id` | `BIGINT` | **NO** | | `fk_po_sessions` (FK) | Sinh từ phiên DSS nào (`ON DELETE RESTRICT`, 100% bắt buộc theo `INV-PO-01`) |
-| `status` | `VARCHAR(20)` | **NO** | `'Approved'` | `chk_purchase_orders_status` | Trạng thái 1 chiều (`Approved`, `Completed`, `Cancelled`) |
+| `status` | `VARCHAR(20)` | **NO** | `'Approved'` | | Trạng thái 1 chiều (`Approved`, `Completed`, `Cancelled`) |
 | `approval_date` | `DATE` | **NO** | `CURRENT_DATE` | | Ngày phê duyệt phát hành đơn |
-| `historical_lead_time_days`| `INTEGER`| **NO** | | `chk_po_lead_time_positive` | Snapshot Lead Time cam kết của NCC tại thời điểm duyệt |
-| `expected_delivery_date` | `DATE` | **NO** | | `chk_po_delivery_date_valid` | Ngày giao dự kiến bất biến ($= \text{approval} + \text{lead\_time}$) |
-| `total_amount` | `NUMERIC(15, 2)` | **NO** | `0.00` | `chk_po_total_amount_non_negative` | Tổng giá trị thanh toán của đơn hàng (VNĐ) |
-| `cancellation_reason` | `VARCHAR(255)` | YES | `NULL` | `chk_po_cancellation_reason_required` | Bắt buộc nhập lý do khi trạng thái là `Cancelled` |
+| `historical_lead_time_days`| `INTEGER`| **NO** | | | Snapshot Lead Time cam kết của NCC tại thời điểm duyệt |
+| `expected_delivery_date` | `DATE` | **NO** | | | Ngày giao dự kiến bất biến ($= \text{approval} + \text{lead\_time}$) |
+| `total_amount` | `NUMERIC(15, 2)` | **NO** | `0.00` | | Tổng giá trị thanh toán của đơn hàng (VNĐ) |
+| `cancellation_reason` | `VARCHAR(255)` | YES | `NULL` | | Bắt buộc nhập lý do khi trạng thái là `Cancelled` |
 | `cancelled_at` | `TIMESTAMPTZ` | YES | `NULL` | | Thời điểm hủy đơn thực tế |
 | `last_exported_at` | `TIMESTAMPTZ` | YES | `NULL` | | Thời điểm xuất file PDF/Excel hoặc in đơn gần nhất |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm tạo bản ghi (UTC) |
@@ -615,17 +565,6 @@ erDiagram
   * `uq_purchase_orders_po_number`: `UNIQUE (po_number)`
   * `fk_po_suppliers`: `FOREIGN KEY (supplier_id) REFERENCES suppliers(id) ON DELETE RESTRICT`
   * `fk_po_sessions`: `FOREIGN KEY (session_id) REFERENCES recommendation_sessions(id) ON DELETE RESTRICT`
-  * `chk_purchase_orders_status`: `CHECK (status IN ('Approved', 'Completed', 'Cancelled'))`
-  * `chk_po_lead_time_positive`: `CHECK (historical_lead_time_days >= 1)`
-  * `chk_po_delivery_date_valid`: `CHECK (expected_delivery_date >= approval_date)`
-  * `chk_po_total_amount_non_negative`: `CHECK (total_amount >= 0.00)`
-  * `chk_po_cancellation_reason_required`:
-    ```sql
-    CHECK (
-        (status = 'Cancelled' AND cancellation_reason IS NOT NULL AND trim(cancellation_reason) <> '' AND cancelled_at IS NOT NULL) OR
-        (status <> 'Cancelled' AND cancellation_reason IS NULL AND cancelled_at IS NULL)
-    )
-    ```
 * **Chỉ mục (Indexes):**
   * `idx_purchase_orders_supplier_id`: B-Tree trên `(supplier_id)`
   * `idx_purchase_orders_approved`: Partial Index:
@@ -645,9 +584,9 @@ erDiagram
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_po_line_items` (PK) | Khóa chính kỹ thuật |
 | `po_id` | `BIGINT` | **NO** | | `fk_po_lines_po` (FK) | Thuộc về đơn PO nào (`ON DELETE CASCADE`) |
 | `product_id` | `BIGINT` | **NO** | | `fk_po_lines_products` (FK) | Đặt mua SKU nào (`ON DELETE RESTRICT`) |
-| `quantity` | `INTEGER` | **NO** | | `chk_po_lines_qty_positive` | Số lượng đặt mua ($> 0$) |
-| `historical_unit_price`| `NUMERIC(15, 2)` | **NO** | | `chk_po_lines_price_positive` | **Snapshot đơn giá nhập** tại thời điểm chốt đơn |
-| `historical_moq` | `INTEGER` | **NO** | `1` | `chk_po_lines_moq_positive` | **Snapshot MOQ** tại thời điểm chốt đơn |
+| `quantity` | `INTEGER` | **NO** | | | Số lượng đặt mua ($> 0$) |
+| `historical_unit_price`| `NUMERIC(15, 2)` | **NO** | | | **Snapshot đơn giá nhập** tại thời điểm chốt đơn |
+| `historical_moq` | `INTEGER` | **NO** | `1` | | **Snapshot MOQ** tại thời điểm chốt đơn |
 | `line_total` | `NUMERIC(15, 2)` | **NO** | `STORED GENERATED` | | Thành tiền dòng: `(quantity * historical_unit_price)` |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm tạo dòng hàng |
 
@@ -656,10 +595,6 @@ erDiagram
   * `uq_po_line_items_po_product`: `UNIQUE (po_id, product_id)`
   * `fk_po_lines_po`: `FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE CASCADE`
   * `fk_po_lines_products`: `FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT`
-  * `chk_po_lines_qty_positive`: `CHECK (quantity > 0)`
-  * `chk_po_lines_price_positive`: `CHECK (historical_unit_price > 0.00)`
-  * `chk_po_lines_moq_positive`: `CHECK (historical_moq >= 1)`
-  * `line_total`: `GENERATED ALWAYS AS (quantity * historical_unit_price) STORED`
 * **Chỉ mục (Indexes):**
   * `idx_po_line_items_po_id`: B-Tree trên `(po_id)`
   * `idx_po_line_items_product_id`: B-Tree trên `(product_id)`
@@ -676,10 +611,10 @@ erDiagram
 | `receipt_number` | `VARCHAR(50)` | **NO** | | `uq_goods_receipts_number` (UK) | Mã phiếu nhận tự nhiên (`GR-20261028-001`), bất biến |
 | `po_id` | `BIGINT` | **NO** | | `uq_goods_receipts_po_id` (UK, FK) | **Khóa ngoại 1:1 duy nhất** trỏ tới `purchase_orders(id)` |
 | `actual_delivery_date` | `DATE` | **NO** | `CURRENT_DATE` | | Ngày nhận hàng thực tế tại kho ($\le$ Ngày hiện tại, kiểm soát tại Tier 3) |
-| `days_late` | `INTEGER` | **NO** | `0` | `chk_gr_days_late_non_negative` | Số ngày giao trễ ($= \max(0, \text{actual} - \text{expected})$) |
-| `on_time_factor` | `NUMERIC(5, 4)` | **NO** | | `chk_gr_on_time_factor_range` | Hệ số đúng hạn theo Linear Penalty Decay ($0.0 - 1.0$) |
-| `overall_fulfillment_rate`| `NUMERIC(5, 4)`| **NO** | | `chk_gr_fulfillment_rate_range` | Tỷ lệ giao đủ toàn đơn (Cap $100\% = 1.0000$) |
-| `order_performance_score`| `NUMERIC(5, 4)` | **NO** | | `chk_gr_order_score_range` | Điểm hiệu suất giao hàng của đơn ($0.0 - 1.0$) |
+| `days_late` | `INTEGER` | **NO** | `0` | | Số ngày giao trễ ($= \max(0, \text{actual} - \text{expected})$) |
+| `on_time_factor` | `NUMERIC(5, 4)` | **NO** | | | Hệ số đúng hạn theo Linear Penalty Decay ($0.0 - 1.0$) |
+| `overall_fulfillment_rate`| `NUMERIC(5, 4)`| **NO** | | | Tỷ lệ giao đủ toàn đơn (Cap $100\% = 1.0000$) |
+| `order_performance_score`| `NUMERIC(5, 4)` | **NO** | | | Điểm hiệu suất giao hàng của đơn ($0.0 - 1.0$) |
 | `notes` | `TEXT` | YES | `NULL` | | Ghi chú tình trạng hàng hóa giao nhận |
 | `received_by` | `VARCHAR(100)` | **NO** | | | Nhân viên kho thực hiện tiếp nhận |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm xác nhận phiếu nhận hàng (UTC) |
@@ -689,11 +624,7 @@ erDiagram
   * `uq_goods_receipts_number`: `UNIQUE (receipt_number)`
   * `uq_goods_receipts_po_id`: `UNIQUE (po_id)`
   * `fk_goods_receipts_po`: `FOREIGN KEY (po_id) REFERENCES purchase_orders(id) ON DELETE RESTRICT`
-  * `chk_gr_days_late_non_negative`: `CHECK (days_late >= 0)`
-  * `chk_gr_on_time_factor_range`: `CHECK (on_time_factor >= 0.0000 AND on_time_factor <= 1.0000)`
-  * `chk_gr_fulfillment_rate_range`: `CHECK (overall_fulfillment_rate >= 0.0000 AND overall_fulfillment_rate <= 1.0000)`
-  * `chk_gr_order_score_range`: `CHECK (order_performance_score >= 0.0000 AND order_performance_score <= 1.0000)`
-  * *(Ghi chú kỹ thuật: Trigger `trg_validate_po_status_before_receipt` (Tier 2) đảm bảo chỉ được tạo phiếu nhận hàng khi đơn PO tương ứng đang ở trạng thái `Approved`).*
+  * *(Ghi chú kỹ thuật: Application Logic (Tier 2) đảm bảo chỉ được tạo phiếu nhận hàng khi đơn PO tương ứng đang ở trạng thái `Approved`).*
 * **Chỉ mục (Indexes):**
   * `idx_goods_receipts_delivery_date`: B-Tree trên `(actual_delivery_date DESC)`
 
@@ -709,11 +640,11 @@ erDiagram
 | `receipt_id` | `BIGINT` | **NO** | | `fk_receipt_lines_gr` (FK) | Thuộc về phiếu nhận hàng nào (`ON DELETE CASCADE`) |
 | `po_line_item_id` | `BIGINT` | **NO** | | `fk_receipt_lines_po_line` (FK) | Đối soát trực tiếp với dòng đặt hàng trên PO (`ON DELETE RESTRICT`) |
 | `product_id` | `BIGINT` | **NO** | | `fk_receipt_lines_products` (FK) | Nhập SKU nào vào kho (`ON DELETE RESTRICT`) |
-| `ordered_quantity` | `INTEGER` | **NO** | | `chk_receipt_lines_ordered_positive` | Số lượng đã đặt ban đầu trên PO ($> 0$) |
-| `received_quantity`| `INTEGER` | **NO** | | `chk_receipt_lines_received_non_negative`| Số lượng thực nhận vào kho ($\ge 0$, cho phép $> \text{ordered}$) |
-| `historical_unit_price`| `NUMERIC(15, 2)`| **NO** | | `chk_receipt_lines_price_positive` | Snapshot đơn giá nhập từ PO |
+| `ordered_quantity` | `INTEGER` | **NO** | | | Số lượng đã đặt ban đầu trên PO ($> 0$) |
+| `received_quantity`| `INTEGER` | **NO** | | | Số lượng thực nhận vào kho ($\ge 0$, cho phép $> \text{ordered}$) |
+| `historical_unit_price`| `NUMERIC(15, 2)`| **NO** | | | Snapshot đơn giá nhập từ PO |
 | `line_received_total` | `NUMERIC(15, 2)`| **NO** | `STORED GENERATED` | | Giá trị thực nhận: `(received_quantity * historical_unit_price)` |
-| `item_fulfillment_rate`| `NUMERIC(5, 4)`| **NO** | | `chk_receipt_lines_fulfillment_range` | Tỷ lệ giao đủ của dòng hàng (Cap $100\% = 1.0000$) |
+| `item_fulfillment_rate`| `NUMERIC(5, 4)`| **NO** | | | Tỷ lệ giao đủ của dòng hàng (Cap $100\% = 1.0000$) |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm ghi nhận dòng hàng |
 
 * **Danh sách Ràng buộc (Constraints):**
@@ -723,11 +654,7 @@ erDiagram
   * `fk_receipt_lines_gr`: `FOREIGN KEY (receipt_id) REFERENCES goods_receipts(id) ON DELETE CASCADE`
   * `fk_receipt_lines_po_line`: `FOREIGN KEY (po_line_item_id) REFERENCES po_line_items(id) ON DELETE RESTRICT`
   * `fk_receipt_lines_products`: `FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT`
-  * `chk_receipt_lines_ordered_positive`: `CHECK (ordered_quantity > 0)`
-  * `chk_receipt_lines_received_non_negative`: `CHECK (received_quantity >= 0)`
-  * `chk_receipt_lines_price_positive`: `CHECK (historical_unit_price > 0.00)`
   * `line_received_total`: `GENERATED ALWAYS AS (received_quantity * historical_unit_price) STORED`
-  * `chk_receipt_lines_fulfillment_range`: `CHECK (item_fulfillment_rate >= 0.0000 AND item_fulfillment_rate <= 1.0000)`
 * **Chỉ mục (Indexes):**
   * `idx_receipt_line_items_receipt_id`: B-Tree trên `(receipt_id)`
   * `idx_receipt_line_items_po_line_id`: B-Tree trên `(po_line_item_id)`
@@ -750,10 +677,10 @@ erDiagram
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_users` (PK) | Khóa chính kỹ thuật 64-bit tự tăng |
 | `username` | `VARCHAR(50)` | **NO** | | `uq_users_username` (UK) | Tên tài khoản đăng nhập duy nhất (chống trùng lặp không phân biệt hoa thường) |
 | `password_hash` | `VARCHAR(255)` | **NO** | | | Chuỗi băm mật khẩu bảo mật (Bcrypt/Argon2) |
-| `full_name` | `VARCHAR(100)` | **NO** | | `chk_users_fullname_not_empty` | Họ và tên hiển thị của nhân viên/quản lý |
+| `full_name` | `VARCHAR(100)` | **NO** | | | Họ và tên hiển thị của nhân viên/quản lý |
 | `email` | `VARCHAR(100)` | YES | `NULL` | `uq_users_email` (UK) | Email liên hệ (phục vụ thông báo xuất/gửi đơn PO) |
-| `role` | `VARCHAR(20)` | **NO** | | `chk_users_role` | Vai trò phân quyền: `STORE_MANAGER` hoặc `PURCHASING_STAFF` |
-| `status` | `VARCHAR(20)` | **NO** | `'Active'` | `chk_users_status` | Trạng thái tài khoản: `Active` (Hoạt động) hoặc `Inactive` (Khóa) |
+| `role` | `VARCHAR(20)` | **NO** | | | Vai trò phân quyền: `STORE_MANAGER` hoặc `PURCHASING_STAFF` |
+| `status` | `VARCHAR(20)` | **NO** | `'Active'` | | Trạng thái tài khoản: `Active` (Hoạt động) hoặc `Inactive` (Khóa) |
 | `last_login_at` | `TIMESTAMPTZ` | YES | `NULL` | | Thời điểm đăng nhập thành công gần nhất (UTC) |
 | `created_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm khởi tạo tài khoản (UTC) |
 | `updated_at` | `TIMESTAMPTZ` | **NO** | `NOW()` | | Thời điểm cập nhật thông tin tài khoản gần nhất (UTC) |
@@ -762,10 +689,6 @@ erDiagram
   * `pk_users`: `PRIMARY KEY (id)`
   * `uq_users_username`: `UNIQUE (username)`
   * `uq_users_email`: `UNIQUE (email)`
-  * `chk_users_role`: `CHECK (role IN ('STORE_MANAGER', 'PURCHASING_STAFF'))`
-  * `chk_users_status`: `CHECK (status IN ('Active', 'Inactive'))`
-  * `chk_users_username_not_empty`: `CHECK (trim(username) <> '')`
-  * `chk_users_fullname_not_empty`: `CHECK (trim(full_name) <> '')`
 * **Chỉ mục (Indexes):**
   * `uq_users_username_upper`: Functional Unique Index `ON users (UPPER(username))` bảo vệ chống trùng lặp hoa thường.
 
@@ -809,8 +732,8 @@ erDiagram
 | :--- | :--- | :---: | :--- | :--- | :--- |
 | `id` | `BIGINT` | **NO** | `GENERATED ALWAYS AS IDENTITY` | `pk_activity_logs` (PK) | Khóa chính kỹ thuật |
 | `user_id` | `BIGINT` | YES | `NULL` | `fk_activity_logs_users` (FK) | Khóa ngoại trỏ tới user thực hiện (`ON DELETE SET NULL`) |
-| `username` | `VARCHAR(50)` | **NO** | | `chk_activity_logs_username_not_empty` | Snapshot tên tài khoản tại thời điểm thực hiện hành động |
-| `action` | `VARCHAR(50)` | **NO** | | `chk_activity_logs_action_not_empty` | Mã hành vi nghiệp vụ chuẩn hóa (ví dụ: `AUTH_LOGIN`, `DATA_IMPORT_SALES`) |
+| `username` | `VARCHAR(50)` | **NO** | | | Snapshot tên tài khoản tại thời điểm thực hiện hành động |
+| `action` | `VARCHAR(50)` | **NO** | | | Mã hành vi nghiệp vụ chuẩn hóa (ví dụ: `AUTH_LOGIN`, `DATA_IMPORT_SALES`) |
 | `entity_type` | `VARCHAR(50)` | YES | `NULL` | | Loại thực thể bị tác động (`USER`, `SALES_RECORD`, `PURCHASE_ORDER`...) |
 | `entity_id` | `VARCHAR(100)` | YES | `NULL` | | Mã định danh của bản ghi bị tác động (Mã PO, Session ID, User ID...) |
 | `description` | `TEXT` | **NO** | | | Mô tả tóm tắt hành động bằng ngôn ngữ tự nhiên dễ đọc |
@@ -820,8 +743,6 @@ erDiagram
 * **Danh sách Ràng buộc (Constraints):**
   * `pk_activity_logs`: `PRIMARY KEY (id)`
   * `fk_activity_logs_users`: `FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL`
-  * `chk_activity_logs_action_not_empty`: `CHECK (trim(action) <> '')`
-  * `chk_activity_logs_username_not_empty`: `CHECK (trim(username) <> '')`
 * **Chỉ mục (Indexes):**
   * `idx_activity_logs_created_at`: B-Tree trên `(created_at DESC)` (Tối ưu phân trang xem log gần nhất)
   * `idx_activity_logs_action`: B-Tree trên `(action)` (Lọc theo nhóm hành vi)
@@ -832,67 +753,66 @@ erDiagram
 
 ## 4. Ma Trận Ánh Xạ & Thực Thi 54 Business Invariants (3-Tier Defense)
 
-Hệ thống thiết lập cơ chế bảo vệ 3 tầng khép kín (**3-Tier Defense Architecture**) để hiện thực hóa $100\%$ các Bất biến nghiệp vụ chuẩn hóa từ [docs/business/domain-model.md](../business/domain-model.md):
-* **Tier 1 (Database DDL & Constraints):** Ràng buộc cứng tại tầng CSDL (Primary Key, Foreign Key, Unique, Check, Not Null, Stored Generated Column, Functional Unique Index).
-* **Tier 2 (Database Triggers & Event Procedures):** Thủ tục tự động hóa đồng bộ dữ liệu nội tại CSDL khi phát sinh sự kiện ghi (After Insert/Update, Before Update/Delete).
-* **Tier 3 (Application Service & Transaction Boundary):** Nghiệp vụ tính toán phức tạp (Thuật toán ML Demand Forecasting, WSM TOPSIS, LLM Explanation On-demand, Phân quyền RBAC và Quản trị chu trình phân tích).
+Hệ thống thiết lập cơ chế bảo vệ lấy Ứng dụng làm trung tâm (**Application-Centric Architecture**) để hiện thực hóa $100\%$ các Bất biến nghiệp vụ chuẩn hóa từ [docs/business/domain-model.md](../business/domain-model.md):
+* **Cơ sở dữ liệu (Thin DB):** Chỉ chứa khai báo bảng (Tables), Khóa chính (Primary Key), Khóa ngoại (Foreign Key) cơ bản.
+* **Tầng Ứng dụng (Application Service & Validation):** Toàn bộ các quy tắc nghiệp vụ, kiểm tra ràng buộc (Check Constraints), đồng bộ dữ liệu (Triggers), và phân quyền đều được thực thi tại Backend code (NestJS / Prisma) để tập trung logic và dễ bảo trì.
 
 | Thực thể Miền | Mã Invariant | Bảng CSDL Liên Quan | Tầng Kỹ Thuật | Cơ Chế Kỹ Thuật & Chi Tiết Ràng Buộc |
 | :--- | :--- | :--- | :---: | :--- |
-| `Category` | **INV-CAT-01** | `categories` | **Tier 1** | `category_code VARCHAR(50) NOT NULL CONSTRAINT uq_categories_category_code UNIQUE` kết hợp functional unique index `uq_categories_code_upper ON categories (UPPER(category_code))` |
-| `Category` | **INV-CAT-02** | `categories`, `products` | **Tier 1** | `products.category_id BIGINT NOT NULL CONSTRAINT fk_products_categories REFERENCES categories(id) ON DELETE RESTRICT` và `recommendation_sessions.category_id CONSTRAINT fk_sessions_categories REFERENCES categories(id) ON DELETE RESTRICT` (chặn xóa ngành hàng còn dữ liệu liên kết) |
-| `Product` | **INV-PROD-01** | `products` | **Tier 1** | `sku_code VARCHAR(50) NOT NULL CONSTRAINT uq_products_sku_code UNIQUE` kết hợp functional unique index `uq_products_sku_code_upper ON products (UPPER(sku_code))` |
-| `Product` | **INV-PROD-02** | `products` | **Tier 1 & 3** | Khóa ngoại `ON DELETE RESTRICT` tại toàn bộ các bảng liên kết (`supply_conditions`, `sales_records`, `inventory_snapshots`, `recommendation_items`, `po_line_items`, `receipt_line_items`); Application Service chặn Hard Delete nếu SKU đã phát sinh liên kết |
-| `Product` | **INV-PROD-03** | `products` | **Tier 1 & 3** | `status VARCHAR(20) NOT NULL DEFAULT 'Active' CONSTRAINT chk_products_status CHECK (status IN ('Active', 'Inactive'))`; Application Service cảnh báo khi chuyển Inactive lúc đang có `on_order_quantity > 0` và loại trừ SKU khỏi gợi ý mua mới |
-| `Product` | **INV-PROD-04** | `products` | **Tier 1** | Mặc định khởi tạo: `status = 'Active'`, `current_inventory = 0`, `on_order_quantity = 0` |
-| `Product` | **INV-PROD-05** | `products` | **Tier 1 & 2** | `CONSTRAINT chk_products_inventory_non_negative CHECK (current_inventory >= 0)` và `CONSTRAINT chk_products_on_order_non_negative CHECK (on_order_quantity >= 0)`. Tồn kho kệ chỉ biến động qua Trigger kiểm kê `trg_sync_inventory_on_snapshot` hoặc Trigger nhận hàng `trg_complete_po_on_receipt_line_insert` |
-| `Supplier` | **INV-SUPP-01** | `suppliers` | **Tier 1** | `supplier_code VARCHAR(50) NOT NULL CONSTRAINT uq_suppliers_supplier_code UNIQUE` kết hợp `uq_suppliers_code_upper ON suppliers (UPPER(supplier_code))` |
-| `Supplier` | **INV-SUPP-02** | `suppliers` | **Tier 1** | Khóa ngoại `ON DELETE RESTRICT` tại `supply_conditions.supplier_id`, `purchase_orders.supplier_id`, `recommendation_items.suggested_supplier_id`, `recommendation_items.approved_supplier_id` chặn xóa cứng NCC đã phát sinh liên kết |
-| `Supplier` | **INV-SUPP-03** | `suppliers` | **Tier 3** | Application Service kiểm tra chặn chuyển trạng thái `status = 'Inactive'` của NCC nếu đang tồn tại đơn hàng `purchase_orders` ở trạng thái `Approved` chờ giao hàng |
-| `Supplier` | **INV-SUPP-04** | `suppliers` | **Tier 1 & 2** | Mặc định `performance_score NUMERIC(5, 4) NOT NULL DEFAULT 0.8000` (Cold Start 80% khi dưới 3 đơn); Trigger `trg_update_supplier_otif_on_receipt` áp dụng cơ chế chuyển tiếp điểm khi phát sinh nhận hàng |
-| `Supplier` | **INV-SUPP-05** | `suppliers` | **Tier 2** | Trigger `trg_update_supplier_otif_on_receipt` tự động tính lại điểm phong độ theo cửa sổ trượt 5 đơn `goods_receipts` hoàn tất gần nhất khi nhận hàng |
-| `Supplier` | **INV-SUPP-06** | `suppliers` | **Tier 1** | `committed_lead_time_days INTEGER NOT NULL CONSTRAINT chk_suppliers_lead_time_positive CHECK (committed_lead_time_days >= 1)` áp dụng chung cho mọi SKU do đối tác cung ứng |
-| `SupplyCondition`| **INV-COND-01** | `supply_conditions` | **Tier 1** | `CONSTRAINT uq_supply_conditions_product_supplier UNIQUE (product_id, supplier_id)` đảm bảo mỗi cặp SKU - NCC chỉ có đúng 1 điều kiện cung ứng duy nhất |
-| `SupplyCondition`| **INV-COND-02** | `supply_conditions` | **Tier 1** | `CONSTRAINT chk_supply_conditions_price_positive CHECK (purchase_price > 0.00)` và `CONSTRAINT chk_supply_conditions_moq_positive CHECK (moq >= 1)` |
-| `SupplyCondition`| **INV-COND-03** | `supply_conditions` | **Tier 3** | Application Service kiểm tra chặn chuyển `status = 'Discontinued'` nếu đang có đơn `purchase_orders` trạng thái `Approved` chứa SKU này từ NCC tương ứng |
-| `SupplyCondition`| **INV-COND-04** | `supply_conditions`, `po_line_items` | **Tier 1** | Bảng `supply_conditions` chỉ lưu báo giá hiện hành; các biến động giá quá khứ được bảo lưu vĩnh viễn qua snapshot `po_line_items.historical_unit_price` |
-| `SalesRecord` | **INV-SALE-01** | `sales_records` | **Tier 1** | `CONSTRAINT uq_sales_records_product_date UNIQUE (product_id, sale_date)` đảm bảo tính duy nhất của sản lượng bán theo SKU và ngày |
-| `SalesRecord` | **INV-SALE-02** | `sales_records` | **Tier 3** | Application Service kiểm tra ràng buộc `sale_date <= CURRENT_DATE` trước khi tiếp nhận dữ liệu bán hàng |
-| `SalesRecord` | **INV-SALE-03** | `sales_records` | **Tier 1** | `CONSTRAINT chk_sales_records_quantity_positive CHECK (quantity_sold > 0)` và `CONSTRAINT chk_sales_records_revenue_non_negative CHECK (revenue >= 0.00)` |
-| `SalesRecord` | **INV-SALE-04** | `sales_records` | **Tier 1 & 3** | Cơ chế Upsert qua câu lệnh `INSERT INTO sales_records ... ON CONFLICT (product_id, sale_date) DO UPDATE SET quantity_sold = EXCLUDED.quantity_sold, revenue = EXCLUDED.revenue` (ghi đè, không cộng dồn) |
-| `SalesRecord` | **INV-SALE-05** | `sales_records` | **Tier 1** | Khóa ngoại `fk_sales_products` không ràng buộc trạng thái SKU, cho phép tiếp nhận dữ liệu tiêu thụ của cả SKU `Active` và `Inactive` phục vụ phân tích xả hàng tồn |
-| `InventorySnapshot`| **INV-INV-01** | `inventory_snapshots` | **Tier 1** | `CONSTRAINT chk_inventory_snapshots_counted_non_negative CHECK (counted_quantity >= 0)` |
-| `InventorySnapshot`| **INV-INV-02** | `products` | **Tier 2** | Trigger `trg_sync_inventory_on_snapshot` tự động đồng bộ gán `products.current_inventory = NEW.counted_quantity` khi `snapshot_date >= CURRENT_DATE` |
-| `InventorySnapshot`| **INV-INV-03** | `products` | **Tier 2** | Trigger `trg_sync_inventory_on_snapshot` chỉ tác động cột `current_inventory`, bảo lưu nguyên vẹn 100% lượng hàng đang về `on_order_quantity` |
-| `InventorySnapshot`| **INV-INV-04** | `inventory_snapshots` | **Tier 1 & 3** | Dữ liệu kiểm kê lưu độc lập theo từng SKU; các SKU vắng mặt trong tệp kiểm đếm giữ nguyên tồn kho hiện có (hỗ trợ kiểm kê luân phiên) |
-| `InventorySnapshot`| **INV-INV-05** | `inventory_snapshots` | **Tier 1** | Mỗi lần kiểm kê sinh bản ghi độc lập có `counted_by` và `created_at` làm bằng chứng kiểm toán (Audit Trail) |
-| `DSSConfiguration`| **INV-CONF-01** | `dss_configurations` | **Tier 1** | `CONSTRAINT chk_dss_configurations_weights_sum CHECK (price_weight + lead_time_weight + moq_weight + history_weight = 1.0000)` và `CHECK (từng trọng số >= 0)` |
-| `DSSConfiguration`| **INV-CONF-02** | `dss_configurations` | **Tier 1** | `CONSTRAINT chk_dss_configurations_service_level_values CHECK (target_service_level IN (0.9000, 0.9500, 0.9800, 0.9900))` và `chk_dss_configurations_z_factor_mapping` |
-| `DSSConfiguration`| **INV-CONF-03** | `dss_configurations` | **Tier 1** | `CONSTRAINT chk_dss_configurations_review_period_bounds CHECK (review_period_days >= 1 AND review_period_days <= 30)` |
-| `DSSConfiguration`| **INV-CONF-04** | `dss_configurations` | **Tier 1 & 3** | Tham số cấu hình DSS chỉ áp dụng cho các phiên tính toán tương lai; các phiên `recommendation_sessions` và đơn `purchase_orders` cũ bảo lưu snapshot độc lập không bị hồi tố |
+| `Category` | **INV-CAT-01** | `categories` | **DB / App Logic** | `category_code VARCHAR(50) NOT NULL CONSTRAINT uq_categories_category_code UNIQUE` kết hợp functional unique index `uq_categories_code_upper ON categories (UPPER(category_code))` |
+| `Category` | **INV-CAT-02** | `categories`, `products` | **DB / App Logic** | `products.category_id BIGINT NOT NULL CONSTRAINT fk_products_categories REFERENCES categories(id) ON DELETE RESTRICT` và `recommendation_sessions.category_id CONSTRAINT fk_sessions_categories REFERENCES categories(id) ON DELETE RESTRICT` (chặn xóa ngành hàng còn dữ liệu liên kết) |
+| `Product` | **INV-PROD-01** | `products` | **DB / App Logic** | `sku_code VARCHAR(50) NOT NULL CONSTRAINT uq_products_sku_code UNIQUE` kết hợp functional unique index `uq_products_sku_code_upper ON products (UPPER(sku_code))` |
+| `Product` | **INV-PROD-02** | `products` | **App Logic** | Khóa ngoại `ON DELETE RESTRICT` tại toàn bộ các bảng liên kết (`supply_conditions`, `sales_records`, `inventory_snapshots`, `recommendation_items`, `po_line_items`, `receipt_line_items`); Application Service chặn Hard Delete nếu SKU đã phát sinh liên kết |
+| `Product` | **INV-PROD-03** | `products` | **App Logic** | `status VARCHAR(20) NOT NULL DEFAULT 'Active' CONSTRAINT chk_products_status CHECK (status IN ('Active', 'Inactive'))`; Application Service cảnh báo khi chuyển Inactive lúc đang có `on_order_quantity > 0` và loại trừ SKU khỏi gợi ý mua mới |
+| `Product` | **INV-PROD-04** | `products` | **DB / App Logic** | Mặc định khởi tạo: `status = 'Active'`, `current_inventory = 0`, `on_order_quantity = 0` |
+| `Product` | **INV-PROD-05** | `products` | **App Logic** | `CONSTRAINT chk_products_inventory_non_negative CHECK (current_inventory >= 0)` và `CONSTRAINT chk_products_on_order_non_negative CHECK (on_order_quantity >= 0)`. Tồn kho kệ chỉ biến động qua Trigger kiểm kê `trg_sync_inventory_on_snapshot` hoặc Trigger nhận hàng `trg_complete_po_on_receipt_line_insert` |
+| `Supplier` | **INV-SUPP-01** | `suppliers` | **DB / App Logic** | `supplier_code VARCHAR(50) NOT NULL CONSTRAINT uq_suppliers_supplier_code UNIQUE` kết hợp `uq_suppliers_code_upper ON suppliers (UPPER(supplier_code))` |
+| `Supplier` | **INV-SUPP-02** | `suppliers` | **DB / App Logic** | Khóa ngoại `ON DELETE RESTRICT` tại `supply_conditions.supplier_id`, `purchase_orders.supplier_id`, `recommendation_items.suggested_supplier_id`, `recommendation_items.approved_supplier_id` chặn xóa cứng NCC đã phát sinh liên kết |
+| `Supplier` | **INV-SUPP-03** | `suppliers` | **App Logic** | Application Service kiểm tra chặn chuyển trạng thái `status = 'Inactive'` của NCC nếu đang tồn tại đơn hàng `purchase_orders` ở trạng thái `Approved` chờ giao hàng |
+| `Supplier` | **INV-SUPP-04** | `suppliers` | **App Logic** | Mặc định `performance_score NUMERIC(5, 4) NOT NULL DEFAULT 0.8000` (Cold Start 80% khi dưới 3 đơn); Application Logic áp dụng cơ chế chuyển tiếp điểm khi phát sinh nhận hàng |
+| `Supplier` | **INV-SUPP-05** | `suppliers` | **App Logic** | Application Logic tự động tính lại điểm phong độ theo cửa sổ trượt 5 đơn `goods_receipts` hoàn tất gần nhất khi nhận hàng |
+| `Supplier` | **INV-SUPP-06** | `suppliers` | **DB / App Logic** | `committed_lead_time_days INTEGER NOT NULL CONSTRAINT chk_suppliers_lead_time_positive CHECK (committed_lead_time_days >= 1)` áp dụng chung cho mọi SKU do đối tác cung ứng |
+| `SupplyCondition`| **INV-COND-01** | `supply_conditions` | **DB / App Logic** | `CONSTRAINT uq_supply_conditions_product_supplier UNIQUE (product_id, supplier_id)` đảm bảo mỗi cặp SKU - NCC chỉ có đúng 1 điều kiện cung ứng duy nhất |
+| `SupplyCondition`| **INV-COND-02** | `supply_conditions` | **DB / App Logic** | `CONSTRAINT chk_supply_conditions_price_positive CHECK (purchase_price > 0.00)` và `CONSTRAINT chk_supply_conditions_moq_positive CHECK (moq >= 1)` |
+| `SupplyCondition`| **INV-COND-03** | `supply_conditions` | **App Logic** | Application Service kiểm tra chặn chuyển `status = 'Discontinued'` nếu đang có đơn `purchase_orders` trạng thái `Approved` chứa SKU này từ NCC tương ứng |
+| `SupplyCondition`| **INV-COND-04** | `supply_conditions`, `po_line_items` | **DB / App Logic** | Bảng `supply_conditions` chỉ lưu báo giá hiện hành; các biến động giá quá khứ được bảo lưu vĩnh viễn qua snapshot `po_line_items.historical_unit_price` |
+| `SalesRecord` | **INV-SALE-01** | `sales_records` | **DB / App Logic** | `CONSTRAINT uq_sales_records_product_date UNIQUE (product_id, sale_date)` đảm bảo tính duy nhất của sản lượng bán theo SKU và ngày |
+| `SalesRecord` | **INV-SALE-02** | `sales_records` | **App Logic** | Application Service kiểm tra ràng buộc `sale_date <= CURRENT_DATE` trước khi tiếp nhận dữ liệu bán hàng |
+| `SalesRecord` | **INV-SALE-03** | `sales_records` | **DB / App Logic** | `CONSTRAINT chk_sales_records_quantity_positive CHECK (quantity_sold > 0)` và `CONSTRAINT chk_sales_records_revenue_non_negative CHECK (revenue >= 0.00)` |
+| `SalesRecord` | **INV-SALE-04** | `sales_records` | **App Logic** | Cơ chế Upsert qua câu lệnh `INSERT INTO sales_records ... ON CONFLICT (product_id, sale_date) DO UPDATE SET quantity_sold = EXCLUDED.quantity_sold, revenue = EXCLUDED.revenue` (ghi đè, không cộng dồn) |
+| `SalesRecord` | **INV-SALE-05** | `sales_records` | **DB / App Logic** | Khóa ngoại `fk_sales_products` không ràng buộc trạng thái SKU, cho phép tiếp nhận dữ liệu tiêu thụ của cả SKU `Active` và `Inactive` phục vụ phân tích xả hàng tồn |
+| `InventorySnapshot`| **INV-INV-01** | `inventory_snapshots` | **DB / App Logic** | `CONSTRAINT chk_inventory_snapshots_counted_non_negative CHECK (counted_quantity >= 0)` |
+| `InventorySnapshot`| **INV-INV-02** | `products` | **App Logic** | Application Logic tự động đồng bộ gán `products.current_inventory = NEW.counted_quantity` khi `snapshot_date >= CURRENT_DATE` |
+| `InventorySnapshot`| **INV-INV-03** | `products` | **App Logic** | Application Logic chỉ tác động cột `current_inventory`, bảo lưu nguyên vẹn 100% lượng hàng đang về `on_order_quantity` |
+| `InventorySnapshot`| **INV-INV-04** | `inventory_snapshots` | **App Logic** | Dữ liệu kiểm kê lưu độc lập theo từng SKU; các SKU vắng mặt trong tệp kiểm đếm giữ nguyên tồn kho hiện có (hỗ trợ kiểm kê luân phiên) |
+| `InventorySnapshot`| **INV-INV-05** | `inventory_snapshots` | **DB / App Logic** | Mỗi lần kiểm kê sinh bản ghi độc lập có `counted_by` và `created_at` làm bằng chứng kiểm toán (Audit Trail) |
+| `DSSConfiguration`| **INV-CONF-01** | `dss_configurations` | **DB / App Logic** | `CONSTRAINT chk_dss_configurations_weights_sum CHECK (price_weight + lead_time_weight + moq_weight + history_weight = 1.0000)` và `CHECK (từng trọng số >= 0)` |
+| `DSSConfiguration`| **INV-CONF-02** | `dss_configurations` | **DB / App Logic** | `CONSTRAINT chk_dss_configurations_service_level_values CHECK (target_service_level IN (0.9000, 0.9500, 0.9800, 0.9900))` và |
+| `DSSConfiguration`| **INV-CONF-03** | `dss_configurations` | **DB / App Logic** | `CONSTRAINT chk_dss_configurations_review_period_bounds CHECK (review_period_days >= 1 AND review_period_days <= 30)` |
+| `DSSConfiguration`| **INV-CONF-04** | `dss_configurations` | **App Logic** | Tham số cấu hình DSS chỉ áp dụng cho các phiên tính toán tương lai; các phiên `recommendation_sessions` và đơn `purchase_orders` cũ bảo lưu snapshot độc lập không bị hồi tố |
 | `DSSConfiguration`| **INV-CONF-05** | `dss_configurations` | **Tier 1 & 6** | Bản ghi Singleton `id = 1` được seed sẵn bộ thông số an toàn mặc định (40/20/15/25, SL 95%, R 7) và hỗ trợ khôi phục qua Application Service |
-| `DSSConfiguration`| **INV-CONF-06** | `dss_configurations`, `users` | **Tier 3** | Cơ chế phân quyền RBAC chỉ cho phép vai trò `STORE_MANAGER` thực hiện lệnh UPDATE cấu hình |
-| `RecommendationSession`| **INV-REC-01** | `recommendation_sessions` | **Tier 1 & 3** | `CONSTRAINT chk_recommendation_sessions_status CHECK (status IN ('Draft', 'Approved', 'Discarded'))`; Khóa bất biến toàn bộ phiên khi chuyển sang `Approved` |
-| `RecommendationSession`| **INV-REC-02** | `recommendation_sessions`, `purchase_orders` | **Tier 3** | Database Transaction nguyên khối (`BEGIN ... COMMIT`) tự động sinh các đơn `purchase_orders` ở trạng thái `Approved` ngay khi duyệt phiên DSS |
-| `RecommendationSession`| **INV-REC-03** | `recommendation_sessions` | **Tier 3** | Khi tạo phiên phân tích mới, Application Service tự động chuyển phiên nháp cũ sang `Discarded`; bảo tồn vĩnh viễn các phiên `Approved` cũ |
-| `RecommendationSession`| **INV-REC-04** | `recommendation_sessions` | **Tier 1 & 3** | Cột `category_id BIGINT NULL CONSTRAINT fk_sessions_categories REFERENCES categories(id) ON DELETE RESTRICT`; Application Service lọc phạm vi quét SKU theo `category_id` (NULL = quét toàn bộ danh mục SKU `Active`) |
-| `RecommendationItem` | **INV-REC-05** | `recommendation_items` | **Tier 1 & 3** | `CONSTRAINT chk_rec_items_approved_supplier CHECK ((approved_quantity > 0 AND approved_supplier_id IS NOT NULL) OR (approved_quantity = 0))` và lưu vết song song `suggested` vs `approved`, tự động đánh cờ `is_overridden` |
-| `RecommendationItem` | **INV-REC-06** | `recommendation_items` | **Tier 1** | Cột snapshot `snapshot_current_inventory` và `snapshot_on_order_quantity` bảo đảm tính giải trình và tái lập 100% công thức SOQ khi kiểm toán |
-| `RecommendationItem` | **INV-REC-07** | `recommendation_items` | **Tier 1 & 3** | Cột `why_buy_explanation TEXT NULL` mặc định `NULL`; chỉ gọi AI LLM sinh giải thích khi người dùng bấm xem chi tiết từng dòng tại UI |
-| `PurchaseOrder` | **INV-PO-01** | `purchase_orders` | **Tier 1** | `status VARCHAR(20) NOT NULL DEFAULT 'Approved'` và `session_id BIGINT NOT NULL CONSTRAINT fk_po_sessions REFERENCES recommendation_sessions(id) ON DELETE RESTRICT` (100% PO bắt nguồn từ DSS) |
-| `PurchaseOrder` | **INV-PO-02** | `purchase_orders`, `po_line_items` | **Tier 2 & 3** | Trigger `trg_prevent_po_line_items_modification` chặn sửa xóa dòng lẻ của đơn PO đã phát hành; chỉ hỗ trợ chức năng Hủy toàn bộ đơn hàng (`Cancel PO`) |
-| `PurchaseOrder` | **INV-PO-03** | `purchase_orders` | **Tier 1 & 2** | `CONSTRAINT chk_purchase_orders_status CHECK (status IN ('Approved', 'Completed', 'Cancelled'))`; Trigger `trg_prevent_immutable_po_modification` chặn sửa đổi đơn khi đã đóng |
-| `PurchaseOrder` | **INV-PO-04** | `products` | **Tier 2** | Trigger `trg_after_po_line_insert` tăng `on_order_quantity`; Trigger `trg_sync_on_order_on_po_change` tự động hoàn trả `on_order_quantity` về 0 khi đơn PO chuyển sang `Cancelled` |
-| `PurchaseOrder` | **INV-PO-05** | `purchase_orders` | **Tier 1 & 2** | `expected_delivery_date DATE NOT NULL CONSTRAINT chk_po_delivery_date_valid CHECK (expected_delivery_date >= approval_date)`; Trigger `trg_prevent_immutable_po_modification` bảo đảm ngày giao cố định bất biến |
-| `PurchaseOrder` | **INV-PO-06** | `purchase_orders` | **Tier 1** | `CONSTRAINT chk_po_cancellation_reason_required` bắt buộc nhập lý do hủy `cancellation_reason` và `cancelled_at` khi trạng thái là `Cancelled` |
-| `PurchaseOrder` | **INV-PO-07** | `purchase_orders`, `po_line_items` | **Tier 1 & 3** | `total_amount NUMERIC(15, 2) NOT NULL DEFAULT 0.00 CONSTRAINT chk_po_total_amount_non_negative CHECK (total_amount >= 0.00)`; Application Service tính toán bằng chính xác $\sum \text{line\_total}$ khi sinh đơn PO |
-| `POLineItem` | **INV-POLINE-01** | `po_line_items` | **Tier 1** | Cột snapshot `historical_unit_price NUMERIC(15, 2) NOT NULL` và `historical_moq INTEGER NOT NULL` bảo lưu chi phí mua hàng bất biến |
-| `POLineItem` | **INV-POLINE-02** | `po_line_items` | **Tier 1** | `CONSTRAINT chk_po_lines_qty_positive CHECK (quantity > 0)` và `line_total NUMERIC(15, 2) GENERATED ALWAYS AS (quantity * historical_unit_price) STORED` |
-| `GoodsReceipt` | **INV-GR-01** | `goods_receipts` | **Tier 1 & 2** | Khóa ngoại đối soát 1:1 `po_id BIGINT NOT NULL CONSTRAINT uq_goods_receipts_po_id UNIQUE CONSTRAINT fk_goods_receipts_po REFERENCES purchase_orders(id) ON DELETE RESTRICT`; Trigger `trg_validate_po_status_before_receipt` bắt buộc PO phải ở trạng thái `Approved` |
-| `GoodsReceipt` | **INV-GR-02** | `goods_receipts` | **Tier 3** | Application Service kiểm tra $\sum \text{received\_quantity} > 0$ trước khi hoàn tất nhận hàng; nếu từ chối 100% hàng lỗi thì giữ nguyên PO `Approved` để giao lại ngoài thực tế |
-| `GoodsReceipt` | **INV-GR-03** | `purchase_orders`, `products`, `suppliers` | **Tier 2** | Trigger `trg_mark_po_completed_on_receipt` chuyển PO sang `Completed`; Trigger `trg_complete_po_on_receipt_line_insert` tăng tồn kệ và tất toán On-order; Trigger `trg_update_supplier_otif_on_receipt` tính lại OTIF |
-| `ReceiptLineItem` | **INV-RECLINE-01**| `receipt_line_items` | **Tier 1** | `CONSTRAINT chk_receipt_lines_received_non_negative CHECK (received_quantity >= 0)` và `CONSTRAINT chk_receipt_lines_fulfillment_range CHECK (item_fulfillment_rate >= 0.0000 AND item_fulfillment_rate <= 1.0000)` (cap 100%) |
-| `ReceiptLineItem` | **INV-RECLINE-02**| `receipt_line_items` | **Tier 1** | `po_line_item_id BIGINT NOT NULL CONSTRAINT fk_receipt_lines_po_line REFERENCES po_line_items(id) ON DELETE RESTRICT` và `CONSTRAINT uq_receipt_line_items_receipt_po_line UNIQUE (receipt_id, po_line_item_id)` đối soát trực tiếp dòng đơn PO |
+| `DSSConfiguration`| **INV-CONF-06** | `dss_configurations`, `users` | **App Logic** | Cơ chế phân quyền RBAC chỉ cho phép vai trò `STORE_MANAGER` thực hiện lệnh UPDATE cấu hình |
+| `RecommendationSession`| **INV-REC-01** | `recommendation_sessions` | **App Logic** | `CONSTRAINT chk_recommendation_sessions_status CHECK (status IN ('Draft', 'Approved', 'Discarded'))`; Khóa bất biến toàn bộ phiên khi chuyển sang `Approved` |
+| `RecommendationSession`| **INV-REC-02** | `recommendation_sessions`, `purchase_orders` | **App Logic** | Database Transaction nguyên khối (`BEGIN ... COMMIT`) tự động sinh các đơn `purchase_orders` ở trạng thái `Approved` ngay khi duyệt phiên DSS |
+| `RecommendationSession`| **INV-REC-03** | `recommendation_sessions` | **App Logic** | Khi tạo phiên phân tích mới, Application Service tự động chuyển phiên nháp cũ sang `Discarded`; bảo tồn vĩnh viễn các phiên `Approved` cũ |
+| `RecommendationSession`| **INV-REC-04** | `recommendation_sessions` | **App Logic** | Cột `category_id BIGINT NULL CONSTRAINT fk_sessions_categories REFERENCES categories(id) ON DELETE RESTRICT`; Application Service lọc phạm vi quét SKU theo `category_id` (NULL = quét toàn bộ danh mục SKU `Active`) |
+| `RecommendationItem` | **INV-REC-05** | `recommendation_items` | **App Logic** | `CONSTRAINT chk_rec_items_approved_supplier CHECK ((approved_quantity > 0 AND approved_supplier_id IS NOT NULL) OR (approved_quantity = 0))` và lưu vết song song `suggested` vs `approved`, tự động đánh cờ `is_overridden` |
+| `RecommendationItem` | **INV-REC-06** | `recommendation_items` | **DB / App Logic** | Cột snapshot `snapshot_current_inventory` và `snapshot_on_order_quantity` bảo đảm tính giải trình và tái lập 100% công thức SOQ khi kiểm toán |
+| `RecommendationItem` | **INV-REC-07** | `recommendation_items` | **App Logic** | Cột `why_buy_explanation TEXT NULL` mặc định `NULL`; chỉ gọi AI LLM sinh giải thích khi người dùng bấm xem chi tiết từng dòng tại UI |
+| `PurchaseOrder` | **INV-PO-01** | `purchase_orders` | **DB / App Logic** | `status VARCHAR(20) NOT NULL DEFAULT 'Approved'` và `session_id BIGINT NOT NULL CONSTRAINT fk_po_sessions REFERENCES recommendation_sessions(id) ON DELETE RESTRICT` (100% PO bắt nguồn từ DSS) |
+| `PurchaseOrder` | **INV-PO-02** | `purchase_orders`, `po_line_items` | **App Logic** | Application Logic chặn sửa xóa dòng lẻ của đơn PO đã phát hành; chỉ hỗ trợ chức năng Hủy toàn bộ đơn hàng (`Cancel PO`) |
+| `PurchaseOrder` | **INV-PO-03** | `purchase_orders` | **App Logic** | `CONSTRAINT chk_purchase_orders_status CHECK (status IN ('Approved', 'Completed', 'Cancelled'))`; Application Logic chặn sửa đổi đơn khi đã đóng |
+| `PurchaseOrder` | **INV-PO-04** | `products` | **App Logic** | Application Logic tăng `on_order_quantity`; Application Logic tự động hoàn trả `on_order_quantity` về 0 khi đơn PO chuyển sang `Cancelled` |
+| `PurchaseOrder` | **INV-PO-05** | `purchase_orders` | **App Logic** | `expected_delivery_date DATE NOT NULL CONSTRAINT chk_po_delivery_date_valid CHECK (expected_delivery_date >= approval_date)`; Application Logic bảo đảm ngày giao cố định bất biến |
+| `PurchaseOrder` | **INV-PO-06** | `purchase_orders` | **DB / App Logic** | `CONSTRAINT chk_po_cancellation_reason_required` bắt buộc nhập lý do hủy `cancellation_reason` và `cancelled_at` khi trạng thái là `Cancelled` |
+| `PurchaseOrder` | **INV-PO-07** | `purchase_orders`, `po_line_items` | **App Logic** | `total_amount NUMERIC(15, 2) NOT NULL DEFAULT 0.00 CONSTRAINT chk_po_total_amount_non_negative CHECK (total_amount >= 0.00)`; Application Service tính toán bằng chính xác $\sum \text{line\_total}$ khi sinh đơn PO |
+| `POLineItem` | **INV-POLINE-01** | `po_line_items` | **DB / App Logic** | Cột snapshot `historical_unit_price NUMERIC(15, 2) NOT NULL` và `historical_moq INTEGER NOT NULL` bảo lưu chi phí mua hàng bất biến |
+| `POLineItem` | **INV-POLINE-02** | `po_line_items` | **DB / App Logic** | `CONSTRAINT chk_po_lines_qty_positive CHECK (quantity > 0)` và `line_total NUMERIC(15, 2) GENERATED ALWAYS AS (quantity * historical_unit_price) STORED` |
+| `GoodsReceipt` | **INV-GR-01** | `goods_receipts` | **App Logic** | Khóa ngoại đối soát 1:1 `po_id BIGINT NOT NULL CONSTRAINT uq_goods_receipts_po_id UNIQUE CONSTRAINT fk_goods_receipts_po REFERENCES purchase_orders(id) ON DELETE RESTRICT`; Application Logic bắt buộc PO phải ở trạng thái `Approved` |
+| `GoodsReceipt` | **INV-GR-02** | `goods_receipts` | **App Logic** | Application Service kiểm tra $\sum \text{received\_quantity} > 0$ trước khi hoàn tất nhận hàng; nếu từ chối 100% hàng lỗi thì giữ nguyên PO `Approved` để giao lại ngoài thực tế |
+| `GoodsReceipt` | **INV-GR-03** | `purchase_orders`, `products`, `suppliers` | **App Logic** | Application Logic chuyển PO sang `Completed`; Application Logic tăng tồn kệ và tất toán On-order; Application Logic tính lại OTIF |
+| `ReceiptLineItem` | **INV-RECLINE-01**| `receipt_line_items` | **DB / App Logic** | `CONSTRAINT chk_receipt_lines_received_non_negative CHECK (received_quantity >= 0)` và `CONSTRAINT chk_receipt_lines_fulfillment_range CHECK (item_fulfillment_rate >= 0.0000 AND item_fulfillment_rate <= 1.0000)` (cap 100%) |
+| `ReceiptLineItem` | **INV-RECLINE-02**| `receipt_line_items` | **DB / App Logic** | `po_line_item_id BIGINT NOT NULL CONSTRAINT fk_receipt_lines_po_line REFERENCES po_line_items(id) ON DELETE RESTRICT` và `CONSTRAINT uq_receipt_line_items_receipt_po_line UNIQUE (receipt_id, po_line_item_id)` đối soát trực tiếp dòng đơn PO |
 
 ---
 
@@ -1369,238 +1289,6 @@ CREATE INDEX idx_activity_logs_created_at ON activity_logs (created_at DESC);
 CREATE INDEX idx_activity_logs_action ON activity_logs (action);
 CREATE INDEX idx_activity_logs_entity ON activity_logs (entity_type, entity_id);
 CREATE INDEX idx_activity_logs_user_id ON activity_logs (user_id);
-
--- -----------------------------------------------------------------------------
--- PHÂN VÙNG TRIGGERS: TỰ ĐỘNG HÓA ĐỒNG BỘ TOÀN VẸN (TIER 2)
--- -----------------------------------------------------------------------------
-
--- Trigger 1: Cập nhật tồn kho kệ từ kiểm kê thực tế (INV-INV-02 / BR-16)
-CREATE OR REPLACE FUNCTION trg_sync_inventory_on_snapshot()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Chỉ đồng bộ tồn kho thực tế nếu kiểm kê là ngày hiện tại (hoặc tương lai), tránh ghi đè khi import dữ liệu lịch sử
-    IF (NEW.snapshot_date >= CURRENT_DATE) THEN
-        UPDATE products
-        SET current_inventory = NEW.counted_quantity,
-            updated_at = NOW()
-        WHERE id = NEW.product_id;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_after_inventory_snapshot_insert_update
-AFTER INSERT OR UPDATE ON inventory_snapshots
-FOR EACH ROW
-EXECUTE FUNCTION trg_sync_inventory_on_snapshot();
-
--- Trigger 2: Đồng bộ On-Order khi tạo hoặc hủy đơn PO (INV-PO-04 / BR-07)
-CREATE OR REPLACE FUNCTION trg_sync_on_order_on_po_change()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Khi PO chuyển sang Cancelled: Giảm trừ on_order_quantity tương ứng
-    IF (TG_OP = 'UPDATE' AND OLD.status = 'Approved' AND NEW.status = 'Cancelled') THEN
-        UPDATE products p
-        SET on_order_quantity = GREATEST(0, p.on_order_quantity - sub.total_qty),
-            updated_at = NOW()
-        FROM (
-            SELECT product_id, SUM(quantity) AS total_qty
-            FROM po_line_items
-            WHERE po_id = NEW.id
-            GROUP BY product_id
-        ) sub
-        WHERE p.id = sub.product_id;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_after_po_status_change
-AFTER UPDATE ON purchase_orders
-FOR EACH ROW
-EXECUTE FUNCTION trg_sync_on_order_on_po_change();
-
--- Trigger 2b: Đồng bộ tăng On-order khi thêm dòng hàng vào PO Approved (INV-PO-04 / BR-07)
-CREATE OR REPLACE FUNCTION trg_sync_on_order_on_po_line_insert()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE products
-    SET on_order_quantity = on_order_quantity + NEW.quantity,
-        updated_at = NOW()
-    WHERE id = NEW.product_id;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_after_po_line_insert
-AFTER INSERT ON po_line_items
-FOR EACH ROW
-EXECUTE FUNCTION trg_sync_on_order_on_po_line_insert();
-
--- Trigger 2c: Chặn sửa đổi dòng hàng sau khi đơn PO đã phát hành (INV-PO-02 / BR-06)
-CREATE OR REPLACE FUNCTION trg_prevent_po_line_items_modification()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_po_status VARCHAR(20);
-BEGIN
-    SELECT status INTO v_po_status
-    FROM purchase_orders
-    WHERE id = OLD.po_id;
-
-    IF (v_po_status IN ('Approved', 'Completed', 'Cancelled')) THEN
-        RAISE EXCEPTION 'Không thể sửa đổi hoặc xóa dòng hàng của đơn mua hàng đã phát hành ở trạng thái % (INV-PO-02)', v_po_status;
-    END IF;
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_before_po_line_update_delete
-BEFORE UPDATE OR DELETE ON po_line_items
-FOR EACH ROW
-EXECUTE FUNCTION trg_prevent_po_line_items_modification();
-
--- Trigger 3: Hoàn tất đơn PO, tăng tồn kho kệ và tất toán On-order khi nhận hàng (INV-GR-03 / BR-12)
-CREATE OR REPLACE FUNCTION trg_complete_po_on_receipt_line_insert()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- Tăng tồn kho thực nhận vào kệ và tất toán On-order theo số lượng đặt ban đầu
-    UPDATE products
-    SET current_inventory = current_inventory + NEW.received_quantity,
-        on_order_quantity = GREATEST(0, on_order_quantity - NEW.ordered_quantity),
-        updated_at = NOW()
-    WHERE id = NEW.product_id;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_after_receipt_line_insert
-AFTER INSERT ON receipt_line_items
-FOR EACH ROW
-EXECUTE FUNCTION trg_complete_po_on_receipt_line_insert();
-
--- Trigger 3b: Chuyển trạng thái đơn PO sang Completed khi tạo phiếu nhận hàng (INV-GR-03 / BR-06)
-CREATE OR REPLACE FUNCTION trg_mark_po_completed_on_receipt()
-RETURNS TRIGGER AS $$
-BEGIN
-    UPDATE purchase_orders
-    SET status = 'Completed',
-        updated_at = NOW()
-    WHERE id = NEW.po_id;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_after_goods_receipt_insert
-AFTER INSERT ON goods_receipts
-FOR EACH ROW
-EXECUTE FUNCTION trg_mark_po_completed_on_receipt();
-
--- Trigger 3c: Xác thực đơn PO phải ở trạng thái Approved trước khi tạo phiếu nhận hàng (INV-GR-01 / BR-11)
-CREATE OR REPLACE FUNCTION trg_validate_po_status_before_receipt()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_po_status VARCHAR(20);
-BEGIN
-    SELECT status INTO v_po_status
-    FROM purchase_orders
-    WHERE id = NEW.po_id;
-
-    IF (v_po_status IS NULL) THEN
-        RAISE EXCEPTION 'Đơn mua hàng không tồn tại (ID: %)', NEW.po_id;
-    ELSIF (v_po_status <> 'Approved') THEN
-        RAISE EXCEPTION 'Chỉ có thể ghi nhận nhận hàng cho đơn mua hàng ở trạng thái Approved (Trạng thái hiện tại: %) (INV-GR-01)', v_po_status;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_before_goods_receipt_insert
-BEFORE INSERT ON goods_receipts
-FOR EACH ROW
-EXECUTE FUNCTION trg_validate_po_status_before_receipt();
-
--- Trigger 4: Cập nhật phong độ OTIF 5 đơn gần nhất của NCC (INV-SUPP-05 / BR-24)
-CREATE OR REPLACE FUNCTION trg_update_supplier_otif_on_receipt()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_supplier_id BIGINT;
-    v_recent_score NUMERIC(5, 4);
-    v_order_count INTEGER;
-BEGIN
-    -- Lấy supplier_id từ PO
-    SELECT supplier_id INTO v_supplier_id
-    FROM purchase_orders
-    WHERE id = NEW.po_id;
-
-    -- Đếm tổng số đơn đã hoàn tất của đối tác
-    SELECT COUNT(*) INTO v_order_count
-    FROM goods_receipts gr
-    JOIN purchase_orders po ON gr.po_id = po.id
-    WHERE po.supplier_id = v_supplier_id;
-
-    -- Tính điểm phong độ: Cold-start nếu < 3 đơn, trung bình toàn bộ nếu 3-4 đơn, trung bình 5 đơn gần nhất nếu >= 5 đơn
-    IF v_order_count < 3 THEN
-        v_recent_score := 0.8000;
-    ELSIF v_order_count < 5 THEN
-        SELECT ROUND(AVG(gr.order_performance_score), 4) INTO v_recent_score
-        FROM goods_receipts gr
-        JOIN purchase_orders po ON gr.po_id = po.id
-        WHERE po.supplier_id = v_supplier_id;
-    ELSE
-        SELECT ROUND(AVG(sub.order_performance_score), 4) INTO v_recent_score
-        FROM (
-            SELECT gr.order_performance_score
-            FROM goods_receipts gr
-            JOIN purchase_orders po ON gr.po_id = po.id
-            WHERE po.supplier_id = v_supplier_id
-            ORDER BY gr.actual_delivery_date DESC, gr.id DESC
-            LIMIT 5
-        ) sub;
-    END IF;
-
-    -- Cập nhật vào hồ sơ đối tác
-    UPDATE suppliers
-    SET performance_score = v_recent_score,
-        completed_order_count = v_order_count,
-        updated_at = NOW()
-    WHERE id = v_supplier_id;
-
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_after_goods_receipt_update_supplier_score
-AFTER INSERT ON goods_receipts
-FOR EACH ROW
-EXECUTE FUNCTION trg_update_supplier_otif_on_receipt();
-
--- Trigger 5: Chặn sửa đổi PO đã Completed hoặc Cancelled (INV-PO-03, INV-PO-05 / BR-06)
-CREATE OR REPLACE FUNCTION trg_prevent_immutable_po_modification()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF (OLD.status IN ('Completed', 'Cancelled')) THEN
-        -- Cho phép cập nhật last_exported_at (khi người dùng in lại/xuất lại đơn cũ để đối soát)
-        IF (TG_OP = 'UPDATE' 
-            AND NEW.status = OLD.status 
-            AND NEW.total_amount = OLD.total_amount 
-            AND NEW.supplier_id = OLD.supplier_id 
-            AND NEW.po_number = OLD.po_number
-            AND NEW.approval_date = OLD.approval_date
-            AND NEW.expected_delivery_date = OLD.expected_delivery_date
-            AND NEW.historical_lead_time_days = OLD.historical_lead_time_days
-            AND NEW.last_exported_at IS DISTINCT FROM OLD.last_exported_at) THEN
-            RETURN NEW;
-        END IF;
-        RAISE EXCEPTION 'Không thể sửa đổi hoặc xóa đơn mua hàng đã ở trạng thái % (INV-PO-03)', OLD.status;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER trg_before_po_update_delete
-BEFORE UPDATE OR DELETE ON purchase_orders
-FOR EACH ROW
-EXECUTE FUNCTION trg_prevent_immutable_po_modification();
 
 -- -----------------------------------------------------------------------------
 -- DỮ LIỆU MỒI KHỞI TẠO BAN ĐẦU (SEED DATA BASELINE)
