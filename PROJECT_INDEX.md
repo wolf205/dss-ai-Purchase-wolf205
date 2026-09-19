@@ -36,7 +36,7 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
   - [x] **Task 1.2: Scaffolding Backend Core (NestJS)** — Khởi tạo `backend/` với NestJS 10, TypeScript Strict Mode, Global Prefix `/api/v1`, CORS, Cookie-parser, Swagger setup và Health check endpoint `GET /api/v1/health`.
   - [x] **Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL** — Viết `backend/prisma/schema.prisma` khớp 100% `data-model.md` (chốt tên cột `why_buy_explanation` trên `recommendation_items`), chạy initial migration tạo 16 bảng vật lý trong PostgreSQL.
   - [x] **Task 1.4: Dọn dẹp Migration & Chuyển đổi Kiến trúc Thin DB** — Hủy bỏ tích hợp Trigger; dọn dẹp các ràng buộc thủ công trong migration `init` và reset CSDL về trạng thái cơ bản (chỉ bảng và khóa). Toàn bộ logic bảo vệ dữ liệu được chuyển lên Application Layer.
-  - [ ] **Task 1.5: Script Seed Data Ban Đầu** — Viết `backend/prisma/seed.ts` nạp 2 tài khoản test (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF đã hash bcrypt), bản ghi singleton `DSSConfiguration` (`id = 1`), và danh mục ngành hàng mẫu.
+  - [x] **Task 1.5: Script Seed Data Ban Đầu** — Viết `backend/prisma/seed.ts` nạp 2 tài khoản test (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF đã hash bcrypt), bản ghi singleton `DSSConfiguration` (`id = 1`), và danh mục ngành hàng mẫu.
   - [ ] **Task 1.6: Scaffolding AI Service & Frontend** — Khởi tạo `ai-service/` (Python 3.12 FastAPI, requirements.txt, Pydantic config, `GET /health`) và `frontend/` (React 18+ Vite, TypeScript Strict, cấu hình TailwindCSS, proxy `/api`, layout shell).
 
 - [ ] **Giai đoạn 2: Hạ tầng Backend Core, Bảo mật IAM / RBAC & Swagger API Docs**
@@ -99,3 +99,4 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
 | 18/09/2026 | Task 1.2: Scaffolding Backend Core | Khởi tạo NestJS 10, TypeScript Strict, Global Prefix /api/v1, CORS, Cookie-parser, Swagger UI (/api/docs), Standard API Envelope, Health check GET /api/v1/health. | `e5a1945` |
 | 18/09/2026 | Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL | Viết schema.prisma 16 bảng khớp data-model và apply thành công vào PostgreSQL. | `Done` |
 | 19/09/2026 | Task 1.4: Chuyển đổi Kiến trúc Thin DB | Cập nhật tài liệu data-model loại bỏ yêu cầu dùng Database Triggers và CHECK constraints, chuyển trách nhiệm bảo vệ dữ liệu lên Application Layer. | `Done` |
+| 19/09/2026 | Task 1.5: Script Seed Data Ban Đầu | Tạo seed.ts, nạp DSS Configuration (id=1), 2 tài khoản Users (admin, staff với bcrypt) và 3 danh mục ngành hàng mẫu. | `Done` |
