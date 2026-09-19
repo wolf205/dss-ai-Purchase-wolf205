@@ -43,24 +43,24 @@ services:
   # ============================================================================
   # 3. Backend Web API (NestJS Modular Monolith - Sẽ kích hoạt tại Task 1.2/Giai đoạn 2)
   # ============================================================================
-  # backend:
-  #   build:
-  #     context: ./backend
-  #     dockerfile: Dockerfile
-  #   container_name: dss_backend
-  #   restart: always
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   env_file:
-  #     - ./backend/.env
-  #   environment:
-  #     # Ghi đè DATABASE_URL để dùng hostname của container thay vì localhost
-  #     DATABASE_URL: postgresql://${POSTGRES_USER:-dss_admin}:${POSTGRES_PASSWORD:-dss_secret_pass}@postgres:5432/${POSTGRES_DB:-dss_retail_db}?schema=public
-  #   ports:
-  #     - "3000:3000"
-  #   networks:
-  #     - dss_network
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dss_backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - ./backend/.env
+    environment:
+      # Ghi đè DATABASE_URL để dùng hostname của container thay vì localhost
+      DATABASE_URL: postgresql://${POSTGRES_USER:-dss_admin}:${POSTGRES_PASSWORD:-dss_secret_pass}@postgres:5432/${POSTGRES_DB:-dss_retail_db}?schema=public
+    ports:
+      - "3000:3000"
+    networks:
+      - dss_network
 
   # ============================================================================
   # 4. Frontend Web App (React + Vite SPA - Sẽ kích hoạt tại Task 1.6 & Giai đoạn 7)
