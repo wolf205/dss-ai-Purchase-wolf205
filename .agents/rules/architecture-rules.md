@@ -103,7 +103,7 @@ Các bất biến không thể khóa cứng bằng DDL/Trigger (Tier 1 & Tier 2)
 
 1. **Backend (NestJS):**
    * Theo chuẩn Module: `src/modules/<module-name>/` (`auth`, `products`, `categories`, `suppliers`, `dss`, `orders`, `receipts`, `import`, `audit`).
-   * Mỗi module gồm: `<name>.controller.ts`, `<name>.service.ts`, `<name>.repository.ts`, thư mục `dto/`.
+   * Mỗi module gồm: `<name>.controller.ts`, `<name>.service.ts`, thư mục `dto/`. (Sử dụng trực tiếp `PrismaService` theo hướng Pragmatic, không bắt buộc tạo Repository bọc ngoài).
 2. **Python AI Service:**
    * Tổ chức theo service nhẹ (FastAPI): `src/api/`, `src/forecasting/`, `src/models/`.
 3. **Frontend (React + Vite):**
