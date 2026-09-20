@@ -57,6 +57,7 @@ services:
     environment:
       # Ghi đè DATABASE_URL để dùng hostname của container thay vì localhost
       DATABASE_URL: postgresql://${POSTGRES_USER:-dss_admin}:${POSTGRES_PASSWORD:-dss_secret_pass}@postgres:5432/${POSTGRES_DB:-dss_retail_db}?schema=public
+      AI_SERVICE_URL: http://ai-service:8000
     ports:
       - "3000:3000"
     networks:

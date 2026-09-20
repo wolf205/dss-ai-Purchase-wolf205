@@ -3,8 +3,11 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { UsersService } from '../users/users.service';
+import { User } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+
+export type SafeUser = Omit<User, 'passwordHash'>;
 
 @Injectable()
 export class AuthService {
@@ -15,7 +18,7 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  async validateUser(username: string, pass: string): Promise<any> {
+  async validateUser(username: string, pass: string): Promise<SafeUser | null> {
     const user = await this.usersService.findByUsername(username);
     if (user && user.status === 'Active') {
       const isMatch = await bcrypt.compare(pass, user.passwordHash);
@@ -27,22 +30,33 @@ export class AuthService {
         });
 
         // Loại bỏ passwordHash trước khi trả về
-        const { passwordHash, ...result } = user;
+        const result = { ...user };
+        delete (result as { passwordHash?: string }).passwordHash;
         return result;
       }
     }
     return null;
   }
 
-  async login(user: any, clientIp?: string, userAgent?: string) {
-    const payload = { username: user.username, sub: user.id.toString(), role: user.role };
+  async login(user: SafeUser, clientIp?: string, userAgent?: string) {
+    const payload = {
+      username: user.username,
+      sub: user.id.toString(),
+      role: user.role,
+    };
     const accessToken = this.jwtService.sign(payload);
 
     // Tạo Refresh Token an toàn
     const rawRefreshToken = crypto.randomBytes(64).toString('hex');
-    const tokenHash = crypto.createHash('sha256').update(rawRefreshToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(rawRefreshToken)
+      .digest('hex');
 
-    const expiresInDays = this.configService.get<number>('REFRESH_TOKEN_EXPIRES_DAYS', 7);
+    const expiresInDays = this.configService.get<number>(
+      'REFRESH_TOKEN_EXPIRES_DAYS',
+      7,
+    );
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
@@ -68,9 +82,16 @@ export class AuthService {
     };
   }
 
-  async refreshTokens(refreshToken: string, clientIp?: string, userAgent?: string) {
+  async refreshTokens(
+    refreshToken: string,
+    clientIp?: string,
+    userAgent?: string,
+  ) {
     // Hash token được gửi lên để tra cứu
-    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
 
     const tokenRecord = await this.prisma.refreshToken.findUnique({
       where: { tokenHash },
@@ -78,7 +99,10 @@ export class AuthService {
     });
 
     if (!tokenRecord) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Refresh token không hợp lệ' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Refresh token không hợp lệ',
+      });
     }
 
     // Cơ chế chống Replay Attack: Nếu token đã bị revoked mà vẫn dùng lại -> Thu hồi TOÀN BỘ token của user đó
@@ -87,17 +111,26 @@ export class AuthService {
         where: { userId: tokenRecord.userId },
         data: { revokedAt: new Date() },
       });
-      throw new UnauthorizedException({ code: 'TOKEN_REVOKED', message: 'Phát hiện hành vi tái sử dụng token. Vui lòng đăng nhập lại.' });
+      throw new UnauthorizedException({
+        code: 'TOKEN_REVOKED',
+        message: 'Phát hiện hành vi tái sử dụng token. Vui lòng đăng nhập lại.',
+      });
     }
 
     if (tokenRecord.expiresAt < new Date()) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Refresh token đã hết hạn' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Refresh token đã hết hạn',
+      });
     }
 
     // Lấy thông tin user
     const user = tokenRecord.user;
     if (user.status !== 'Active') {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Tài khoản đã bị khóa' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Tài khoản đã bị khóa',
+      });
     }
 
     // Token Rotation: Thu hồi token cũ, cấp cặp token mới
@@ -111,8 +144,11 @@ export class AuthService {
 
   async logout(refreshToken: string) {
     if (!refreshToken) return;
-    
-    const tokenHash = crypto.createHash('sha256').update(refreshToken).digest('hex');
+
+    const tokenHash = crypto
+      .createHash('sha256')
+      .update(refreshToken)
+      .digest('hex');
     await this.prisma.refreshToken.updateMany({
       where: { tokenHash },
       data: { revokedAt: new Date() },

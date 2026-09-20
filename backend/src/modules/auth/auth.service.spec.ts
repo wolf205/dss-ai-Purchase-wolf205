@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { AuthService } from './auth.service';
+import { AuthService, SafeUser } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtService } from '@nestjs/jwt';
@@ -11,7 +11,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let usersService: UsersService;
   let prisma: PrismaService;
-  let jwtService: JwtService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -55,7 +54,6 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
     usersService = module.get<UsersService>(UsersService);
     prisma = module.get<PrismaService>(PrismaService);
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   it('should be defined', () => {
@@ -63,24 +61,34 @@ describe('AuthService', () => {
   });
 
   describe('validateUser', () => {
-    it('should return user without password if credentials are valid', async () => {
+    it('should return user without passwordHash if credentials are valid', async () => {
       const mockPassword = 'password123';
       const mockHash = await bcrypt.hash(mockPassword, 10);
-      const mockUser = { id: 1n, username: 'admin', status: 'Active', passwordHash: mockHash };
-      
+      const mockUser = {
+        id: 1n,
+        username: 'admin',
+        status: 'Active',
+        passwordHash: mockHash,
+      };
+
       (usersService.findByUsername as jest.Mock).mockResolvedValue(mockUser);
       (prisma.user.update as jest.Mock).mockResolvedValue({});
 
       const result = await service.validateUser('admin', mockPassword);
       expect(result).toBeDefined();
       expect(result?.username).toBe('admin');
-      expect((result as any).passwordHash).toBeUndefined();
+      expect((result as Record<string, unknown>).passwordHash).toBeUndefined();
     });
 
     it('should return null if password does not match', async () => {
       const mockHash = await bcrypt.hash('correct_password', 10);
-      const mockUser = { id: 1n, username: 'admin', status: 'Active', passwordHash: mockHash };
-      
+      const mockUser = {
+        id: 1n,
+        username: 'admin',
+        status: 'Active',
+        passwordHash: mockHash,
+      };
+
       (usersService.findByUsername as jest.Mock).mockResolvedValue(mockUser);
 
       const result = await service.validateUser('admin', 'wrong_password');
@@ -93,8 +101,12 @@ describe('AuthService', () => {
       const mockUser = { id: 1n, username: 'admin', role: 'STORE_MANAGER' };
       (prisma.refreshToken.create as jest.Mock).mockResolvedValue({});
 
-      const result = await service.login(mockUser, '127.0.0.1', 'jest-agent');
-      
+      const result = await service.login(
+        mockUser as unknown as SafeUser,
+        '127.0.0.1',
+        'jest-agent',
+      );
+
       expect(result).toHaveProperty('accessToken');
       expect(result).toHaveProperty('refreshToken');
       expect(result.accessToken).toBe('mock-jwt-token');
@@ -104,14 +116,20 @@ describe('AuthService', () => {
 
   describe('refreshTokens', () => {
     it('should throw UnauthorizedException if token is revoked', async () => {
-      const mockToken = { 
-        id: 1n, userId: 1n, revokedAt: new Date(),
-        user: { status: 'Active' }
+      const mockToken = {
+        id: 1n,
+        userId: 1n,
+        revokedAt: new Date(),
+        user: { status: 'Active' },
       };
-      (prisma.refreshToken.findUnique as jest.Mock).mockResolvedValue(mockToken);
+      (prisma.refreshToken.findUnique as jest.Mock).mockResolvedValue(
+        mockToken,
+      );
       (prisma.refreshToken.updateMany as jest.Mock).mockResolvedValue({});
 
-      await expect(service.refreshTokens('old-token', '127.0.0.1', 'jest')).rejects.toThrow(UnauthorizedException);
+      await expect(
+        service.refreshTokens('old-token', '127.0.0.1', 'jest'),
+      ).rejects.toThrow(UnauthorizedException);
       expect(prisma.refreshToken.updateMany).toHaveBeenCalledWith({
         where: { userId: 1n },
         data: { revokedAt: expect.any(Date) },

@@ -1,10 +1,30 @@
-import { Controller, Post, UseGuards, Body, Req, Res, Get, UnauthorizedException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiCookieAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  UseGuards,
+  Body,
+  Req,
+  Res,
+  Get,
+  UnauthorizedException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiCookieAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
-import { LoginRequestDto, LoginResponseDto, RefreshResponseDto } from './dto/auth.dto';
+import {
+  LoginRequestDto,
+  LoginResponseDto,
+  RefreshResponseDto,
+} from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
+import { AuthenticatedUser } from './interfaces/auth-payload.interface';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -26,9 +46,15 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.authService.validateUser(loginDto.username, loginDto.password);
+    const user = await this.authService.validateUser(
+      loginDto.username,
+      loginDto.password,
+    );
     if (!user) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Sai tên đăng nhập hoặc mật khẩu' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Sai tên đăng nhập hoặc mật khẩu',
+      });
     }
 
     const clientIp = req.ip;
@@ -60,12 +86,19 @@ export class AuthController {
   ) {
     const refreshToken = req.cookies['refreshToken'];
     if (!refreshToken) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Không tìm thấy Refresh Token' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Không tìm thấy Refresh Token',
+      });
     }
 
     const clientIp = req.ip;
     const userAgent = req.headers['user-agent'];
-    const result = await this.authService.refreshTokens(refreshToken, clientIp, userAgent);
+    const result = await this.authService.refreshTokens(
+      refreshToken,
+      clientIp,
+      userAgent,
+    );
 
     // Update Refresh Token into HttpOnly Cookie
     res.cookie('refreshToken', result.refreshToken, {
@@ -85,10 +118,7 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Post('logout')
-  async logout(
-    @Req() req: Request,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies['refreshToken'];
     if (refreshToken) {
       await this.authService.logout(refreshToken);
@@ -101,16 +131,19 @@ export class AuthController {
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  async getProfile(@CurrentUser() user: any) {
+  async getProfile(@CurrentUser() user: AuthenticatedUser) {
     // payload JWT chứa sub là id dạng string
     const fullUser = await this.usersService.findById(BigInt(user.id));
     if (!fullUser) {
-      throw new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Không tìm thấy người dùng' });
+      throw new UnauthorizedException({
+        code: 'UNAUTHORIZED',
+        message: 'Không tìm thấy người dùng',
+      });
     }
-    
+
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash, ...result } = fullUser;
-    
+
     return {
       ...result,
       id: result.id.toString(), // Convert BigInt

@@ -7,6 +7,11 @@ import { AppModule } from './app.module';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
+// Polyfill BigInt.prototype.toJSON to safely serialize Prisma BigInt columns to string
+(BigInt.prototype as unknown as { toJSON: () => string }).toJSON = function () {
+  return this.toString();
+};
+
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule);
@@ -101,7 +106,9 @@ async function bootstrap() {
 
   logger.log(`🚀 DSS Backend is running on: http://localhost:${port}/api/v1`);
   logger.log(`📚 Swagger UI available at: http://localhost:${port}/api/docs`);
-  logger.log(`🩺 Health Check endpoint at: http://localhost:${port}/api/v1/health`);
+  logger.log(
+    `🩺 Health Check endpoint at: http://localhost:${port}/api/v1/health`,
+  );
 }
 
 bootstrap().catch((err) => {

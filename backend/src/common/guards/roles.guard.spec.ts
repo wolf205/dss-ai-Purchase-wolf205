@@ -31,7 +31,9 @@ describe('RolesGuard', () => {
   });
 
   it('should throw ForbiddenException if user has no role', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([Role.STORE_MANAGER]);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue([Role.STORE_MANAGER]);
 
     const mockContext = {
       getHandler: jest.fn(),
@@ -44,11 +46,15 @@ describe('RolesGuard', () => {
     } as unknown as ExecutionContext;
 
     expect(() => guard.canActivate(mockContext)).toThrow(ForbiddenException);
-    expect(() => guard.canActivate(mockContext)).toThrow('Bạn không có quyền thực hiện thao tác này.');
+    expect(() => guard.canActivate(mockContext)).toThrow(
+      'Bạn không có quyền thực hiện thao tác này.',
+    );
   });
 
   it('should throw ForbiddenException if user has wrong role', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([Role.STORE_MANAGER]);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue([Role.STORE_MANAGER]);
 
     const mockContext = {
       getHandler: jest.fn(),
@@ -64,7 +70,9 @@ describe('RolesGuard', () => {
   });
 
   it('should allow access if user has the correct role', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([Role.STORE_MANAGER]);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue([Role.STORE_MANAGER]);
 
     const mockContext = {
       getHandler: jest.fn(),
@@ -80,10 +88,9 @@ describe('RolesGuard', () => {
   });
 
   it('should allow access if user has one of multiple allowed roles', () => {
-    jest.spyOn(reflector, 'getAllAndOverride').mockReturnValue([
-      Role.STORE_MANAGER,
-      Role.PURCHASING_STAFF,
-    ]);
+    jest
+      .spyOn(reflector, 'getAllAndOverride')
+      .mockReturnValue([Role.STORE_MANAGER, Role.PURCHASING_STAFF]);
 
     const mockContext = {
       getHandler: jest.fn(),

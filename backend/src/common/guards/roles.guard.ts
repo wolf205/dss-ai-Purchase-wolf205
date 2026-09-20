@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { Role } from '../enums/role.enum';
 import { ROLES_KEY } from '../decorators/roles.decorator';
@@ -12,13 +17,13 @@ export class RolesGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    
+
     if (!requiredRoles) {
       return true; // No @Roles() decorator -> public or only JWT protected
     }
-    
+
     const { user } = context.switchToHttp().getRequest();
-    
+
     if (!user || !user.role) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
@@ -27,14 +32,14 @@ export class RolesGuard implements CanActivate {
     }
 
     const hasRole = requiredRoles.includes(user.role as Role);
-    
+
     if (!hasRole) {
       throw new ForbiddenException({
         code: 'FORBIDDEN_ROLE',
         message: 'Bạn không có quyền thực hiện thao tác này.',
       });
     }
-    
+
     return true;
   }
 }

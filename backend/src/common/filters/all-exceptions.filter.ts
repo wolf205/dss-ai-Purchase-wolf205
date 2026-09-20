@@ -7,7 +7,10 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { StandardApiErrorResponse } from '../dto/api-response.dto';
+import {
+  ApiErrorDetailDto,
+  StandardApiErrorResponse,
+} from '../dto/api-response.dto';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -25,7 +28,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     let errorCode = 'INTERNAL_SERVER_ERROR';
     let message = 'Đã có lỗi xảy ra trên hệ thống máy chủ.';
-    let details: any[] = [];
+    let details: ApiErrorDetailDto[] | string[] = [];
 
     if (exception instanceof HttpException) {
       const exceptionResponse = exception.getResponse();
@@ -36,10 +39,10 @@ export class AllExceptionsFilter implements ExceptionFilter {
         typeof exceptionResponse === 'object' &&
         exceptionResponse !== null
       ) {
-        const respObj = exceptionResponse as Record<string, any>;
+        const respObj = exceptionResponse as Record<string, unknown>;
 
         // Trích xuất error code nếu được chỉ định cụ thể
-        if (respObj.code) {
+        if (typeof respObj.code === 'string') {
           errorCode = respObj.code;
         } else {
           errorCode = this.mapHttpStatusToErrorCode(status);
@@ -49,21 +52,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
         if (Array.isArray(respObj.message)) {
           errorCode = 'VALIDATION_ERROR';
           message = 'Dữ liệu yêu cầu không hợp lệ.';
-          details = respObj.message.map((msg: string) => {
+          details = (respObj.message as string[]).map((msg: string) => {
             const parts = msg.split(' ');
             return {
               field: parts[0] || 'input',
               issue: msg,
             };
           });
-        } else if (respObj.message) {
+        } else if (typeof respObj.message === 'string') {
           message = respObj.message;
         }
 
         if (respObj.details) {
-          details = Array.isArray(respObj.details)
-            ? respObj.details
-            : [respObj.details];
+          details = (
+            Array.isArray(respObj.details) ? respObj.details : [respObj.details]
+          ) as ApiErrorDetailDto[] | string[];
         }
       }
     } else if (exception instanceof Error) {

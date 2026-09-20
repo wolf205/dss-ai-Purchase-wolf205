@@ -3,6 +3,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { UnauthorizedException } from '@nestjs/common';
+import { Request, Response } from 'express';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -41,8 +42,12 @@ describe('AuthController', () => {
   describe('login', () => {
     it('should authenticate user and set cookie', async () => {
       const mockUser = { id: '1', username: 'admin', role: 'STORE_MANAGER' };
-      const mockResult = { accessToken: 'token', refreshToken: 'ref-token', user: mockUser };
-      
+      const mockResult = {
+        accessToken: 'token',
+        refreshToken: 'ref-token',
+        user: mockUser,
+      };
+
       const authService = moduleRef.get<AuthService>(AuthService);
       (authService.validateUser as jest.Mock).mockResolvedValue(mockUser);
       (authService.login as jest.Mock).mockResolvedValue(mockResult);
@@ -50,10 +55,18 @@ describe('AuthController', () => {
       const mockReq = { ip: '127.0.0.1', headers: { 'user-agent': 'jest' } };
       const mockRes = { cookie: jest.fn() };
 
-      const result = await controller.login({ username: 'admin', password: 'password' }, mockReq as any, mockRes as any);
+      const result = await controller.login(
+        { username: 'admin', password: 'password' },
+        mockReq as unknown as Request,
+        mockRes as unknown as Response,
+      );
 
       expect(result).toEqual({ accessToken: 'token', user: mockUser });
-      expect(mockRes.cookie).toHaveBeenCalledWith('refreshToken', 'ref-token', expect.any(Object));
+      expect(mockRes.cookie).toHaveBeenCalledWith(
+        'refreshToken',
+        'ref-token',
+        expect.any(Object),
+      );
     });
 
     it('should throw UnauthorizedException if login fails', async () => {
@@ -64,7 +77,11 @@ describe('AuthController', () => {
       const mockRes = { cookie: jest.fn() };
 
       await expect(
-        controller.login({ username: 'admin', password: 'wrong' }, mockReq as any, mockRes as any)
+        controller.login(
+          { username: 'admin', password: 'wrong' },
+          mockReq as unknown as Request,
+          mockRes as unknown as Response,
+        ),
       ).rejects.toThrow(UnauthorizedException);
     });
   });

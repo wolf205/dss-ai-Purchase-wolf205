@@ -9,9 +9,10 @@ import { map } from 'rxjs/operators';
 import { StandardApiResponse } from '../dto/api-response.dto';
 
 @Injectable()
-export class TransformInterceptor<T>
-  implements NestInterceptor<T, StandardApiResponse<T>>
-{
+export class TransformInterceptor<T> implements NestInterceptor<
+  T,
+  StandardApiResponse<T>
+> {
   intercept(
     context: ExecutionContext,
     next: CallHandler,

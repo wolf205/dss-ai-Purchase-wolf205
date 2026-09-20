@@ -1,4 +1,8 @@
-import { ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ExecutionContext,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 
 @Injectable()
@@ -7,9 +11,19 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any, info: any) {
+  handleRequest<TUser = unknown>(
+    err: unknown,
+    user: TUser,
+    _info: unknown,
+  ): TUser {
     if (err || !user) {
-      throw err || new UnauthorizedException({ code: 'UNAUTHORIZED', message: 'Bạn chưa đăng nhập hoặc token không hợp lệ' });
+      throw (
+        err ||
+        new UnauthorizedException({
+          code: 'UNAUTHORIZED',
+          message: 'Bạn chưa đăng nhập hoặc token không hợp lệ',
+        })
+      );
     }
     return user;
   }

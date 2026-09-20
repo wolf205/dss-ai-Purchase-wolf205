@@ -36,7 +36,9 @@ describe('UsersService', () => {
 
       const result = await service.findByUsername('admin');
       expect(result).toEqual(mockUser);
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { username: 'admin' } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { username: 'admin' },
+      });
     });
   });
 
@@ -47,7 +49,9 @@ describe('UsersService', () => {
 
       const result = await service.findById(1n);
       expect(result).toEqual(mockUser);
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({ where: { id: 1n } });
+      expect(prisma.user.findUnique).toHaveBeenCalledWith({
+        where: { id: 1n },
+      });
     });
   });
 });

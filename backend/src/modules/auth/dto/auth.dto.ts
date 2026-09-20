@@ -26,6 +26,9 @@ export class LoginResponseDto {
 }
 
 export class RefreshResponseDto {
-  @ApiProperty({ description: 'Access Token (JWT) mới', example: 'eyJhbGciOi...' })
+  @ApiProperty({
+    description: 'Access Token (JWT) mới',
+    example: 'eyJhbGciOi...',
+  })
   accessToken!: string;
 }
