@@ -48,7 +48,7 @@ Khi nhận task, tra bảng này để xác định rule cần đọc, skill c�
 
 | Task Type | Đọc Rule | Nạp Skill | Chạy Workflow |
 |---|---|---|---|
-| Task mới / định hướng chưa rõ | `overview.md` | — | — |
+| Task mới / định hướng chưa rõ | *(đọc lại GEMINI.md — Mục 5 & 6)* | — | — |
 | Backend feature (NestJS/Prisma) | `implement.md` | `backend` | `/implement` |
 | Frontend feature (React/Vite) | `implement.md` | `frontend` | `/implement` |
 | AI Service (FastAPI/Python) | `implement.md` | `ai-service` | `/implement` |
