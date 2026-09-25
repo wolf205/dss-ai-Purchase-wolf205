@@ -1,100 +1,167 @@
-# DSS AI-Purchase: Project Index & Implementation Compass
+# DSS AI-Purchase: Project Implementation Tracker
 
-> **Tên dự án:** AI-Powered Purchase Decision Support System for a Single Retail Store  
-> **Nguyên tắc cốt lõi:** **AI recommends. Human decides.**  
-> **Giai đoạn hiện tại:** Giai đoạn Triển khai Kỹ thuật (Implementation Phase)  
-> **Cập nhật gần nhất:** 17/09/2026
-
----
-
-## 1. Bản Đồ Tài Liệu Nguồn Của Sự Thật (Source of Truth Index)
-
-Toàn bộ tài liệu phân tích nghiệp vụ và thiết kế kỹ thuật đã được người dùng phê duyệt chính thức (`Status: Confirmed`), đóng vai trò là **Hợp đồng Kỹ thuật (Technical Contract)** bắt buộc tuân thủ khi viết mã nguồn.
-
-| Nhóm Tài Liệu | Tài Liệu & Đường Dẫn | Trạng Thái | Vai Trò & Mô Tả Trong Quá Trình Code |
-| :--- | :--- | :---: | :--- |
-| **Định Hướng** | [GEMINI.md](GEMINI.md) | `Confirmed` | Quy tắc làm việc cốt lõi, vai trò Agent và quy trình `Spec-Driven & Plan-Before-Code`. |
-| **Quyết Định** | [docs/project-decisions.md](docs/project-decisions.md) | `Confirmed` | Nhật ký ghi nhận toàn bộ 32+ quyết định quan trọng đã chốt. |
-| **Bài Toán** | [docs/business/business-problem.md](docs/business/business-problem.md) | `Confirmed` | Bối cảnh cửa hàng bán lẻ đơn lẻ và 5 bài toán mua hàng cốt lõi (*What, When, How Much, Which Supplier, Why*). |
-| **Phạm Vi** | [docs/business/scope.md](docs/business/scope.md) | `Confirmed` | Ranh giới In-Scope / Out-of-Scope và phân định 2 Actors (`STORE_MANAGER`, `PURCHASING_STAFF`). |
-| **Use Cases** | [docs/business/use-case-overview.md](docs/business/use-case-overview.md)<br>[docs/business/use-cases/](docs/business/use-cases/) | `Confirmed` | Đặc tả chi tiết 7 Use Cases chuẩn Actor-Goal (từ UC-01 đến UC-07). |
-| **Quy Tắc Nghiệp Vụ**| [docs/business/business-rules.md](docs/business/business-rules.md) | `Confirmed` | 28 Quy tắc toán học tất định (BR-01 đến BR-28): Forecast, SS, ROP, SOQ, WSM, ABC-XYZ, OTIF decay. |
-| **Domain Model** | [docs/business/domain-model.md](docs/business/domain-model.md) | `Confirmed` | 9 Thực thể nghiệp vụ thuần túy, sơ đồ liên kết và toàn bộ Business Invariants. |
-| **Cơ Sở Dữ Liệu** | [docs/technical/data-model.md](docs/technical/data-model.md) | `Confirmed` | **Technical Contract CSDL:** Schema vật lý PostgreSQL 16+ với 16 bảng, constraints, triggers, indexes, seed data. |
-| **Kiến Trúc** | [docs/technical/architecture.md](docs/technical/architecture.md) | `Confirmed` | **Technical Contract Kiến trúc (Hub):** Mô hình C4, Polyglot Decoupled Modular Monolith, phân lập 3 động cơ DSS, bảo mật JWT/RBAC. |
-| **Hợp Đồng API** | [docs/technical/api-specification.md](docs/technical/api-specification.md) | `Confirmed` | **Technical Contract API (Spoke):** 100% Endpoints, Request/Response DTOs, Standard API Envelope, Error Taxonomy. |
-| **Quy Chuẩn Code**| [.agents/rules/implementation-rules.md](.agents/rules/implementation-rules.md)<br>[.agents/workflows/implement-task.md](.agents/workflows/implement-task.md)<br>[.agents/skills/fullstack-implementation/SKILL.md](.agents/skills/fullstack-implementation/SKILL.md) | `Active` | Kỷ luật lập trình Full-stack, quy trình 5 bước `implement-task` và code templates chuẩn. |
+> **Tên dự án:** AI-Powered Purchase Decision Support System for a Single Retail Store
+> **Nguyên tắc cốt lõi:** **AI recommends. Human decides.**
+> **Giai đoạn hiện tại:** Triển khai Kỹ thuật (Implementation)
+> **Cập nhật gần nhất:** 25/09/2026
 
 ---
 
-## 2. Kim Chỉ Nam Triển Khai (Master Implementation Tracker)
+## 1. Bản Đồ Tài Liệu (Source of Truth)
 
-Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần tự. Mỗi giai đoạn chỉ được đánh dấu hoàn thành khi đã qua kiểm thử xác minh (Verification).
-
-- [ ] **Giai đoạn 1: Nền tảng Khởi tạo (Scaffolding, Docker & Database Setup)**
-  - [x] **Task 1.1: Hạ tầng CSDL Docker** — Cấu hình `docker-compose.yml` (PostgreSQL 16+ Alpine, healthcheck, volume `pgdata`, port 5432, network `dss_network`), cập nhật `.gitignore` và `.env.example`.
-  - [x] **Task 1.2: Scaffolding Backend Core (NestJS)** — Khởi tạo `backend/` với NestJS 10, TypeScript Strict Mode, Global Prefix `/api/v1`, CORS, Cookie-parser, Swagger setup và Health check endpoint `GET /api/v1/health`.
-  - [x] **Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL** — Viết `backend/prisma/schema.prisma` khớp 100% `data-model.md` (chốt tên cột `why_buy_explanation` trên `recommendation_items`), chạy initial migration tạo 16 bảng vật lý trong PostgreSQL.
-  - [x] **Task 1.4: Dọn dẹp Migration & Chuyển đổi Kiến trúc Thin DB** — Hủy bỏ tích hợp Trigger; dọn dẹp các ràng buộc thủ công trong migration `init` và reset CSDL về trạng thái cơ bản (chỉ bảng và khóa). Toàn bộ logic bảo vệ dữ liệu được chuyển lên Application Layer.
-  - [x] **Task 1.5: Script Seed Data Ban Đầu** — Viết `backend/prisma/seed.ts` nạp 2 tài khoản test (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF đã hash bcrypt), bản ghi singleton `DSSConfiguration` (`id = 1`), và danh mục ngành hàng mẫu.
-  - [x] **Task 1.6: Scaffolding AI Service & Frontend** — Khởi tạo `ai-service/` (Python 3.12 FastAPI, requirements.txt, Pydantic config, `GET /health`) và `frontend/` (React 18+ Vite, TypeScript Strict, cấu hình TailwindCSS, proxy `/api`, layout shell).
-
-- [ ] **Giai đoạn 2: Hệ thống Bảo mật IAM, Phân quyền RBAC & Nhật ký Kiểm toán**
-  - [x] **Task 2.1: Phân Hệ Xác Thực IAM (JWT & Token Rotation)** — Triển khai `AuthModule`, `UsersModule`: đăng nhập (`POST /auth/login`), đăng xuất (`POST /auth/logout`), lấy thông tin (`GET /auth/me`), cơ chế Refresh Token Rotation (`POST /auth/refresh`) qua HttpOnly Cookie và `JwtAuthGuard`. (✅ Hoàn thành)
-  - [x] **Task 2.2: Chế Độ Phân Quyền RBAC** — Khởi tạo `@Roles()` decorator và `RolesGuard` để bảo vệ tài nguyên theo chuẩn 2 vai trò (`STORE_MANAGER` và `PURCHASING_STAFF`). (✅ Hoàn thành)
-  - [ ] **Task 2.3: Nhật Ký Kiểm Toán (Audit Trail) & Interceptor** — Viết `AuditLogInterceptor` bắt sự kiện ghi dữ liệu tự động lưu vết vào bảng `activity_logs` và API tra cứu. (⏳ Đang thực hiện)
-
-- [ ] **Giai đoạn 3: Phân hệ Dự báo Nhu cầu AI (Python FastAPI)**
-  - [ ] Khởi tạo FastAPI service tại port 8000, cấu hình Pydantic schemas.
-  - [ ] Xây dựng module tiền xử lý: Bù đắp Zero-Demand cho các ngày không có đơn bán hàng.
-  - [ ] Triển khai các thuật toán chuỗi thời gian: Croston/TSB (ngắt quãng), AutoARIMA/Holt-Winters (nhu cầu đều), SMA 7 ngày (chuỗi ngắn).
-  - [ ] Triển khai endpoint `POST /api/v1/forecast` và viết Dockerfile cho AI service.
-
-- [ ] **Giai đoạn 4: Danh mục Nền tảng & Nạp Dữ liệu Vận hành (Master Data & Data Import)**
-  - [ ] `CatalogModule` (UC-05): CRUD Categories, Products, quản lý trạng thái Active/Inactive, theo dõi tồn kho kệ.
-  - [ ] `SupplierModule` (UC-06): Hồ sơ NCC, Supply Conditions (giá nhập, MOQ), theo dõi điểm OTIF 5 đơn gần nhất.
-  - [ ] `ConfigurationModule` (UC-07): Quản trị singleton bộ tham số DSS (trọng số WSM, Target Service Level, Z-factor mapping, Review period).
-  - [ ] `DataImportModule` (UC-04): Cung cấp endpoint tải tệp biểu mẫu chuẩn `GET /api/v1/data-imports/templates/{type}` (sales/inventory); Nạp file Excel/CSV; cơ chế All-or-Nothing bọc trong `prisma.$transaction`; ghi đè doanh số theo cặp (Date, SKU).
-
-- [ ] **Giai đoạn 5: Động cơ Ra quyết định DSS & Giải thích Gemini On-Demand (Trọng tâm)**
-  - [ ] `DssModule` (UC-01): Endpoint `POST /api/v1/dss/sessions/analyze` hỗ trợ lọc theo phạm vi toàn cửa hàng (`categoryId = null`) hoặc theo ngành hàng cụ thể (`categoryId`); tự động chuyển phiên `Draft` cũ sang `Discarded` (INV-REC-03); điều phối gọi Python AI Service (kèm Graceful Fallback sang trung bình lịch sử).
-  - [ ] `DssCalculationEngineService` (Domain Layer Pure Functions): Thuật toán tất định ABC-XYZ, SS, ROP, SOQ khớp MOQ, WSM Supplier Ranking.
-  - [ ] Lưu kết quả phân tích và toàn bộ snapshot dữ liệu vào `recommendation_sessions` (trạng thái ban đầu `Draft`) & `recommendation_items`.
-  - [ ] `LlmExplanationService`: Tích hợp Google Gemini 1.5 Flash On-demand theo từng SKU (`POST /api/v1/dss/items/{itemId}/explain`), lưu cache vào cột CSDL `why_buy_explanation` (0ms / 0 token cho các lần sau; fallback mẫu khi timeout 3s).
-
-- [ ] **Giai đoạn 6: Vòng đời Đơn hàng & Đóng kín Vòng lặp Phản hồi (PO & Goods Receipt)**
-  - [ ] `PurchaseOrderModule` (UC-02): Duyệt đề xuất (`POST /dss/sessions/{id}/approve`) sinh các đơn PO gom theo NCC ở trạng thái `Approved` trong Database Transaction; cập nhật hàng đang về (`on_order_quantity`); logic tính toán runtime `isOverdue` (BR-09) và query filter `isOverdue` trên `GET /purchase-orders`; hủy đơn hoàn trả hàng; xuất PDF.
-  - [ ] `GoodsReceiptModule` (UC-03): Nhận hàng kho 1:1 với PO, bọc ACID Transaction tăng tồn kệ, giải phóng hàng đang về, chuyển PO sang `Completed`.
-  - [ ] Tính toán tỷ lệ giao đủ hàng (`Fulfillment Rate`), OTIF linear penalty decay, cập nhật rolling 5 đơn của NCC ngay trong Application Layer.
-
-- [ ] **Giai đoạn 7: Giao diện Người dùng Web UI (React + Vite)**
-  - [ ] Thiết lập layout responsive, Sidebar, Navbar, Toast notifications, Design tokens.
-  - [ ] Quản lý trạng thái xác thực và Axios Interceptor tự động Refresh Token.
-  - [ ] 7 màn hình tính năng hoàn chỉnh:
-    - [ ] Màn hình Đăng nhập (Auth).
-    - [ ] Màn hình Bảng đề xuất DSS (UC-01): Bộ lọc ngành hàng, Badges ABC-XYZ, Modal Explain Gemini, Biểu đồ Recharts kết hợp (Lịch sử + Dự báo 14 ngày + Vùng tin cậy 95%).
-    - [ ] Màn hình Quản lý Đơn mua hàng (UC-02): Danh sách PO, Cảnh báo Overdue (BR-09), In/Xuất PDF.
-    - [ ] Màn hình Nhận hàng kho (UC-03): Form nhận hàng, Soft warning giao thừa.
-    - [ ] Màn hình Nạp dữ liệu vận hành (UC-04): Nút tải file mẫu chuẩn, Kéo thả file, xem trước lỗi chi tiết từng dòng.
-    - [ ] Màn hình Danh mục sản phẩm (UC-05), Nhà cung cấp (UC-06), Cấu hình tham số DSS (UC-07).
-
-- [ ] **Giai đoạn 8: Tích hợp Toàn diện E2E, Kiểm thử & Đóng gói Docker 1-Click**
-  - [ ] Kiểm thử E2E trọn vòng lặp mua hàng thực tế (Import $\to$ DSS $\to$ PO $\to$ Goods Receipt $\to$ OTIF Update).
-  - [ ] Đóng gói hoàn chỉnh `docker-compose.yml` gồm 4 services (`postgres`, `backend`, `ai-service`, `frontend`).
-  - [ ] Viết tài liệu hướng dẫn khởi chạy 1-click và vận hành (`README.md`).
+| Loại | File | Vai trò |
+| :--- | :--- | :--- |
+| Agent config | [GEMINI.md](GEMINI.md) | Routing, constraints, module map |
+| Quyết định | [docs/project-decisions.md](docs/project-decisions.md) | 32+ quyết định đã chốt |
+| Business Rules | [docs/business/business-rules.md](docs/business/business-rules.md) | 28 BRs: SS, ROP, SOQ, WSM, ABC-XYZ, OTIF |
+| Use Cases | [docs/business/use-cases/](docs/business/use-cases/) | UC-01 → UC-07, main flow, post-conditions |
+| Database Schema | [docs/technical/data-model.md](docs/technical/data-model.md) | 16 tables, 44 Invariants, DDL |
+| API Contract | [docs/technical/api-specification.md](docs/technical/api-specification.md) | 30+ endpoints, DTOs, error codes |
+| Architecture | [docs/technical/architecture.md](docs/technical/architecture.md) | 9 modules, 3-engine isolation |
 
 ---
 
-## 3. Nhật Ký Thực Thi (Milestone Execution Log)
+## 2. Tiến Độ Triển Khai
 
-| Thời Gian | Milestone / Tác Vụ | Nội Dung Thực Hiện & Kết Quả | Mã Git Commit |
+### Giai đoạn 1 — Hạ tầng & Scaffolding ✅ HOÀN THÀNH
+
+- [x] **1.1** `docker-compose.yml` — PostgreSQL 16 Alpine, volume `pgdata`, healthcheck, network `dss_network`, 4 service stubs (postgres, backend, ai-service, frontend). `.env.example`, `.gitignore`.
+- [x] **1.2** Backend NestJS scaffold — TypeScript Strict, Global Prefix `/api/v1`, CORS, Cookie-parser, Swagger UI `/api/docs`, Standard API Envelope (`{ success, data, meta }`), `GET /api/v1/health`.
+- [x] **1.3** Prisma schema & migration — `schema.prisma` 16 bảng khớp `data-model.md`, initial migration apply thành công vào PostgreSQL.
+- [x] **1.4** Thin DB — Xóa toàn bộ Database Triggers và CHECK constraints khỏi migration; chuyển 44 Invariants lên Application Layer.
+- [x] **1.5** Seed data — `prisma/seed.ts`: 2 users (admin/STORE_MANAGER + staff/PURCHASING_STAFF bcrypt), singleton `dss_configurations` (id=1), categories mẫu.
+- [x] **1.6** AI Service & Frontend scaffold — Python 3.12 FastAPI `GET /health`, requirements.txt, Pydantic config. React 18 + Vite + TailwindCSS, proxy `/api`, layout shell.
+
+---
+
+### Giai đoạn 2 — IAM, RBAC & Audit Trail 🔄 ĐANG LÀM
+
+- [x] **2.1** `AuthModule` — `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/refresh` (Token Rotation, HttpOnly Cookie SHA-256), `JwtAuthGuard`.
+- [x] **2.2** RBAC — `@Roles()` decorator, `RolesGuard`, 2 roles: `STORE_MANAGER` / `PURCHASING_STAFF`.
+- [ ] **2.3** `AuditModule` — `AuditLogInterceptor` tự động ghi `activity_logs` (Append-Only, async, chỉ khi 2xx). `GET /api/v1/audit-logs` (MANAGER only, filter: action, username, fromDate, toDate).
+
+---
+
+### Giai đoạn 3 — AI Forecasting Service (Python FastAPI) ⏳ CHƯA BẮT ĐẦU
+
+- [ ] **3.1** Pydantic v2 schemas — `TimeSeriesPayload` (horizonDays, series[{skuId, history[{date, quantity}]}]) và `ForecastResponse` (results[{skuId, dailyAverage, dailyDemandStd, modelUsed, dailyForecasts}]).
+- [ ] **3.2** Zero-Demand padding — Bù đắp ngày không có dữ liệu bán = 0.0 trước khi chạy thuật toán.
+- [ ] **3.3** Algorithm selector — Croston/TSB (CV > 1.0 hoặc nonZeroRatio < 70%), AutoARIMA/Holt-Winters (CV ≤ 0.5, chuỗi ≥ 30 ngày), SMA 7 ngày (chuỗi < 30 ngày).
+- [ ] **3.4** `POST /api/v1/forecast` endpoint — Trả về `dailyAverage`, `dailyDemandStd`, `dailyForecasts` 14 ngày với CI 95% (lower/upper).
+- [ ] **3.5** `GET /api/v1/health` đầy đủ — `{ status: "ok", service: "retail-dss-forecasting" }`.
+- [ ] **3.6** Dockerfile + unit tests — `pytest --cov=src`, coverage 100% trên algorithm selector và zero-demand padding.
+
+---
+
+### Giai đoạn 4 — Master Data & Data Import (Foundation UCs) ⏳ CHƯA BẮT ĐẦU
+
+#### 4A — CatalogModule (UC-05)
+- [ ] **4A.1** `GET /api/v1/categories` — Danh sách ngành hàng (public).
+- [ ] **4A.2** `GET/POST /api/v1/products` — Tra cứu SKU (public, filter, pagination) + Tạo SKU mới (MANAGER).
+- [ ] **4A.3** `GET/PATCH /api/v1/products/{id}` — Chi tiết + Cập nhật (cấm sửa `sku_code`).
+- [ ] **4A.4** `PATCH /api/v1/products/{id}/status` — Active ↔ Inactive (Soft Deactivate, cho phép khi còn on_order).
+- [ ] **4A.5** `DELETE /api/v1/products/{id}` — Hard Delete chỉ khi Zero-Link; trả `HARD_DELETE_PROHIBITED` nếu có lịch sử.
+
+#### 4B — SupplierModule (UC-06)
+- [ ] **4B.1** `GET/POST /api/v1/suppliers` — Tra cứu (public, kèm OTIF 5 đơn) + Tạo mới (MANAGER, init `performance_score = 80%`).
+- [ ] **4B.2** `PATCH /api/v1/suppliers/{id}` — Cập nhật hồ sơ (cấm sửa `supplier_code`).
+- [ ] **4B.3** `PATCH /api/v1/suppliers/{id}/status` — Inactive: chặn nếu còn PO Approved.
+- [ ] **4B.4** `GET/POST /api/v1/suppliers/{id}/conditions` — Danh sách + Gán SKU với giá nhập & MOQ.
+- [ ] **4B.5** `PATCH /api/v1/supply-conditions/{id}` — Cập nhật giá/MOQ (chỉ áp dụng forward, snapshot PO cũ không đổi).
+
+#### 4C — ConfigurationModule (UC-07)
+- [ ] **4C.1** `GET /api/v1/dss-configurations` — Lấy singleton (cả 2 roles, STAFF read-only).
+- [ ] **4C.2** `PUT /api/v1/dss-configurations` — Cập nhật (MANAGER): validate tổng 4 weights = 1.0 ± 0.001, `targetServiceLevel` ∈ {0.90, 0.95, 0.98, 0.99}, `reviewPeriodDays` ∈ [1, 30]. Trả `SUM_WEIGHT_NOT_100` nếu sai.
+- [ ] **4C.3** `POST /api/v1/dss-configurations/reset` — Khôi phục về default (MANAGER).
+
+#### 4D — DataImportModule (UC-04)
+- [ ] **4D.1** `GET /api/v1/data-imports/templates/{type}` — Tải file mẫu CSV (type: `sales` / `inventory`).
+- [ ] **4D.2** `POST /api/v1/data-imports/sales/validate` — Upload + validate file bán hàng (All-or-Nothing: 1 dòng sai → trả toàn bộ errors + `ALL_OR_NOTHING_IMPORT_FAILED`). Trả preview + `duplicateDatesFound`.
+- [ ] **4D.3** `POST /api/v1/data-imports/sales/confirm` — Ghi đè dữ liệu ngày trùng + insert batch trong `prisma.$transaction`.
+- [ ] **4D.4** `POST /api/v1/data-imports/inventory/validate` + `confirm` — Validate + cập nhật `current_inventory` (chỉ SKU có trong file, bảo lưu `on_order_quantity` nguyên vẹn).
+
+---
+
+### Giai đoạn 5 — DSS Engine & Gemini Explainability (Trọng tâm) ⏳ CHƯA BẮT ĐẦU
+
+#### 5A — DssCalculationEngineService (Domain Layer)
+- [ ] **5A.1** ABC-XYZ classification engine (BR-05) — Cumulative revenue → A/B/C (80/15/5%), CV = σd/d̄ → X/Y/Z (≤0.5/≤1.0/>1.0). Fallback: SKU < 7 ngày → CZ.
+- [ ] **5A.2** Safety Stock engine (BR-01) — SS = Z × σd × √L. Z mapping (BR-26): {90%→1.28, 95%→1.65, 98%→2.05, 99%→2.33}. Fallback SKU < 14 ngày: SS = d̄ × 5.
+- [ ] **5A.3** ROP & SOQ engine (BR-01, BR-03) — ROP = d̄×L + SS; IP = on_hand + on_order; Base SOQ = d̄×(L+R)+SS−IP; Final SOQ = max(MOQ, ⌈Base SOQ⌉) nếu > 0, else 0.
+- [ ] **5A.4** WSM Supplier Ranking engine (BR-02, BR-24, BR-25) — Min-Max normalize Price/LeadTime/MOQ (lower=better), S_History từ rolling 5-order OTIF. Tie-breaking: S_Price > S_History. Cold Start < 3 orders → S_History = 80.
+- [ ] **5A.5** StockRiskStatus classifier — 🔴 Cần mua gấp / 🟠 Sắp hết ROP / 🟢 An toàn / ⚪ Overstock.
+
+#### 5B — DssModule Orchestration (UC-01)
+- [ ] **5B.1** `POST /api/v1/dss/sessions/analyze` — Filter SKU Active theo `categoryId` (null = toàn cửa hàng); auto-discard phiên Draft cũ; gọi Python AI Service (timeout 3s + Graceful Fallback SMA); chạy 5A engines; lưu `recommendation_sessions` (Draft) + `recommendation_items` kèm snapshot (`snapshot_current_inventory`, `snapshot_on_order_quantity`, `daily_forecasts` JSONB, `supplier_rankings` JSONB).
+- [ ] **5B.2** `GET /api/v1/dss/sessions/{id}` — Trả session + items đầy đủ (ABC-XYZ badge, ROP, SS, SOQ, suggestedSupplier với WSM score, dailyForecasts, supplierRankings, llmExplanation).
+- [ ] **5B.3** `PATCH /api/v1/dss/items/{itemId}` — Human Adjustment: cập nhật `approved_quantity` và `approved_supplier_id`.
+- [ ] **5B.4** `POST /api/v1/dss/items/{itemId}/explain` — Đọc cache `why_buy_explanation`; nếu null → gọi Gemini 1.5 Flash (timeout 3s, fallback text tất định) → cache vào DB. Tuyệt đối không gọi trong luồng analyze.
+- [ ] **5B.5** `POST /api/v1/dss/sessions/{id}/approve` — ACID Transaction (INV-24,25,26,27): chốt session → cập nhật approved fields → tạo POs gom theo NCC → snapshot `historical_unit_price/moq/lead_time_days` → tăng `on_order_quantity`. Response: list POs đã sinh.
+
+---
+
+### Giai đoạn 6 — Purchase Orders & Goods Receipt (Closed-Loop) ⏳ CHƯA BẮT ĐẦU
+
+#### 6A — PurchaseOrderModule (UC-02)
+- [ ] **6A.1** `GET /api/v1/purchase-orders` — Danh sách PO (filter: status, supplierId, isOverdue; pagination). `isOverdue` tính runtime: `expectedDeliveryDate < TODAY && status = Approved`.
+- [ ] **6A.2** `GET /api/v1/purchase-orders/{id}` — Chi tiết PO kèm line items (hiển thị snapshot historical price/MOQ).
+- [ ] **6A.3** `POST /api/v1/purchase-orders/{id}/cancel` — Hủy PO (cần `cancellationReason`); giảm `on_order_quantity` cho từng SKU; trả `PO_ALREADY_CLOSED` nếu Completed/Cancelled.
+- [ ] **6A.4** `POST /api/v1/purchase-orders/{id}/export` — Xuất PDF hoặc Excel (query param `format`); cập nhật `last_exported_at`.
+
+#### 6B — GoodsReceiptModule (UC-03)
+- [ ] **6B.1** `GET /api/v1/goods-receipts/pending-pos` — Danh sách PO Approved chưa nhận hàng.
+- [ ] **6B.2** `POST /api/v1/goods-receipts` — ACID Transaction (INV-31..38): validate PO Approved + SKUs thuộc PO; chặn nếu 100% receivedQuantity = 0 (`ZERO_FULFILLMENT_RECEIPT`); tạo `goods_receipts` + `receipt_line_items`; tăng `current_inventory`; giảm `on_order_quantity`; đóng PO → Completed; tính OTIF (BR-13) và cập nhật rolling 5-order window (BR-24).
+
+#### 6C — OTIF Calculation (Application Layer — trong UC-03 transaction)
+- [ ] **6C.1** `FulfillmentRate = min(100%, receivedQty / orderedQty × 100%)` — Khóa tối đa 100%.
+- [ ] **6C.2** `DaysLate = max(0, actualDate - expectedDate)` — `OnTimeFactor`: 0 ngày → 1.0, 1 → 0.67, 2 → 0.33, ≥3 → 0.0.
+- [ ] **6C.3** `OrderScore = (OnTimeFactor × 50) + (FulfillmentRate × 0.5)` — Cập nhật rolling 5-order `performance_score`.
+
+---
+
+### Giai đoạn 7 — Web UI (React + Vite) ⏳ CHƯA BẮT ĐẦU
+
+#### 7A — Hạ tầng Frontend
+- [ ] **7A.1** Layout hệ thống — Sidebar (nav theo role), Navbar, responsive breakpoints, Design tokens (colors, spacing).
+- [ ] **7A.2** AuthContext + ProtectedRoute — accessToken in memory, role-based route guard.
+- [ ] **7A.3** Axios client — Base URL `/api/v1`, withCredentials, interceptor tự động retry sau 401 (gọi `/auth/refresh`).
+- [ ] **7A.4** Toast / notification system — Success, Error, Warning.
+
+#### 7B — Feature Screens
+- [ ] **7B.1** `auth/` — Màn hình Login (form validation, error message).
+- [ ] **7B.2** `dss-review/` (UC-01) — Trigger analyze, bộ lọc ngành hàng, bảng đề xuất với Badge ABC-XYZ, nút "Xem giải thích" (gọi LLM on-demand), modal Supplier Ranking (bảng điểm WSM), chỉnh sửa quantity/supplier, nút Approve. Biểu đồ Recharts: actual sales history + forecast 14 ngày + CI 95% band.
+- [ ] **7B.3** `orders/` (UC-02) — Danh sách PO (filter status/overdue), badge Overdue, modal chi tiết, nút Cancel (form reason), nút Export PDF/Excel.
+- [ ] **7B.4** `receipts/` (UC-03) — Dropdown chọn PO Approved, form nhập `receivedQuantity` từng dòng, soft warning khi giao vượt, nút Confirm Receipt.
+- [ ] **7B.5** `data-import/` (UC-04) — Nút tải file mẫu (sales/inventory), drag-drop upload, data preview table, bảng lỗi chi tiết từng dòng (row + skuCode + issue).
+- [ ] **7B.6** `catalog/` (UC-05) — Danh sách SKU (filter ngành hàng, search, pagination), form thêm/sửa (MANAGER), badge Active/Inactive, xem tồn kho.
+- [ ] **7B.7** `suppliers/` (UC-06) — Danh sách NCC kèm OTIF badge 5 đơn, form hồ sơ (MANAGER), tab Supply Conditions (giá/MOQ/SKU), lịch sử giao hàng.
+- [ ] **7B.8** `configuration/` (UC-07) — 4 sliders trọng số WSM (live validation tổng = 100%), radio Service Level (90/95/98/99%), input Review Period (1-30 ngày), nút Save + Reset.
+
+---
+
+### Giai đoạn 8 — Testing, Integration & Deployment ⏳ CHƯA BẮT ĐẦU
+
+- [ ] **8.1** Unit tests Domain Engine (100% coverage) — `calculateSafetyStock`, `calculateRop`, `calculateSoq`, `classifyAbcXyz`, `calculateWsmScore`, `calculateOtif`, `selectForecastAlgorithm`.
+- [ ] **8.2** Integration tests Service layer — Mock PrismaService, mock HttpService (AI Service), mock Gemini SDK cho các UC chính.
+- [ ] **8.3** API tests AI Service — Pytest + TestClient: happy path, empty series, chuỗi < 30 ngày, intermittent demand.
+- [ ] **8.4** E2E verification — Vòng lặp đầy đủ: Import data → DSS Analyze → Human Adjust → Approve → PO Export → Goods Receipt → OTIF Update → DSS Analyze lần 2 (kiểm tra OTIF phản ánh lại).
+- [ ] **8.5** Docker Compose production build — 4 containers đầy đủ, health checks, depends_on ordering.
+- [ ] **8.6** README.md — Hướng dẫn khởi chạy 1-click (`docker compose up`), tài khoản test mặc định, link Swagger UI.
+
+---
+
+## 3. Nhật Ký Milestone
+
+| Ngày | Milestone | Kết quả | Commit |
 | :--- | :--- | :--- | :---: |
-| 17/09/2026 | Chốt Tài Liệu & Chuyển Phase | Hoàn tất 100% Phase Phân tích & Thiết kế; chuyển vai trò sang Implementation; cấu hình quy trình `implement-task` 5 bước. | `077aa59` |
-| 17/09/2026 | Khởi Tạo & Chuẩn Hóa Project Index | Hoàn thiện Master Implementation Tracker 8 giai đoạn sau khi đối chiếu chuyên sâu 6 Technical Contracts. | `1d44232` |
-| 17/09/2026 | Phân Rã Giai Đoạn 1 | Phân rã Giai đoạn 1 thành 6 task nguyên tử (Task 1.1 $\to$ 1.6) độc lập, kiểm chứng được từng bước. | `b0698ec` |
-| 17/09/2026 | Task 1.1: Hạ Tầng CSDL Docker | Cấu hình docker-compose.yml (PostgreSQL 16+ Alpine), .env.example, .gitignore; container dss_postgres chạy healthy trên port 5432. | `9426481` |
-| 18/09/2026 | Task 1.2: Scaffolding Backend Core | Khởi tạo NestJS 10, TypeScript Strict, Global Prefix /api/v1, CORS, Cookie-parser, Swagger UI (/api/docs), Standard API Envelope, Health check GET /api/v1/health. | `e5a1945` |
-| 18/09/2026 | Task 1.3: Thiết lập Prisma ORM & 16 Bảng CSDL | Viết schema.prisma 16 bảng khớp data-model và apply thành công vào PostgreSQL. | `Done` |
-| 19/09/2026 | Task 1.4: Chuyển đổi Kiến trúc Thin DB | Cập nhật tài liệu data-model loại bỏ yêu cầu dùng Database Triggers và CHECK constraints, chuyển trách nhiệm bảo vệ dữ liệu lên Application Layer. | `Done` |
-| 19/09/2026 | Task 1.5: Script Seed Data Ban Đầu | Tạo seed.ts, nạp DSS Configuration (id=1), 2 tài khoản Users (admin, staff với bcrypt) và 3 danh mục ngành hàng mẫu. | `Done` |
-| 19/09/2026 | Task 1.6: Scaffolding AI Service & Frontend | Khởi tạo Python FastAPI cho AI service và React + Vite + TailwindCSS cho Frontend. Cập nhật docker-compose. | `Done` |
+| 17/09/2026 | Chốt tài liệu — chuyển phase Implementation | 100% docs Confirmed | `077aa59` |
+| 17/09/2026 | Khởi tạo Project Index | Master Tracker 8 giai đoạn | `1d44232` |
+| 17/09/2026 | Task 1.1 — Docker + PostgreSQL | Container `dss_postgres` healthy port 5432 | `9426481` |
+| 18/09/2026 | Task 1.2 — NestJS Backend scaffold | Health check, Swagger, API Envelope | `e5a1945` |
+| 18/09/2026 | Task 1.3 — Prisma 16 tables | `schema.prisma` apply thành công | Done |
+| 19/09/2026 | Task 1.4 — Thin DB | Bỏ DB Triggers, chuyển lên App Layer | Done |
+| 19/09/2026 | Task 1.5 — Seed data | 2 users, DSS config singleton, categories | Done |
+| 19/09/2026 | Task 1.6 — AI Service + Frontend scaffold | FastAPI health, React+Vite shell | Done |
+| 19/09/2026 | Task 2.1 — AuthModule JWT + Token Rotation | Login/Logout/Refresh/Me hoạt động | Done |
+| 19/09/2026 | Task 2.2 — RBAC Guards | @Roles + RolesGuard active | Done |
+| 25/09/2026 | Tái cấu trúc GEMINI.md + .agents/* | Audit + rewrite toàn bộ agent config | — |
