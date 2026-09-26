@@ -23,7 +23,7 @@ Toàn bộ tài liệu phân tích nghiệp vụ và thiết kế kỹ thuật �
 | **Cơ Sở Dữ Liệu** | [docs/technical/data-model.md](docs/technical/data-model.md) | `Confirmed` | **Technical Contract CSDL:** Schema vật lý PostgreSQL 16+ với 16 bảng, constraints, triggers, indexes, seed data. |
 | **Kiến Trúc** | [docs/technical/architecture.md](docs/technical/architecture.md) | `Confirmed` | **Technical Contract Kiến trúc (Hub):** Mô hình C4, Polyglot Decoupled Modular Monolith, phân lập 3 động cơ DSS, bảo mật JWT/RBAC. |
 | **Hợp Đồng API** | [docs/technical/api-specification.md](docs/technical/api-specification.md) | `Confirmed` | **Technical Contract API (Spoke):** 100% Endpoints, Request/Response DTOs, Standard API Envelope, Error Taxonomy. |
-| **Quy Chuẩn Code**| [.agents/rules/implementation-rules.md](.agents/rules/implementation-rules.md)<br>[.agents/workflows/implement-task.md](.agents/workflows/implement-task.md)<br>[.agents/skills/fullstack-implementation/SKILL.md](.agents/skills/fullstack-implementation/SKILL.md) | `Active` | Kỷ luật lập trình Full-stack, quy trình 5 bước `implement-task` và code templates chuẩn. |
+
 
 ---
 
@@ -39,10 +39,10 @@ Tiến độ mã nguồn được theo dõi chi tiết qua 8 giai đoạn tuần
   - [x] **Task 1.5: Script Seed Data Ban Đầu** — Viết `backend/prisma/seed.ts` nạp 2 tài khoản test (`admin` - STORE_MANAGER, `staff` - PURCHASING_STAFF đã hash bcrypt), bản ghi singleton `DSSConfiguration` (`id = 1`), và danh mục ngành hàng mẫu.
   - [x] **Task 1.6: Scaffolding AI Service & Frontend** — Khởi tạo `ai-service/` (Python 3.12 FastAPI, requirements.txt, Pydantic config, `GET /health`) và `frontend/` (React 18+ Vite, TypeScript Strict, cấu hình TailwindCSS, proxy `/api`, layout shell).
 
-- [ ] **Giai đoạn 2: Hệ thống Bảo mật IAM, Phân quyền RBAC & Nhật ký Kiểm toán**
+- [x] **Giai đoạn 2: Hệ thống Bảo mật IAM, Phân quyền RBAC & Nhật ký Kiểm toán**
   - [x] **Task 2.1: Phân Hệ Xác Thực IAM (JWT & Token Rotation)** — Triển khai `AuthModule`, `UsersModule`: đăng nhập (`POST /auth/login`), đăng xuất (`POST /auth/logout`), lấy thông tin (`GET /auth/me`), cơ chế Refresh Token Rotation (`POST /auth/refresh`) qua HttpOnly Cookie và `JwtAuthGuard`. (✅ Hoàn thành)
   - [x] **Task 2.2: Chế Độ Phân Quyền RBAC** — Khởi tạo `@Roles()` decorator và `RolesGuard` để bảo vệ tài nguyên theo chuẩn 2 vai trò (`STORE_MANAGER` và `PURCHASING_STAFF`). (✅ Hoàn thành)
-  - [ ] **Task 2.3: Nhật Ký Kiểm Toán (Audit Trail) & Interceptor** — Viết `AuditLogInterceptor` bắt sự kiện ghi dữ liệu tự động lưu vết vào bảng `activity_logs` và API tra cứu. (⏳ Đang thực hiện)
+  - [x] **Task 2.3: Nhật Ký Kiểm Toán (Audit Trail) & Interceptor** — Viết `AuditLogInterceptor` bắt sự kiện ghi dữ liệu tự động lưu vết vào bảng `activity_logs` và API tra cứu. (✅ Hoàn thành)
 
 - [ ] **Giai đoạn 3: Phân hệ Dự báo Nhu cầu AI (Python FastAPI)**
   - [ ] Khởi tạo FastAPI service tại port 8000, cấu hình Pydantic schemas.

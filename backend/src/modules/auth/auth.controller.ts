@@ -28,6 +28,7 @@ import { AuthenticatedUser } from './interfaces/auth-payload.interface';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Role } from '../../common/enums/role.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
+import { AuditLog } from '../../common/decorators/audit-log.decorator';
 import { Request, Response } from 'express';
 
 @ApiTags('Auth')
@@ -40,6 +41,17 @@ export class AuthController {
 
   @ApiOperation({ summary: 'Đăng nhập hệ thống' })
   @ApiResponse({ status: 200, type: LoginResponseDto })
+  @AuditLog({
+    action: 'AUTH_LOGIN',
+    entityType: 'User',
+    entityId: (_req, resData) =>
+      (
+        resData as Record<string, unknown> & {
+          user?: { id?: string | number | bigint };
+        }
+      )?.user?.id?.toString(),
+    description: 'Đăng nhập vào hệ thống',
+  })
   @Post('login')
   async login(
     @Body() loginDto: LoginRequestDto,
@@ -117,6 +129,11 @@ export class AuthController {
   @ApiOperation({ summary: 'Đăng xuất' })
   @ApiBearerAuth('access-token')
   @UseGuards(JwtAuthGuard)
+  @AuditLog({
+    action: 'AUTH_LOGOUT',
+    entityType: 'User',
+    description: 'Đăng xuất khỏi hệ thống',
+  })
   @Post('logout')
   async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
     const refreshToken = req.cookies['refreshToken'];
