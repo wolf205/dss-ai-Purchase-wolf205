@@ -1,41 +1,40 @@
 ---
 name: backend
 description: >-
-  Hướng dẫn lập trình NestJS Modular Monolith: tạo module mới, viết Controller/Service/DTO,
-  cấu hình Guards (JwtAuthGuard, RolesGuard), Interceptors (AuditLog), Filters (AllExceptions),
-  Prisma ORM queries, ACID Transactions cho UC-01/UC-03/UC-04, Graceful Fallback sang Python AI Service.
-  Sử dụng khi implement bất kỳ feature backend nào trong thư mục backend/src/.
+  Hướng dẫn lập trình NestJS Modular Monolith: tạo module mới, viết Controller/Service/DTO/Domain Engine,
+  cấu hình Guards (JwtAuthGuard, RolesGuard), AuditLogInterceptor, AllExceptionsFilter,
+  Prisma ORM queries, Tier 3 ACID Transactions (UC-01/UC-03/UC-04), Graceful Fallback sang Python AI Service,
+  tích hợp Gemini Flash On-demand. Sử dụng khi implement bất kỳ feature backend nào trong thư mục backend/src/.
 ---
 
 # Backend Skill — NestJS Modular Monolith
 
-## 1. Monorepo Map
+## 1. Directory Map (9 Modules)
 
 ```
 backend/
 ├── prisma/
 │   ├── schema.prisma          # 16 tables — khớp data-model.md
 │   ├── migrations/            # Lịch sử migration vật lý
-│   └── seed.ts                # Seed: users, categories, dss_config
+│   └── seed.ts                # Seed: users, categories, dss_configurations
 ├── src/
 │   ├── common/
 │   │   ├── filters/           # AllExceptionsFilter
 │   │   ├── guards/            # JwtAuthGuard, RolesGuard
 │   │   ├── interceptors/      # AuditLogInterceptor, TransformInterceptor
 │   │   ├── decorators/        # @Roles(), @CurrentUser()
-│   │   └── enums/             # Role enum
+│   │   └── enums/             # Role enum (STORE_MANAGER, PURCHASING_STAFF)
 │   ├── modules/
-│   │   ├── auth/              # Login, Refresh Token Rotation, Cookie
-│   │   ├── users/             # User management (MANAGER only)
-│   │   ├── catalog/           # UC-05: Products, Categories
-│   │   ├── suppliers/         # UC-06: Suppliers, Supply Conditions, OTIF
-│   │   ├── dss/               # UC-01, UC-07: DSS Sessions, Calc Engine, LLM
-│   │   ├── orders/            # UC-02: Purchase Orders
-│   │   ├── receipts/          # UC-03: Goods Receipts, Stock update
-│   │   ├── import/            # UC-04: Sales & Inventory Data Import
-│   │   ├── config/            # UC-07: DSS Configuration singleton
-│   │   ├── audit/             # Activity logs (Append-Only)
-│   │   ├── health/            # Health check endpoint
+│   │   ├── auth/              # Login, Refresh Token Rotation, Cookie HttpOnly
+│   │   ├── catalog/           # UC-05: categories, products (CRUD + Soft Deactivate)
+│   │   ├── suppliers/         # UC-06: suppliers, supply_conditions, OTIF tracking
+│   │   ├── dss/               # UC-01, UC-07: sessions, calc engine, LLM on-demand
+│   │   │   └── engines/       # DssCalculationEngineService (pure functions)
+│   │   ├── purchase-orders/   # UC-02: PO lifecycle, export PDF/Excel, cancel + on-order reversal
+│   │   ├── goods-receipts/    # UC-03: nhận hàng, OTIF calc, stock update
+│   │   ├── data-import/       # UC-04: sales/inventory file import, All-or-Nothing
+│   │   ├── configuration/     # UC-07: dss_configurations singleton
+│   │   ├── audit/             # AuditLogInterceptor (Append-Only activity_logs)
 │   │   └── prisma/            # PrismaModule & PrismaService
 │   ├── app.module.ts
 │   └── main.ts
@@ -45,12 +44,8 @@ backend/
 
 ```typescript
 // src/modules/<name>/<name>.module.ts
-import { Module } from '@nestjs/common';
-import { <Name>Controller } from './<name>.controller';
-import { <Name>Service } from './<name>.service';
-
 @Module({
-  imports: [],
+  imports: [PrismaModule],
   controllers: [<Name>Controller],
   providers: [<Name>Service],
   exports: [<Name>Service],
@@ -60,15 +55,7 @@ export class <Name>Module {}
 
 ```typescript
 // src/modules/<name>/<name>.controller.ts
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { Role } from '../../common/enums/role.enum';
-import { <Name>Service } from './<name>.service';
-import { Create<Name>Dto } from './dto/create-<name>.dto';
-
-@Controller('api/v1/<name>')
+@Controller('api/v1/<resource>')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class <Name>Controller {
   constructor(private readonly <name>Service: <Name>Service) {}
@@ -85,76 +72,91 @@ export class <Name>Controller {
 ## 3. AllExceptionsFilter Template
 
 ```typescript
-// src/common/filters/all-exceptions.filter.ts
-import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus } from '@nestjs/common';
-import { Response } from 'express';
-
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-
     const status = exception instanceof HttpException
-      ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
-
+      ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
     const exceptionResponse: any = exception instanceof HttpException
       ? exception.getResponse() : null;
-
-    const errorCode = exceptionResponse?.code || 'INTERNAL_SERVER_ERROR';
-    const message = exceptionResponse?.message || (exception as any).message || 'Đã có lỗi xảy ra';
-    const details = exceptionResponse?.details || [];
-
     response.status(status).json({
       success: false,
       error: {
-        code: errorCode,
-        message: Array.isArray(message) ? message[0] : message,
-        details: Array.isArray(details) ? details : [details],
+        code: exceptionResponse?.code || 'INTERNAL_SERVER_ERROR',
+        message: Array.isArray(exceptionResponse?.message)
+          ? exceptionResponse.message[0] : (exceptionResponse?.message || (exception as any).message),
+        details: exceptionResponse?.details || [],
+        timestamp: new Date().toISOString(),
+        path: ctx.getRequest().url,
       },
     });
   }
 }
 ```
 
-## 4. Tier 3 Transaction Pattern
+## 4. Tier 3 Transaction Patterns
 
 ```typescript
-// UC-01: Approve DSS Session
+// UC-01: Approve DSS Session — INV-24,25,26,27
 await this.prisma.$transaction(async (tx) => {
   // 1. Chốt session
   await tx.recommendationSession.update({
     where: { id: sessionId },
-    data: { status: 'APPROVED', approvedBy: userId, approvedAt: new Date() },
+    data: { status: 'Approved', approvedBy: username, approvedAt: new Date() },
   });
-  // 2. Sinh POs gom theo NCC
+  // 2. Cập nhật approved_quantity + approved_supplier_id cho từng item
+  for (const item of approvedItems) {
+    await tx.recommendationItem.update({
+      where: { id: item.id },
+      data: { approvedQuantity: item.approvedQuantity, approvedSupplierId: item.approvedSupplierId },
+    });
+  }
+  // 3. Tạo POs gom theo NCC + snapshot historical fields
   for (const group of groupedBySupplier) {
-    const po = await tx.purchaseOrder.create({ data: { ... } });
-    // 3. Cập nhật on_order_quantity
+    const po = await tx.purchaseOrder.create({
+      data: {
+        poNumber: generatePoNumber(),
+        sessionId,
+        supplierId: group.supplierId,
+        status: 'Approved',
+        expectedDeliveryDate: addDays(new Date(), group.committedLeadTimeDays),
+      }
+    });
     for (const item of group.items) {
-      await tx.product.update({
-        where: { id: item.productId },
-        data: { onOrderQuantity: { increment: item.approvedQuantity } },
+      await tx.poLineItem.create({
+        data: {
+          purchaseOrderId: po.id,
+          productId: item.productId,
+          orderedQuantity: item.approvedQuantity,
+          historicalUnitPrice: item.unitPrice,   // snapshot — không JOIN lại
+          historicalMoq: item.moq,
+          historicalLeadTimeDays: item.leadTimeDays,
+        }
       });
     }
+    // on_order_quantity tăng — xử lý tại Application Layer (không dùng DB Trigger)
+    await tx.product.updateMany({
+      where: { id: { in: group.items.map(i => i.productId) } },
+      data: { onOrderQuantity: { increment: ... } },
+    });
   }
 });
 
-// UC-04: All-or-Nothing Import
+// UC-04: All-or-Nothing Import — INV-14,22,23
+// Validate 100% in-memory TRƯỚC khi mở transaction
+if (errors.length > 0) throw new BadRequestException({ code: 'ALL_OR_NOTHING_IMPORT_FAILED', details: errors });
 await this.prisma.$transaction(async (tx) => {
-  // Validate trước (ngoài transaction) → throw nếu lỗi
-  // Xóa dữ liệu ngày cũ trùng lặp
-  await tx.dailySales.deleteMany({ where: { saleDate: { in: dates } } });
-  // Insert batch mới
-  await tx.dailySales.createMany({ data: validatedRows });
+  await tx.salesRecord.deleteMany({ where: { saleDate: { in: duplicateDates } } });
+  await tx.salesRecord.createMany({ data: validatedRows });
 });
 ```
 
 ## 5. Graceful Fallback sang Python AI Service
 
 ```typescript
-// Trong DssService
+// DssService — gọi AI Service với timeout 3 giây
 async getForecast(payload: ForecastPayload): Promise<ForecastResult> {
   try {
     const response = await firstValueFrom(
@@ -164,25 +166,52 @@ async getForecast(payload: ForecastPayload): Promise<ForecastResult> {
         { timeout: 3000 },
       )
     );
-    return { ...response.data, is_fallback: false };
+    return { ...response.data, isFallback: false };
   } catch (error) {
-    this.logger.warn('AI Service unavailable, falling back to SMA');
-    const smaResult = await this.calculateSimpleMovingAverage(payload.skuIds);
-    return { ...smaResult, is_fallback: true };
+    this.logger.warn('AI Service unavailable, falling back to SQL SMA');
+    const smaResult = await this.calculateSqlMovingAverage(payload);
+    return { ...smaResult, isFallback: true };
   }
 }
 ```
 
-## 6. Common Commands
+## 6. Gemini Flash — On-Demand Explain (UC-01 only)
+
+```typescript
+// POST /api/v1/dss/items/{itemId}/explain
+async explainItem(itemId: number): Promise<string> {
+  const item = await this.prisma.recommendationItem.findUniqueOrThrow({ where: { id: itemId } });
+  // Cache hit
+  if (item.whyBuyExplanation) return item.whyBuyExplanation;
+  // Call Gemini
+  const prompt = buildExplainPrompt(item); // inject quantitative data
+  try {
+    const result = await this.geminiClient.models.generateContent({
+      model: 'gemini-1.5-flash',
+      contents: prompt,
+    });
+    const explanation = result.text;
+    await this.prisma.recommendationItem.update({
+      where: { id: itemId },
+      data: { whyBuyExplanation: explanation },
+    });
+    return explanation;
+  } catch {
+    return buildFallbackExplanation(item); // text tất định an toàn
+  }
+}
+```
+
+## 7. Common Commands
 
 ```bash
 # Trong thư mục backend/
-npm run start:dev           # Dev server với hot reload
-npx tsc --noEmit            # TypeScript type check
-npm run lint                # ESLint
-npm run test                # Jest tests
-npm run test:cov            # Tests + coverage
-npx prisma migrate dev --name <migration_name>   # Tạo migration mới
-npx prisma db seed          # Nạp seed data
-npx prisma studio           # GUI xem DB
+npm run start:dev                                        # Dev server hot reload
+npx tsc --noEmit                                        # TypeScript type check
+npm run lint                                             # ESLint
+npm run test                                             # Jest tests
+npm run test:cov                                         # Tests + coverage
+npx prisma migrate dev --name <migration_name>           # Tạo migration mới
+npx prisma db seed                                       # Nạp seed data
+npx prisma studio                                        # GUI xem DB
 ```

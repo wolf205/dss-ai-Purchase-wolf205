@@ -3,36 +3,31 @@ name: frontend
 description: >-
   Hướng dẫn lập trình React+Vite SPA: tạo feature mới, viết components, hooks, services.
   Bao gồm TanStack Query (useQuery, useMutation, cache invalidation), AuthContext, ProtectedRoute,
-  Axios interceptor tự động refresh token, Recharts time-series chart với forecast bands.
-  Sử dụng khi implement bất kỳ feature frontend nào trong thư mục frontend/src/.
+  Axios interceptor tự động refresh token, Recharts time-series chart với forecast bands CI 95%,
+  Badge ABC-XYZ, Supplier Ranking modal, file drag-drop upload. Sử dụng khi implement
+  bất kỳ feature frontend nào trong thư mục frontend/src/.
 ---
 
 # Frontend Skill — React + Vite SPA
 
-## 1. Feature-Driven Directory Map
+## 1. Feature-Driven Directory Map (7 Use Cases)
 
 ```
 frontend/src/
-├── components/              # UI Primitives dùng chung
-│   ├── Button/
-│   ├── Table/
-│   ├── Modal/
-│   ├── Badge/
-│   └── Toast/
-├── features/                # 7 Use Cases — mỗi feature là một thư mục
-│   ├── auth/                # Login page, AuthContext, ProtectedRoute
-│   ├── dss-review/          # UC-01: Recommendation table, Explain modal, Recharts
-│   ├── orders/              # UC-02: PO List, Cancel PO
-│   ├── receipts/            # UC-03: Goods receipt form, Over-delivery warning
-│   ├── data-import/         # UC-04: File drag-drop, Error details table
-│   ├── catalog/             # UC-05: Product/Category CRUD
-│   ├── suppliers/           # UC-06: Supplier list, OTIF 5-order badge
-│   └── config/              # UC-07: DSS weights slider, Service Level input
-├── services/
-│   └── api/
-│       ├── axios.client.ts  # Axios instance + Interceptors
-│       └── endpoints/       # API call functions theo feature
-├── hooks/                   # TanStack Query custom hooks
+├── features/
+│   ├── auth/           # Login, AuthContext (accessToken in memory), ProtectedRoute
+│   ├── dss-review/     # UC-01: Bảng đề xuất, Badge ABC-XYZ, Modal Explain (LLM), Recharts
+│   ├── orders/         # UC-02: Danh sách PO, Modal Hủy PO (+ cancellationReason), Export PDF/Excel
+│   ├── receipts/       # UC-03: Chọn PO Approved, nhập receivedQuantity, soft warning over-delivery
+│   ├── data-import/    # UC-04: Drag-drop file CSV/Excel, Data Preview, Error details table
+│   ├── catalog/        # UC-05: Danh mục SKU + Category, CRUD (MANAGER), Read-only (STAFF)
+│   ├── suppliers/      # UC-06: Hồ sơ NCC, Conditions (Giá/MOQ), OTIF 5-order badge
+│   └── configuration/  # UC-07: Weight sliders (tổng 100%), Service Level radio, Review Period
+├── components/         # UI primitives: Button, Table, Modal, Badge, Toast, Input, Pagination
+├── services/api/
+│   ├── axios.client.ts # Axios instance + Interceptor auto Refresh Token
+│   └── endpoints/      # API call functions theo feature
+├── hooks/              # Custom hooks (useAuth, useDssSession, useProducts, useSuppliers...)
 └── main.tsx
 ```
 
@@ -50,10 +45,6 @@ features/<name>/
 
 ```typescript
 // hooks/useProducts.ts
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { getProducts, createProduct } from '../services/productsApi';
-
-// Query (GET)
 export function useProducts(filters?: ProductFilters) {
   return useQuery({
     queryKey: ['products', filters],
@@ -62,7 +53,6 @@ export function useProducts(filters?: ProductFilters) {
   });
 }
 
-// Mutation (POST/PUT/DELETE) + cache invalidation
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -77,16 +67,15 @@ export function useCreateProduct() {
 ## 3. AuthContext + ProtectedRoute
 
 ```typescript
-// features/auth/AuthContext.tsx
+// Lưu accessToken trong MEMORY — tuyệt đối không localStorage/sessionStorage
 interface AuthContextValue {
-  user: User | null;
-  accessToken: string | null;  // Lưu trong memory — không localStorage
+  user: { id: number; username: string; role: 'STORE_MANAGER' | 'PURCHASING_STAFF' } | null;
+  accessToken: string | null;
   login: (credentials: LoginDto) => Promise<void>;
   logout: () => Promise<void>;
-  refreshToken: () => Promise<string>;
 }
 
-// features/auth/ProtectedRoute.tsx
+// ProtectedRoute — kiểm tra role
 export function ProtectedRoute({ children, requiredRole }: Props) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
@@ -101,14 +90,12 @@ export function ProtectedRoute({ children, requiredRole }: Props) {
 // services/api/axios.client.ts
 const apiClient = axios.create({ baseURL: '/api/v1', withCredentials: true });
 
-// Request interceptor: gắn Access Token
 apiClient.interceptors.request.use((config) => {
   const token = getAccessTokenFromMemory();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
 
-// Response interceptor: auto refresh khi 401
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -124,10 +111,10 @@ apiClient.interceptors.response.use(
 );
 ```
 
-## 5. Recharts Time-Series Template (UC-01 DSS Chart)
+## 5. UC-01 DSS Chart — Recharts Time-Series + Forecast Band CI 95%
 
 ```tsx
-// Biểu đồ: Đường bán thực tế + Đường dự báo + Vùng CI 95%
+// Lịch sử bán thực tế (actual) + 14 ngày dự báo (forecast) + dải CI 95%
 import { ComposedChart, Line, Area, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 <ResponsiveContainer width="100%" height={300}>
@@ -136,17 +123,26 @@ import { ComposedChart, Line, Area, XAxis, YAxis, Tooltip, Legend, ResponsiveCon
     <YAxis />
     <Tooltip />
     <Legend />
-    {/* Vùng CI 95% */}
-    <Area type="monotone" dataKey="ci_band" fill="#3b82f620" stroke="none" />
-    {/* Đường bán thực tế (quá khứ) */}
-    <Line type="monotone" dataKey="actual_sales" stroke="#3b82f6" dot={false} strokeWidth={2} />
-    {/* Đường dự báo (tương lai 14 ngày) */}
-    <Line type="monotone" dataKey="forecast" stroke="#f59e0b" strokeDasharray="5 5" dot={false} strokeWidth={2} />
+    {/* Dải tin cậy 95% */}
+    <Area type="monotone" dataKey="ciBand" fill="#3b82f620" stroke="none" name="CI 95%" />
+    {/* Bán thực tế (quá khứ) */}
+    <Line type="monotone" dataKey="actualSales" stroke="#3b82f6" dot={false} strokeWidth={2} name="Thực tế" />
+    {/* Dự báo 14 ngày */}
+    <Line type="monotone" dataKey="forecast" stroke="#f59e0b" strokeDasharray="5 5" dot={false} strokeWidth={2} name="Dự báo" />
   </ComposedChart>
 </ResponsiveContainer>
 ```
 
-## 6. Common Commands
+## 6. UC-07 Weight Slider (Tổng 100%)
+
+```tsx
+// Validation: sum(weightPrice + weightLeadTime + weightMoq + weightHistory) === 1.0 (±0.001)
+const totalWeight = weightPrice + weightLeadTime + weightMoq + weightHistory;
+const isValid = Math.abs(totalWeight - 1.0) <= 0.001;
+// Hiển thị error nếu tổng ≠ 100% trước khi submit
+```
+
+## 7. Common Commands
 
 ```bash
 # Trong thư mục frontend/

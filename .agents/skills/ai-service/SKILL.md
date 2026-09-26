@@ -1,10 +1,11 @@
 ---
 name: ai-service
 description: >-
-  Hướng dẫn lập trình Python FastAPI AI Forecasting Service: Pydantic schemas (TimeSeriesPayload,
-  ForecastResponse), lựa chọn thuật toán dự báo (Croston/TSB, AutoARIMA, Holt-Winters, Moving Average),
-  zero-demand padding, FastAPI router template, error handling và health check.
-  Sử dụng khi implement hoặc debug bất kỳ file nào trong ai-service/src/.
+  Hướng dẫn lập trình Python FastAPI AI Forecasting Service: Pydantic v2 schemas (TimeSeriesPayload,
+  ForecastResponse), lựa chọn thuật toán dự báo theo đặc tính chuỗi (Croston/TSB cho ngắt quãng,
+  AutoARIMA/Holt-Winters cho đều, SMA cho chuỗi ngắn <30 ngày), zero-demand padding, FastAPI router
+  template, error handling và health check. Sử dụng khi implement hoặc debug bất kỳ file nào
+  trong ai-service/src/.
 ---
 
 # AI Service Skill — Python FastAPI Forecasting
@@ -15,18 +16,17 @@ description: >-
 ai-service/
 ├── src/
 │   ├── api/
-│   │   ├── router.py          # APIRouter — mount vào main.py
 │   │   └── v1/
-│   │       └── forecast.py    # POST /api/v1/forecast
+│   │       └── forecast.py    # POST /api/v1/forecast + GET /api/v1/health
 │   ├── models/
-│   │   ├── request.py         # Pydantic: TimeSeriesPayload
-│   │   └── response.py        # Pydantic: ForecastResponse, ForecastItem
+│   │   ├── request.py         # Pydantic v2: TimeSeriesPayload
+│   │   └── response.py        # Pydantic v2: ForecastResponse
 │   ├── services/
 │   │   ├── forecaster.py      # Algorithm selector + orchestrator
-│   │   ├── croston.py         # Croston / TSB (intermittent demand)
-│   │   ├── autoarima.py       # AutoARIMA (stable demand)
-│   │   ├── holt_winters.py    # Holt-Winters (seasonal demand)
-│   │   └── moving_average.py  # SMA fallback
+│   │   ├── croston.py         # Croston / TSB (intermittent demand, cv > 1.0 hoặc nonzero < 70%)
+│   │   ├── autoarima.py       # AutoARIMA (stable demand, cv ≤ 0.5)
+│   │   ├── holt_winters.py    # Holt-Winters ETS (seasonal/stable)
+│   │   └── moving_average.py  # Simple MA 7-day (fallback cho chuỗi ngắn < 30 ngày)
 │   └── main.py                # FastAPI app entry point
 ├── tests/
 │   └── test_forecast.py
@@ -34,7 +34,7 @@ ai-service/
 └── Dockerfile
 ```
 
-## 2. Pydantic Schema Templates
+## 2. API Contract (Khớp với api-specification.md Mục 11)
 
 ```python
 # src/models/request.py
@@ -43,77 +43,79 @@ from typing import List
 from datetime import date
 
 class DailySalesPoint(BaseModel):
-    sale_date: date
-    quantity_sold: float  # Đã padding zero cho ngày không bán
+    date: date
+    quantity: float  # đã padding zero cho ngày không bán
 
-class SkuTimeSeriesPayload(BaseModel):
-    sku_id: str
-    sales_history: List[DailySalesPoint]  # Tối thiểu 30 ngày, tối đa 365 ngày
-    forecast_horizon_days: int = Field(default=14, ge=7, le=30)
-    lead_time_days: int = Field(ge=1)
+class SkuSeries(BaseModel):
+    sku_id: int
+    history: List[DailySalesPoint]  # Tối thiểu 14 ngày, tốt nhất 30-90 ngày
 
 class TimeSeriesPayload(BaseModel):
-    items: List[SkuTimeSeriesPayload]
-    requested_at: date
+    horizon_days: int = Field(default=14, ge=7, le=30)
+    series: List[SkuSeries]
 
 # src/models/response.py
 class DailyForecast(BaseModel):
-    forecast_date: date
-    predicted_quantity: float
-    lower_ci_95: float
-    upper_ci_95: float
+    date: date
+    predicted: float
+    lower: float   # CI 95% lower bound
+    upper: float   # CI 95% upper bound
 
-class ForecastItem(BaseModel):
-    sku_id: str
-    algorithm_used: str   # "CROSTON" | "AUTOARIMA" | "HOLT_WINTERS" | "SMA"
-    daily_forecasts: List[DailyForecast]
-    forecast_period_days: int
-    is_intermittent: bool
+class SkuForecastResult(BaseModel):
+    sku_id: int
+    daily_average: float       # d_forecast — dùng trong SS, ROP
+    daily_demand_std: float    # σd — dùng trong SS = Z × σd × √L
+    model_used: str            # "AutoARIMA" | "Croston" | "HoltWinters" | "SMA"
+    daily_forecasts: List[DailyForecast]  # 14 items
 
 class ForecastResponse(BaseModel):
-    items: List[ForecastItem]
-    processed_at: date
-    is_fallback: bool = False
+    success: bool = True
+    results: List[SkuForecastResult]
 ```
 
-## 3. Algorithm Selection Decision Tree
+## 3. Algorithm Selection (Theo đặc tính chuỗi — từ architecture.md)
 
 ```python
 # src/services/forecaster.py
-def select_algorithm(sales_history: List[float]) -> str:
+def select_algorithm(history: List[float]) -> str:
     """
     Lựa chọn thuật toán dựa trên đặc tính chuỗi thời gian.
+    Nguồn: docs/technical/architecture.md Mục 5.1
     """
-    non_zero_ratio = sum(1 for x in sales_history if x > 0) / len(sales_history)
-    mean = sum(sales_history) / len(sales_history) or 1
-    std = (sum((x - mean) ** 2 for x in sales_history) / len(sales_history)) ** 0.5
+    if len(history) < 30:
+        return "SMA"  # Chuỗi ngắn < 30 ngày → Simple Moving Average 7 ngày
+
+    non_zero_ratio = sum(1 for x in history if x > 0) / len(history)
+    mean = sum(history) / len(history) or 1e-9
+    std = (sum((x - mean) ** 2 for x in history) / len(history)) ** 0.5
     cv = std / mean  # Coefficient of Variation
 
-    # Dữ liệu ngắt quãng (intermittent demand)
-    if cv > 1.0 or non_zero_ratio < 0.7:  # Hơn 30% ngày không bán
-        return "CROSTON"
+    # Nhu cầu ngắt quãng (intermittent): cv > 1.0 hoặc nonzero < 70%
+    if cv > 1.0 or non_zero_ratio < 0.7:
+        return "Croston"  # hoặc TSB via statsforecast
 
-    # Dữ liệu ổn định, ít biến động
+    # Nhu cầu đều, biến động thấp
     if cv <= 0.5:
-        return "HOLT_WINTERS"  # Hoặc AUTOARIMA
+        return "AutoARIMA"  # hoặc HoltWinters ETS
 
-    # Trung bình — dùng AutoARIMA
-    return "AUTOARIMA"
+    # Trung bình — AutoARIMA
+    return "AutoARIMA"
 ```
 
-## 4. Zero-Demand Padding
+## 4. Zero-Demand Padding (Bắt buộc trước khi forecast)
 
 ```python
-# Bổ sung ngày 0 vào chuỗi thời gian trước khi forecast
+from datetime import date, timedelta
+
 def pad_zero_demand(
-    sales_records: List[DailySalesPoint],
+    history: List[DailySalesPoint],
     start_date: date,
     end_date: date
 ) -> List[float]:
-    """Tạo chuỗi liên tục theo ngày, ngày không có dữ liệu = 0."""
-    sales_map = {r.sale_date: r.quantity_sold for r in sales_records}
-    current = start_date
+    """Tạo chuỗi liên tục theo ngày, ngày không có dữ liệu = 0.0"""
+    sales_map = {r.date: r.quantity for r in history}
     result = []
+    current = start_date
     while current <= end_date:
         result.append(sales_map.get(current, 0.0))
         current += timedelta(days=1)
@@ -142,7 +144,7 @@ async def forecast(payload: TimeSeriesPayload) -> ForecastResponse:
 
 @router.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "service": "retail-dss-forecasting"}
 ```
 
 ## 6. Common Commands
@@ -150,8 +152,8 @@ async def health():
 ```bash
 # Trong thư mục ai-service/
 uvicorn src.main:app --reload --port 8000   # Dev server
-pytest -v                                    # Chạy tests
-pytest --cov=src --cov-report=term-missing   # Tests + coverage
+pytest -v                                    # Tests
+pytest --cov=src --cov-report=term-missing   # Coverage
 mypy src/                                    # Type checking
 pip install -r requirements.txt              # Cài dependencies
 ```

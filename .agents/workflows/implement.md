@@ -2,7 +2,7 @@
 description: Spec-Driven Task Implementation Workflow — Plan-Before-Code (5 Pha)
 ---
 
-# /implement-task — Quy Trình Triển Khai Task
+# /implement — Quy Trình Triển Khai Task
 
 > **Nguyên tắc bất biến:** Không gõ một dòng code nào khi Plan chưa được người dùng phê duyệt.
 
@@ -12,15 +12,15 @@ description: Spec-Driven Task Implementation Workflow — Plan-Before-Code (5 Ph
 
 Trước khi làm bất kỳ việc gì:
 
-1. Xác định task thuộc **Use Case** nào (UC-01 đến UC-07).
+1. Xác định task thuộc **Use Case** nào (UC-01 đến UC-07) — tra Module Map trong `GEMINI.md` Mục 5.
 2. Đọc tài liệu nghiệp vụ liên quan:
-   - Use Case chi tiết: `docs/business/use-cases/uc-<N>.md`
-   - Business Rules liên quan: `docs/business/business-rules.md`
+   - Use Case chi tiết: `docs/business/use-cases/uc-<N>.md` ← **Đọc trước tiên**
+   - Business Rules liên quan: `docs/business/business-rules.md` (BR liên quan đến UC)
 3. Đọc tài liệu kỹ thuật liên quan:
    - Bảng DB & constraints: `docs/technical/data-model.md`
    - Endpoints, DTOs, Error Codes: `docs/technical/api-specification.md`
    - Module & luồng kiến trúc: `docs/technical/architecture.md`
-4. Nạp **Skill** phù hợp theo loại task (tra Agent Routing Guide trong `GEMINI.md`).
+4. Nạp **Skill** phù hợp theo loại task (tra Agent Routing Guide trong `GEMINI.md` Mục 4).
 
 ---
 
