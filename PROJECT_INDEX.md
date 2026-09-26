@@ -42,14 +42,15 @@
 
 ---
 
-### Giai đoạn 3 — AI Forecasting Service (Python FastAPI) 🔄 ĐANG TRIỂN KHAI
+### Giai đoạn 3 — AI Forecasting Service (Python FastAPI) ✅ HOÀN THÀNH
 
 - [x] **3.1** Pydantic v2 schemas — `TimeSeriesPayload` (horizonDays, series[{skuId, history[{date, quantity}]}]) và `ForecastResponse` (results[{skuId, dailyAverage, dailyDemandStd, modelUsed, dailyForecasts}]).
 - [x] **3.2** Zero-Demand padding — Bù đắp ngày không có dữ liệu bán = 0.0 trước khi chạy thuật toán.
 - [x] **3.3** Algorithm selector — Croston/TSB (CV > 1.0 hoặc nonZeroRatio < 70%), AutoARIMA/Holt-Winters (CV ≤ 0.5, chuỗi ≥ 30 ngày), SMA 7 ngày (chuỗi < 30 ngày).
 - [x] **3.4** `POST /api/v1/forecast` endpoint — Trả về `dailyAverage`, `dailyDemandStd`, `dailyForecasts` 14 ngày với CI 95% (lower/upper).
 - [x] **3.5** `GET /api/v1/health` đầy đủ — `{ status: "ok", service: "retail-dss-forecasting" }`.
-- [ ] **3.6** Dockerfile + unit tests — `pytest --cov=src`, coverage 100% trên algorithm selector và zero-demand padding.
+- [x] **3.6** Dockerfile + unit tests — `pytest --cov=src`, coverage 100% trên algorithm selector và zero-demand padding.
+
 
 ---
 

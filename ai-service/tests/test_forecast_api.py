@@ -237,3 +237,99 @@ class TestForecastApi(unittest.TestCase):
         }
         response = self.client.post("/api/v1/forecast", json=payload)
         self.assertEqual(response.status_code, 422)
+
+    def test_forecast_single_day_history_window_one(self):
+        """SKU chỉ có 1 ngày dữ liệu (window=1) vẫn tính toán an toàn với std = metrics.std."""
+        payload = {
+            "horizonDays": 7,
+            "series": [{"skuId": 88, "history": [{"date": "2026-08-01", "quantity": 12.0}]}],
+        }
+        response = self.client.post("/api/v1/forecast", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        res = data["results"][0]
+        self.assertEqual(res["skuId"], 88)
+        self.assertEqual(res["modelUsed"], "SMA")
+        self.assertEqual(res["dailyAverage"], 12.0)
+        self.assertEqual(len(res["dailyForecasts"]), 7)
+
+    def test_forecast_graceful_fallback_intermittent(self):
+        """Khi mô hình ngắt quãng ném ngoại lệ bất ngờ, hệ thống tự động fallback sang SMA."""
+        from unittest.mock import patch
+        from src.services.forecaster import run_forecast_for_sku
+        from src.models.request import SkuSeries, DailySalesPoint
+
+        series = SkuSeries(
+            sku_id=99,
+            history=[
+                DailySalesPoint(date=date(2026, 7, 1) + timedelta(days=i), quantity=10.0 if i % 4 == 0 else 0.0)
+                for i in range(35)
+            ],
+        )
+
+        with patch("src.services.forecaster._forecast_intermittent", side_effect=RuntimeError("StatsForecast boom")):
+            result = run_forecast_for_sku(series, horizon_days=14)
+            self.assertEqual(result.sku_id, 99)
+            self.assertEqual(result.model_used, "SMA")
+            self.assertEqual(len(result.daily_forecasts), 14)
+
+    def test_forecast_graceful_fallback_continuous(self):
+        """Khi mô hình liên tục (AutoARIMA) ném ngoại lệ bất ngờ, hệ thống tự động fallback sang SMA."""
+        from unittest.mock import patch
+        from src.services.forecaster import run_forecast_for_sku
+        from src.models.request import SkuSeries, DailySalesPoint
+
+        series = SkuSeries(
+            sku_id=77,
+            history=[
+                DailySalesPoint(date=date(2026, 7, 1) + timedelta(days=i), quantity=20.0 + (i % 2))
+                for i in range(35)
+            ],
+        )
+
+        with patch("src.services.forecaster._forecast_continuous", side_effect=RuntimeError("ARIMA singular matrix")):
+            result = run_forecast_for_sku(series, horizon_days=14)
+            self.assertEqual(result.sku_id, 77)
+            self.assertEqual(result.model_used, "SMA")
+            self.assertEqual(len(result.daily_forecasts), 14)
+
+
+    def test_forecast_endpoint_internal_server_error_500(self):
+        """Khi có ngoại lệ không lường trước trong router, trả về 500 kèm thông điệp chuẩn."""
+        from unittest.mock import patch
+
+        payload = {
+            "horizonDays": 14,
+            "series": [{"skuId": 1, "history": [{"date": "2026-08-01", "quantity": 10.0}]}],
+        }
+        with patch("src.api.v1.forecast.run_forecast", side_effect=RuntimeError("Compute engine crash")):
+            response = self.client.post("/api/v1/forecast", json=payload)
+            self.assertEqual(response.status_code, 500)
+            self.assertIn("Forecast error: Compute engine crash", response.json()["detail"])
+
+    def test_forecast_endpoint_value_error_422(self):
+        """Khi service ném ValueError nghiệp vụ, router chuyển thành 422."""
+        from unittest.mock import patch
+
+        payload = {
+            "horizonDays": 14,
+            "series": [{"skuId": 1, "history": [{"date": "2026-08-01", "quantity": 10.0}]}],
+        }
+        with patch("src.api.v1.forecast.run_forecast", side_effect=ValueError("Invalid SKU configuration")):
+            response = self.client.post("/api/v1/forecast", json=payload)
+            self.assertEqual(response.status_code, 422)
+            self.assertEqual(response.json()["detail"], "Invalid SKU configuration")
+
+    def test_run_forecast_for_sku_empty_history(self):
+        """run_forecast_for_sku ném ValueError nếu history rỗng."""
+        from src.services.forecaster import run_forecast_for_sku
+        from unittest.mock import MagicMock
+
+        mock_series = MagicMock()
+        mock_series.sku_id = 123
+        mock_series.history = []
+
+        with self.assertRaises(ValueError) as ctx:
+            run_forecast_for_sku(mock_series, horizon_days=14)
+        self.assertIn("has empty sales history", str(ctx.exception))
+
