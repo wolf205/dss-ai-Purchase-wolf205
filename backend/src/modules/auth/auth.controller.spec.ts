@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { UsersService } from '../users/users.service';
+import { UsersService } from './users.service';
 import { UnauthorizedException } from '@nestjs/common';
 import { Request, Response } from 'express';
 

@@ -32,13 +32,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/health")
+@app.get("/api/v1/health")
 async def health_check():
-    """Health check endpoint to ensure service is running."""
+    """Health check endpoint to ensure forecasting service is running."""
     return {
-        "status": "ok", 
-        "service": "dss-ai-service",
-        "environment": settings.NODE_ENV
+        "status": "ok",
+        "service": "retail-dss-forecasting"
     }
 
 if __name__ == "__main__":

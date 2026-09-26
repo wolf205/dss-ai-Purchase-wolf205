@@ -30,7 +30,7 @@
 - [x] **1.3** Prisma schema & migration — `schema.prisma` 16 bảng khớp `data-model.md`, initial migration apply thành công vào PostgreSQL.
 - [x] **1.4** Thin DB — Xóa toàn bộ Database Triggers và CHECK constraints khỏi migration; chuyển 44 Invariants lên Application Layer.
 - [x] **1.5** Seed data — `prisma/seed.ts`: 2 users (admin/STORE_MANAGER + staff/PURCHASING_STAFF bcrypt), singleton `dss_configurations` (id=1), categories mẫu.
-- [x] **1.6** AI Service & Frontend scaffold — Python 3.12 FastAPI `GET /health`, requirements.txt, Pydantic config. React 18 + Vite + TailwindCSS, proxy `/api`, layout shell.
+- [x] **1.6** AI Service & Frontend scaffold — Python 3.12 FastAPI `GET /api/v1/health`, requirements.txt, Pydantic config. React 18 + Vite + TailwindCSS, proxy `/api`, layout shell.
 
 ---
 
@@ -166,3 +166,4 @@
 | 19/09/2026 | Task 2.2 — RBAC Guards | @Roles + RolesGuard active | Done |
 | 25/09/2026 | Tái cấu trúc GEMINI.md + .agents/* | Audit + rewrite toàn bộ agent config | `3ca8b9f` |
 | 26/09/2026 | Task 2.3 — AuditLogInterceptor & AuditModule | Ghi vết tự động + API query audit logs | `a12a4b7` |
+| 26/09/2026 | Refactor & Standardize Compliance | Gộp UsersModule vào AuthModule, React 18, AI /api/v1/health, schema sync | Done |
