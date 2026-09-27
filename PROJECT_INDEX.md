@@ -3,7 +3,7 @@
 > **Tên dự án:** AI-Powered Purchase Decision Support System for a Single Retail Store
 > **Nguyên tắc cốt lõi:** **AI recommends. Human decides.**
 > **Giai đoạn hiện tại:** Triển khai Kỹ thuật (Implementation)
-> **Cập nhật gần nhất:** 26/09/2026
+> **Cập nhật gần nhất:** 27/09/2026
 
 ---
 
@@ -54,14 +54,14 @@
 
 ---
 
-### Giai đoạn 4 — Master Data & Data Import (Foundation UCs) ⏳ CHƯA BẮT ĐẦU
+### Giai đoạn 4 — Master Data & Data Import (Foundation UCs) 🔄 ĐANG TRIỂN KHAI
 
 #### 4A — CatalogModule (UC-05)
-- [ ] **4A.1** `GET /api/v1/categories` — Danh sách ngành hàng (public).
-- [ ] **4A.2** `GET/POST /api/v1/products` — Tra cứu SKU (public, filter, pagination) + Tạo SKU mới (MANAGER).
-- [ ] **4A.3** `GET/PATCH /api/v1/products/{id}` — Chi tiết + Cập nhật (cấm sửa `sku_code`).
-- [ ] **4A.4** `PATCH /api/v1/products/{id}/status` — Active ↔ Inactive (Soft Deactivate, cho phép khi còn on_order).
-- [ ] **4A.5** `DELETE /api/v1/products/{id}` — Hard Delete chỉ khi Zero-Link; trả `HARD_DELETE_PROHIBITED` nếu có lịch sử.
+- [x] **4A.1** `GET /api/v1/categories` — Danh sách ngành hàng (public).
+- [x] **4A.2** `GET/POST /api/v1/products` — Tra cứu SKU (public, filter, pagination) + Tạo SKU mới (MANAGER).
+- [x] **4A.3** `GET/PATCH /api/v1/products/{id}` — Chi tiết + Cập nhật (cấm sửa `sku_code`).
+- [x] **4A.4** `PATCH /api/v1/products/{id}/status` — Active ↔ Inactive (Soft Deactivate, cho phép khi còn on_order).
+- [x] **4A.5** `DELETE /api/v1/products/{id}` — Hard Delete chỉ khi Zero-Link; trả `HARD_DELETE_PROHIBITED` nếu có lịch sử.
 
 #### 4B — SupplierModule (UC-06)
 - [ ] **4B.1** `GET/POST /api/v1/suppliers` — Tra cứu (public, kèm OTIF 5 đơn) + Tạo mới (MANAGER, init `performance_score = 80%`).
@@ -168,3 +168,4 @@
 | 25/09/2026 | Tái cấu trúc GEMINI.md + .agents/* | Audit + rewrite toàn bộ agent config | `3ca8b9f` |
 | 26/09/2026 | Task 2.3 — AuditLogInterceptor & AuditModule | Ghi vết tự động + API query audit logs | `a12a4b7` |
 | 26/09/2026 | Refactor & Standardize Compliance | Gộp UsersModule vào AuthModule, React 18, AI /api/v1/health, schema sync | Done |
+| 27/09/2026 | Task 4A — CatalogModule (UC-05) | Hoàn thành 4A.1-4A.5: Categories, Products CRUD, Soft Deactivate, Zero-Link Delete | `c8f448f` |

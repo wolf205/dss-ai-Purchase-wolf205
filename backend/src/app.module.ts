@@ -5,6 +5,7 @@ import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { PrismaModule } from './modules/prisma/prisma.module';
 import { AuditModule } from './modules/audit/audit.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
 @Module({
@@ -17,6 +18,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     AuthModule,
     PrismaModule,
     AuditModule,
+    CatalogModule,
   ],
   providers: [
     {
