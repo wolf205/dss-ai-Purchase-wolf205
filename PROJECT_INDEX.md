@@ -168,4 +168,4 @@
 | 25/09/2026 | Tái cấu trúc GEMINI.md + .agents/* | Audit + rewrite toàn bộ agent config | `3ca8b9f` |
 | 26/09/2026 | Task 2.3 — AuditLogInterceptor & AuditModule | Ghi vết tự động + API query audit logs | `a12a4b7` |
 | 26/09/2026 | Refactor & Standardize Compliance | Gộp UsersModule vào AuthModule, React 18, AI /api/v1/health, schema sync | Done |
-| 27/09/2026 | Task 4A — CatalogModule (UC-05) | Hoàn thành 4A.1-4A.5: Categories, Products CRUD, Soft Deactivate, Zero-Link Delete | `c8f448f` |
+| 27/09/2026 | Task 4A — CatalogModule (UC-05) | Hoàn thành 4A.1-4A.5: Categories, Products CRUD, Soft Deactivate, Zero-Link Delete | `92403bd` |
