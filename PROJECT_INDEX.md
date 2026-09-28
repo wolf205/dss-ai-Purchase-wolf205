@@ -64,8 +64,8 @@
 - [x] **4A.5** `DELETE /api/v1/products/{id}` — Hard Delete chỉ khi Zero-Link; trả `HARD_DELETE_PROHIBITED` nếu có lịch sử.
 
 #### 4B — SupplierModule (UC-06)
-- [ ] **4B.1** `GET/POST /api/v1/suppliers` — Tra cứu (public, kèm OTIF 5 đơn) + Tạo mới (MANAGER, init `performance_score = 80%`).
-- [ ] **4B.2** `PATCH /api/v1/suppliers/{id}` — Cập nhật hồ sơ (cấm sửa `supplier_code`).
+- [x] **4B.1** `GET/POST /api/v1/suppliers` — Tra cứu (public, kèm OTIF 5 đơn) + Tạo mới (MANAGER, init `performance_score = 80%`).
+- [x] **4B.2** `PATCH /api/v1/suppliers/{id}` — Cập nhật hồ sơ (cấm sửa `supplier_code`).
 - [ ] **4B.3** `PATCH /api/v1/suppliers/{id}/status` — Inactive: chặn nếu còn PO Approved.
 - [ ] **4B.4** `GET/POST /api/v1/suppliers/{id}/conditions` — Danh sách + Gán SKU với giá nhập & MOQ.
 - [ ] **4B.5** `PATCH /api/v1/supply-conditions/{id}` — Cập nhật giá/MOQ (chỉ áp dụng forward, snapshot PO cũ không đổi).
@@ -169,3 +169,4 @@
 | 26/09/2026 | Task 2.3 — AuditLogInterceptor & AuditModule | Ghi vết tự động + API query audit logs | `a12a4b7` |
 | 26/09/2026 | Refactor & Standardize Compliance | Gộp UsersModule vào AuthModule, React 18, AI /api/v1/health, schema sync | Done |
 | 27/09/2026 | Task 4A — CatalogModule (UC-05) | Hoàn thành 4A.1-4A.5: Categories, Products CRUD, Soft Deactivate, Zero-Link Delete | `92403bd` |
+| 28/09/2026 | Task 4B.2 — PATCH /suppliers/{id} | Cập nhật hồ sơ NCC (cấm sửa supplierCode, xóa trắng email/address) | `8dfc21a` |
