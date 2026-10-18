@@ -5,8 +5,6 @@ import {
   Download,
   XCircle,
   Truck,
-  ChevronLeft,
-  ChevronRight,
   FileSpreadsheet,
   FileText,
   AlertCircle,
@@ -15,6 +13,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { Button } from '../../../components/ui/Button';
+import { Pagination } from '../../../components/ui/Pagination';
 import { OrderStatusBadge } from './OrderStatusBadge';
 import { PoOverdueBadge } from './PoOverdueBadge';
 import type { PurchaseOrderSummary, PaginationMeta } from '../types';
@@ -384,58 +383,17 @@ export const OrdersTable: React.FC<OrdersTableProps> = ({
         </table>
       </div>
 
-      {/* Thanh Phân Trang */}
-      <div className="py-3 px-4 border-t border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-        <div className="flex items-center gap-2">
-          <span>Hiển thị</span>
-          <select
-            value={pagination.itemsPerPage}
-            onChange={(e) => onLimitChange(Number(e.target.value))}
-            className="px-2 py-1 rounded border border-slate-200 bg-white text-slate-700 text-xs focus:outline-none focus:ring-1 focus:ring-slate-800 cursor-pointer"
-          >
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-          <span>
-            đơn mỗi trang • Tổng cộng{' '}
-            <strong className="text-slate-900 font-semibold">
-              {pagination.totalItems}
-            </strong>{' '}
-            đơn
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-slate-600">
-            Trang <strong>{pagination.currentPage}</strong> /{' '}
-            <strong>{pagination.totalPages || 1}</strong>
-          </span>
-
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="xs"
-              disabled={pagination.currentPage <= 1 || isLoading}
-              onClick={() => onPageChange(pagination.currentPage - 1)}
-              leftIcon={<ChevronLeft className="w-3.5 h-3.5" />}
-            >
-              Trước
-            </Button>
-            <Button
-              variant="outline"
-              size="xs"
-              disabled={
-                pagination.currentPage >= pagination.totalPages || isLoading
-              }
-              onClick={() => onPageChange(pagination.currentPage + 1)}
-              rightIcon={<ChevronRight className="w-3.5 h-3.5" />}
-            >
-              Sau
-            </Button>
-          </div>
-        </div>
-      </div>
+      {/* Thanh Phân Trang Tái Sử Dụng */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={onPageChange}
+        onLimitChange={onLimitChange}
+        unitName="đơn"
+        isLoading={isLoading}
+      />
     </div>
   );
 };
