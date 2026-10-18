@@ -2,8 +2,8 @@
 
 > **Tên dự án:** AI-Powered Purchase Decision Support System for a Single Retail Store
 > **Nguyên tắc cốt lõi:** **AI recommends. Human decides.**
-> **Giai đoạn hiện tại:** Triển khai Kỹ thuật (Implementation)
-> **Cập nhật gần nhất:** 27/09/2026
+> **Giai đoạn hiện tại:** Triển khai Kỹ thuật — Chuyển giao sang Giai đoạn 6 (PO & Goods Receipt)
+> **Cập nhật gần nhất:** 18/10/2026
 
 ---
 
@@ -54,7 +54,7 @@
 
 ---
 
-### Giai đoạn 4 — Master Data & Data Import (Foundation UCs) 🔄 ĐANG TRIỂN KHAI
+### Giai đoạn 4 — Master Data & Data Import (Foundation UCs) ✅ HOÀN THÀNH
 
 #### 4A — CatalogModule (UC-05)
 - [x] **4A.1** `GET /api/v1/categories` — Danh sách ngành hàng (public).
@@ -66,38 +66,38 @@
 #### 4B — SupplierModule (UC-06)
 - [x] **4B.1** `GET/POST /api/v1/suppliers` — Tra cứu (public, kèm OTIF 5 đơn) + Tạo mới (MANAGER, init `performance_score = 80%`).
 - [x] **4B.2** `PATCH /api/v1/suppliers/{id}` — Cập nhật hồ sơ (cấm sửa `supplier_code`).
-- [ ] **4B.3** `PATCH /api/v1/suppliers/{id}/status` — Inactive: chặn nếu còn PO Approved.
-- [ ] **4B.4** `GET/POST /api/v1/suppliers/{id}/conditions` — Danh sách + Gán SKU với giá nhập & MOQ.
-- [ ] **4B.5** `PATCH /api/v1/supply-conditions/{id}` — Cập nhật giá/MOQ (chỉ áp dụng forward, snapshot PO cũ không đổi).
+- [x] **4B.3** `PATCH /api/v1/suppliers/{id}/status` — Inactive: chặn nếu còn PO Approved.
+- [x] **4B.4** `GET/POST /api/v1/suppliers/{id}/conditions` — Danh sách + Gán SKU với giá nhập & MOQ.
+- [x] **4B.5** `PATCH /api/v1/supply-conditions/{id}` — Cập nhật giá/MOQ (chỉ áp dụng forward, snapshot PO cũ không đổi).
 
 #### 4C — ConfigurationModule (UC-07)
-- [ ] **4C.1** `GET /api/v1/dss-configurations` — Lấy singleton (cả 2 roles, STAFF read-only).
-- [ ] **4C.2** `PUT /api/v1/dss-configurations` — Cập nhật (MANAGER): validate tổng 4 weights = 1.0 ± 0.001, `targetServiceLevel` ∈ {0.90, 0.95, 0.98, 0.99}, `reviewPeriodDays` ∈ [1, 30]. Trả `SUM_WEIGHT_NOT_100` nếu sai.
-- [ ] **4C.3** `POST /api/v1/dss-configurations/reset` — Khôi phục về default (MANAGER).
+- [x] **4C.1** `GET /api/v1/dss-configurations` — Lấy singleton (cả 2 roles, STAFF read-only).
+- [x] **4C.2** `PUT /api/v1/dss-configurations` — Cập nhật (MANAGER): validate tổng 4 weights = 1.0 ± 0.001, `targetServiceLevel` ∈ {0.90, 0.95, 0.98, 0.99}, `reviewPeriodDays` ∈ [1, 30]. Trả `SUM_WEIGHT_NOT_100` nếu sai.
+- [x] **4C.3** `POST /api/v1/dss-configurations/reset` — Khôi phục về default (MANAGER).
 
 #### 4D — DataImportModule (UC-04)
-- [ ] **4D.1** `GET /api/v1/data-imports/templates/{type}` — Tải file mẫu CSV (type: `sales` / `inventory`).
-- [ ] **4D.2** `POST /api/v1/data-imports/sales/validate` — Upload + validate file bán hàng (All-or-Nothing: 1 dòng sai → trả toàn bộ errors + `ALL_OR_NOTHING_IMPORT_FAILED`). Trả preview + `duplicateDatesFound`.
-- [ ] **4D.3** `POST /api/v1/data-imports/sales/confirm` — Ghi đè dữ liệu ngày trùng + insert batch trong `prisma.$transaction`.
-- [ ] **4D.4** `POST /api/v1/data-imports/inventory/validate` + `confirm` — Validate + cập nhật `current_inventory` (chỉ SKU có trong file, bảo lưu `on_order_quantity` nguyên vẹn).
+- [x] **4D.1** `GET /api/v1/data-imports/templates/{type}` — Tải file mẫu CSV (type: `sales` / `inventory`).
+- [x] **4D.2** `POST /api/v1/data-imports/sales/validate` — Upload + validate file bán hàng (All-or-Nothing: 1 dòng sai → trả toàn bộ errors + `ALL_OR_NOTHING_IMPORT_FAILED`). Trả preview + `duplicateDatesFound`.
+- [x] **4D.3** `POST /api/v1/data-imports/sales/confirm` — Ghi đè dữ liệu ngày trùng + insert batch trong `prisma.$transaction`.
+- [x] **4D.4** `POST /api/v1/data-imports/inventory/validate` + `confirm` — Validate + cập nhật `current_inventory` (chỉ SKU có trong file, bảo lưu `on_order_quantity` nguyên vẹn).
 
 ---
 
-### Giai đoạn 5 — DSS Engine & Gemini Explainability (Trọng tâm) ⏳ CHƯA BẮT ĐẦU
+### Giai đoạn 5 — DSS Engine & Gemini Explainability (Trọng tâm) ✅ HOÀN THÀNH
 
 #### 5A — DssCalculationEngineService (Domain Layer)
-- [ ] **5A.1** ABC-XYZ classification engine (BR-05) — Cumulative revenue → A/B/C (80/15/5%), CV = σd/d̄ → X/Y/Z (≤0.5/≤1.0/>1.0). Fallback: SKU < 7 ngày → CZ.
-- [ ] **5A.2** Safety Stock engine (BR-01) — SS = Z × σd × √L. Z mapping (BR-26): {90%→1.28, 95%→1.65, 98%→2.05, 99%→2.33}. Fallback SKU < 14 ngày: SS = d̄ × 5.
-- [ ] **5A.3** ROP & SOQ engine (BR-01, BR-03) — ROP = d̄×L + SS; IP = on_hand + on_order; Base SOQ = d̄×(L+R)+SS−IP; Final SOQ = max(MOQ, ⌈Base SOQ⌉) nếu > 0, else 0.
-- [ ] **5A.4** WSM Supplier Ranking engine (BR-02, BR-24, BR-25) — Min-Max normalize Price/LeadTime/MOQ (lower=better), S_History từ rolling 5-order OTIF. Tie-breaking: S_Price > S_History. Cold Start < 3 orders → S_History = 80.
-- [ ] **5A.5** StockRiskStatus classifier — 🔴 Cần mua gấp / 🟠 Sắp hết ROP / 🟢 An toàn / ⚪ Overstock.
+- [x] **5A.1** ABC-XYZ classification engine (BR-05) — Cumulative revenue → A/B/C (80/15/5%), CV = σd/d̄ → X/Y/Z (≤0.5/≤1.0/>1.0). Fallback: SKU < 7 ngày → CZ.
+- [x] **5A.2** Safety Stock engine (BR-01) — SS = Z × σd × √L. Z mapping (BR-26): {90%→1.28, 95%→1.65, 98%→2.05, 99%→2.33}. Fallback SKU < 14 ngày: SS = d̄ × 5.
+- [x] **5A.3** ROP & SOQ engine (BR-01, BR-03) — ROP = d̄×L + SS; IP = on_hand + on_order; Base SOQ = d̄×(L+R)+SS−IP; Final SOQ = max(MOQ, ⌈Base SOQ⌉) nếu > 0, else 0.
+- [x] **5A.4** WSM Supplier Ranking engine (BR-02, BR-24, BR-25) — Min-Max normalize Price/LeadTime/MOQ (lower=better), S_History từ rolling 5-order OTIF. Tie-breaking: S_Price > S_History. Cold Start < 3 orders → S_History = 80.
+- [x] **5A.5** StockRiskStatus classifier — 🔴 Cần mua gấp / 🟠 Sắp hết ROP / 🟢 An toàn / ⚪ Overstock.
 
 #### 5B — DssModule Orchestration (UC-01)
-- [ ] **5B.1** `POST /api/v1/dss/sessions/analyze` — Filter SKU Active theo `categoryId` (null = toàn cửa hàng); auto-discard phiên Draft cũ; gọi Python AI Service (timeout 3s + Graceful Fallback SMA); chạy 5A engines; lưu `recommendation_sessions` (Draft) + `recommendation_items` kèm snapshot (`snapshot_current_inventory`, `snapshot_on_order_quantity`, `daily_forecasts` JSONB, `supplier_rankings` JSONB).
-- [ ] **5B.2** `GET /api/v1/dss/sessions/{id}` — Trả session + items đầy đủ (ABC-XYZ badge, ROP, SS, SOQ, suggestedSupplier với WSM score, dailyForecasts, supplierRankings, llmExplanation).
-- [ ] **5B.3** `PATCH /api/v1/dss/items/{itemId}` — Human Adjustment: cập nhật `approved_quantity` và `approved_supplier_id`.
-- [ ] **5B.4** `POST /api/v1/dss/items/{itemId}/explain` — Đọc cache `why_buy_explanation`; nếu null → gọi Gemini 1.5 Flash (timeout 3s, fallback text tất định) → cache vào DB. Tuyệt đối không gọi trong luồng analyze.
-- [ ] **5B.5** `POST /api/v1/dss/sessions/{id}/approve` — ACID Transaction (INV-24,25,26,27): chốt session → cập nhật approved fields → tạo POs gom theo NCC → snapshot `historical_unit_price/moq/lead_time_days` → tăng `on_order_quantity`. Response: list POs đã sinh.
+- [x] **5B.1** `POST /api/v1/dss/sessions/analyze` — Filter SKU Active theo `categoryId` (null = toàn cửa hàng); auto-discard phiên Draft cũ; gọi Python AI Service (timeout 3s + Graceful Fallback SMA); chạy 5A engines; lưu `recommendation_sessions` (Draft) + `recommendation_items` kèm snapshot (`snapshot_current_inventory`, `snapshot_on_order_quantity`, `daily_forecasts` JSONB, `supplier_rankings` JSONB).
+- [x] **5B.2** `GET /api/v1/dss/sessions/{id}` — Trả session + items đầy đủ (ABC-XYZ badge, ROP, SS, SOQ, suggestedSupplier với WSM score, dailyForecasts, supplierRankings, llmExplanation).
+- [x] **5B.3** `PATCH /api/v1/dss/items/{itemId}` — Human Adjustment: cập nhật `approved_quantity` và `approved_supplier_id`.
+- [x] **5B.4** `POST /api/v1/dss/items/{itemId}/explain` — Đọc cache `why_buy_explanation`; nếu null → gọi Gemini 1.5 Flash (timeout 3s, fallback text tất định) → cache vào DB. Tuyệt đối không gọi trong luồng analyze.
+- [x] **5B.5** `POST /api/v1/dss/sessions/{id}/approve` — ACID Transaction (INV-24,25,26,27): chốt session → cập nhật approved fields → tạo POs gom theo NCC → snapshot `historical_unit_price/moq/lead_time_days` → tăng `on_order_quantity`. Response: list POs đã sinh.
 
 ---
 
@@ -169,4 +169,10 @@
 | 26/09/2026 | Task 2.3 — AuditLogInterceptor & AuditModule | Ghi vết tự động + API query audit logs | `a12a4b7` |
 | 26/09/2026 | Refactor & Standardize Compliance | Gộp UsersModule vào AuthModule, React 18, AI /api/v1/health, schema sync | Done |
 | 27/09/2026 | Task 4A — CatalogModule (UC-05) | Hoàn thành 4A.1-4A.5: Categories, Products CRUD, Soft Deactivate, Zero-Link Delete | `92403bd` |
-| 28/09/2026 | Task 4B.2 — PATCH /suppliers/{id} | Cập nhật hồ sơ NCC (cấm sửa supplierCode, xóa trắng email/address) | `8dfc21a` |
+| 28/09/2026 | Task 4B.1-4B.2 — Supplier Profile | Danh sách, tạo mới và cập nhật hồ sơ NCC (UC-06) | `07f5c48` |
+| 18/10/2026 | Task 3 — AI Parallel Forecasting | Tối ưu hóa ThreadPoolExecutor song song hóa dự báo batch | `31b9472` |
+| 18/10/2026 | Task 4B.3-4B.5 — Supplier Conditions | Status Inactive chặn PO Approved + CRUD Điều kiện cung ứng MOQ/Giá | `3cf514a` |
+| 18/10/2026 | Task 4C — ConfigurationModule (UC-07) | Singleton DSS config, validate 4 weights = 100%, Reset default | `15a606d` |
+| 18/10/2026 | Task 4D — DataImportModule (UC-04) | CSV Template, Validation All-or-Nothing, ACID Upsert Sales & Inventory | `c114c42` |
+| 18/10/2026 | Giai đoạn 5 — DSS Engine (UC-01) | ABC-XYZ, SS, ROP-SOQ, WSM Ranking, Analyze, Human Adjust, Approve PO, Gemini Explain | `a0bed46` |
+| 18/10/2026 | Seed Data Expansion | 90 ngày lịch sử bán hàng, NCC, SKU và điều kiện cung ứng thực tế | `b7a7547` |
