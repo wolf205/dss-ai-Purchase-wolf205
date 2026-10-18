@@ -212,4 +212,28 @@ describe('DssApprovalService (UC-01 Session Approval & PO Generation)', () => {
     expect(result.sessionId).toBe(106);
     expect(result.generatedPurchaseOrders.length).toBe(0);
   });
+
+  it('should throw BadRequestException (UNASSIGNED_SUPPLIER_ITEMS) when session has items with approvedQuantity > 0 but approvedSupplierId is null', async () => {
+    const mockSession = {
+      id: BigInt(107),
+      sessionCode: 'REC-20261018-003',
+      status: 'Draft',
+      items: [
+        {
+          id: BigInt(1),
+          productId: BigInt(10),
+          approvedQuantity: 100,
+          approvedSupplierId: null,
+          product: { skuCode: 'MILK-NO-SUP', supplyConditions: [] },
+          approvedSupplier: null,
+        },
+      ],
+    };
+
+    mockPrisma.recommendationSession.findUnique.mockResolvedValue(mockSession);
+
+    await expect(service.approveSession(107)).rejects.toThrow(
+      BadRequestException,
+    );
+  });
 });

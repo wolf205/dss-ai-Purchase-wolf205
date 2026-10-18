@@ -54,6 +54,21 @@ export class DssApprovalService {
       });
     }
 
+    // Kiểm tra các mặt hàng có số lượng đặt > 0 nhưng chưa gán NCC (UC-01 EF-1)
+    const unassignedItems = session.items.filter(
+      (item) => item.approvedQuantity > 0 && item.approvedSupplierId === null,
+    );
+
+    if (unassignedItems.length > 0) {
+      const skuList = unassignedItems
+        .map((i) => i.product.skuCode)
+        .join(', ');
+      throw new BadRequestException({
+        code: 'UNASSIGNED_SUPPLIER_ITEMS',
+        message: `Có ${unassignedItems.length} mặt hàng được duyệt số lượng lớn hơn 0 nhưng chưa được gán Nhà cung cấp (${skuList}). Vui lòng gán NCC hoặc đưa số lượng về 0 trước khi phê duyệt.`,
+      });
+    }
+
     // Lọc các mặt hàng có số lượng đặt > 0 và đã chọn nhà cung cấp
     const actionableItems = session.items.filter(
       (item) => item.approvedQuantity > 0 && item.approvedSupplierId !== null,

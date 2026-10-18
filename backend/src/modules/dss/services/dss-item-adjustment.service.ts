@@ -95,6 +95,30 @@ export class DssItemAdjustmentService {
         ? BigInt(dto.approvedSupplierId)
         : item.approvedSupplierId;
 
+    // UC-01 EF-1: Không cho phép đặt số lượng > 0 cho SKU chưa có NCC khả dụng
+    if (newApprovedQty > 0) {
+      if (!newApprovedSupId) {
+        throw new BadRequestException({
+          code: 'SKU_HAS_NO_ACTIVE_SUPPLIER',
+          message: `Sản phẩm "${item.product.productName}" chưa có Nhà cung cấp khả dụng. Vui lòng thiết lập điều kiện cung ứng (UC-06) trước khi đặt mua.`,
+        });
+      }
+
+      const activeCondition = item.product.supplyConditions.find(
+        (sc) =>
+          sc.supplierId.toString() === newApprovedSupId.toString() &&
+          sc.supplier &&
+          sc.supplier.status === 'Active',
+      );
+
+      if (!activeCondition) {
+        throw new BadRequestException({
+          code: 'SKU_HAS_NO_ACTIVE_SUPPLIER',
+          message: `Nhà cung cấp của sản phẩm "${item.product.productName}" không ở trạng thái Active hoặc không có điều kiện cung ứng hợp lệ.`,
+        });
+      }
+    }
+
     // Xác định cờ can thiệp người dùng (isOverridden)
     const isOverridden =
       newApprovedQty !== item.suggestedQuantity ||

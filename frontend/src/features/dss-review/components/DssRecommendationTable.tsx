@@ -179,15 +179,22 @@ export const DssRecommendationTable: React.FC<DssRecommendationTableProps> = ({
                           type="number"
                           min="0"
                           step="1"
-                          disabled={!isDraft}
-                          value={currentQty}
+                          disabled={!isDraft || !supplier}
+                          value={supplier ? currentQty : 0}
                           onChange={(e) =>
                             handleQuantityChange(item.itemId, e.target.value)
                           }
                           onBlur={() => handleQuantityBlur(item)}
                           onKeyDown={handleKeyDown}
+                          title={
+                            !supplier
+                              ? 'Không thể đặt mua do chưa có Nhà cung cấp khả dụng (UC-01 EF-1)'
+                              : undefined
+                          }
                           className={`w-full px-2.5 py-1.5 text-xs font-bold font-mono rounded-lg border focus:outline-none transition-colors ${
-                            isBelowMoq
+                            !supplier
+                              ? 'border-slate-200 text-slate-400 bg-slate-100 cursor-not-allowed'
+                              : isBelowMoq
                               ? 'border-amber-400 bg-amber-50/50 text-amber-900 focus:ring-1 focus:ring-amber-500'
                               : parsedQty > 0
                               ? 'border-slate-300 text-slate-900 focus:border-slate-800 focus:ring-1 focus:ring-slate-800'
@@ -196,8 +203,16 @@ export const DssRecommendationTable: React.FC<DssRecommendationTableProps> = ({
                         />
                       </div>
 
+                      {/* Cảnh báo chưa có NCC (UC-01 EF-1) */}
+                      {!supplier && (
+                        <p className="text-[10px] text-amber-700 flex items-center gap-1 font-medium leading-tight">
+                          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
+                          Khóa đặt: Chưa gán NCC
+                        </p>
+                      )}
+
                       {/* MOQ Soft Warning */}
-                      {isBelowMoq && (
+                      {supplier && isBelowMoq && (
                         <p className="text-[10px] text-amber-700 flex items-center gap-1 font-medium leading-tight">
                           <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0" />
                           Nhỏ hơn MOQ ({moq} sp)
@@ -247,9 +262,15 @@ export const DssRecommendationTable: React.FC<DssRecommendationTableProps> = ({
                         )}
                       </div>
                     ) : (
-                      <span className="text-slate-400 italic">
-                        Chưa có nhà cung cấp
-                      </span>
+                      <div className="space-y-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                          <AlertTriangle className="w-3 h-3 text-rose-500 shrink-0" />
+                          Chưa có NCC khả dụng
+                        </span>
+                        <p className="text-[10px] text-slate-400">
+                          Cần gán NCC tại UC-06 trước khi đặt hàng (EF-1).
+                        </p>
+                      </div>
                     )}
                   </td>
 

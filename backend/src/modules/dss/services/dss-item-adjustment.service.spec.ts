@@ -240,4 +240,31 @@ describe('DssItemAdjustmentService (UC-01 Human Adjustment)', () => {
     expect(result.approvedQuantity).toBe(0);
     expect(result.isOverridden).toBe(true);
   });
+
+  it('should throw BadRequestException (SKU_HAS_NO_ACTIVE_SUPPLIER) when setting approvedQuantity > 0 for item without supplier', async () => {
+    const mockItemWithoutSupplier = {
+      id: BigInt(1002),
+      sessionId: BigInt(105),
+      productId: BigInt(20),
+      approvedQuantity: 0,
+      approvedSupplierId: null,
+      suggestedSupplierId: null,
+      suggestedQuantity: 0,
+      session: { status: 'Draft' },
+      product: {
+        id: BigInt(20),
+        productName: 'Sản phẩm chưa có NCC',
+        skuCode: 'SKU-NO-SUP',
+        supplyConditions: [],
+      },
+    };
+
+    mockPrisma.recommendationItem.findUnique.mockResolvedValue(
+      mockItemWithoutSupplier,
+    );
+
+    await expect(
+      service.updateItem(1002, { approvedQuantity: 50 }),
+    ).rejects.toThrow(BadRequestException);
+  });
 });

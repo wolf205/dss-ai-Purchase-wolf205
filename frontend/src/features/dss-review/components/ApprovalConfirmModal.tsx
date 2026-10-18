@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from '../../../components/ui/Modal';
 import { Button } from '../../../components/ui/Button';
-import { CheckCircle2, ShoppingBag, ArrowRight, FileText, Calendar } from 'lucide-react';
+import { CheckCircle2, ShoppingBag, ArrowRight, FileText, Calendar, AlertTriangle } from 'lucide-react';
 import type { DssSession, GeneratedPurchaseOrder } from '../types';
 
 export interface ApprovalConfirmModalProps {
@@ -26,12 +26,23 @@ export const ApprovalConfirmModal: React.FC<ApprovalConfirmModalProps> = ({
 
   if (!session) return null;
 
-  // Gom các mặt hàng có approvedQuantity > 0 theo Nhà cung cấp
+  // Lọc các mặt hàng có approvedQuantity > 0
   const activeItems = (session.items || []).filter(
     (it) => it.approvedQuantity > 0
   );
 
-  const supplierGroups = activeItems.reduce<
+  // Kiểm tra mặt hàng chưa gán NCC (UC-01 EF-1)
+  const unassignedItems = activeItems.filter(
+    (it) => !it.approvedSupplierId && !it.suggestedSupplier
+  );
+  const hasUnassignedItems = unassignedItems.length > 0;
+
+  // Chỉ gom nhóm các mặt hàng có Nhà cung cấp hợp lệ
+  const validActiveItems = activeItems.filter(
+    (it) => it.approvedSupplierId || it.suggestedSupplier
+  );
+
+  const supplierGroups = validActiveItems.reduce<
     Record<
       number,
       {
@@ -42,7 +53,7 @@ export const ApprovalConfirmModal: React.FC<ApprovalConfirmModalProps> = ({
       }
     >
   >((acc, it) => {
-    const sId = it.approvedSupplierId || it.suggestedSupplier?.id || 0;
+    const sId = (it.approvedSupplierId || it.suggestedSupplier?.id)!;
     const sName =
       it.suggestedSupplier?.name ||
       it.supplierRankings?.find((r) => r.supplierId === sId)?.name ||
@@ -126,6 +137,7 @@ export const ApprovalConfirmModal: React.FC<ApprovalConfirmModalProps> = ({
               variant="success"
               size="sm"
               isLoading={isApproving}
+              disabled={isApproving || hasUnassignedItems || validActiveItems.length === 0}
               leftIcon={<CheckCircle2 className="w-4 h-4" />}
               onClick={onConfirmApprove}
             >
@@ -188,6 +200,20 @@ export const ApprovalConfirmModal: React.FC<ApprovalConfirmModalProps> = ({
       ) : (
         /* Confirmation View */
         <div className="space-y-4">
+          {/* Cảnh báo SKU chưa có NCC (UC-01 EF-1) */}
+          {hasUnassignedItems && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-xs text-rose-700">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                Không thể chốt đơn: Có {unassignedItems.length} mặt hàng chưa gán Nhà cung cấp
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                Các mặt hàng sau chưa có NCC khả dụng: <strong className="font-mono">{unassignedItems.map((i) => i.skuCode).join(', ')}</strong>. 
+                Vui lòng đưa số lượng về 0 hoặc thiết lập NCC tại UC-06 trước khi phê duyệt (UC-01 EF-1).
+              </p>
+            </div>
+          )}
+
           {/* Summary Box */}
           <div className="grid grid-cols-3 gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
             <div>
