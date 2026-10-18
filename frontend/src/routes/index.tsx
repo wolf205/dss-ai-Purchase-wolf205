@@ -58,7 +58,7 @@ export const router = createBrowserRouter([
       {
         path: 'configuration',
         element: (
-          <ProtectedRoute allowedRoles={['STORE_MANAGER']}>
+          <ProtectedRoute allowedRoles={['STORE_MANAGER', 'PURCHASING_STAFF']}>
             <ConfigurationPage />
           </ProtectedRoute>
         ),

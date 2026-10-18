@@ -69,7 +69,7 @@ const navItems: NavItemConfig[] = [
     path: '/configuration',
     icon: Sliders,
     description: 'Trọng số WSM & Service Level (UC-07)',
-    allowedRoles: ['STORE_MANAGER'],
+    allowedRoles: ['STORE_MANAGER', 'PURCHASING_STAFF'],
   },
 ];
 
