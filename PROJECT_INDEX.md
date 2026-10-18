@@ -101,13 +101,13 @@
 
 ---
 
-### Giai đoạn 6 — Purchase Orders & Goods Receipt (Closed-Loop) ⏳ CHƯA BẮT ĐẦU
+### Giai đoạn 6 — Purchase Orders & Goods Receipt (Closed-Loop) 🔄 ĐANG TRIỂN KHAI
 
 #### 6A — PurchaseOrderModule (UC-02)
-- [ ] **6A.1** `GET /api/v1/purchase-orders` — Danh sách PO (filter: status, supplierId, isOverdue; pagination). `isOverdue` tính runtime: `expectedDeliveryDate < TODAY && status = Approved`.
-- [ ] **6A.2** `GET /api/v1/purchase-orders/{id}` — Chi tiết PO kèm line items (hiển thị snapshot historical price/MOQ).
-- [ ] **6A.3** `POST /api/v1/purchase-orders/{id}/cancel` — Hủy PO (cần `cancellationReason`); giảm `on_order_quantity` cho từng SKU; trả `PO_ALREADY_CLOSED` nếu Completed/Cancelled.
-- [ ] **6A.4** `POST /api/v1/purchase-orders/{id}/export` — Xuất PDF hoặc Excel (query param `format`); cập nhật `last_exported_at`.
+- [x] **6A.1** `GET /api/v1/purchase-orders` — Danh sách PO (filter: status, supplierId, isOverdue; pagination). `isOverdue` tính runtime: `expectedDeliveryDate < TODAY && status = Approved`.
+- [x] **6A.2** `GET /api/v1/purchase-orders/{id}` — Chi tiết PO kèm line items (hiển thị snapshot historical price/MOQ).
+- [x] **6A.3** `POST /api/v1/purchase-orders/{id}/cancel` — Hủy PO (cần `cancellationReason`); giảm `on_order_quantity` cho từng SKU; trả `PO_ALREADY_CLOSED` nếu Completed/Cancelled.
+- [x] **6A.4** `POST /api/v1/purchase-orders/{id}/export` — Xuất PDF hoặc Excel (query param `format`); cập nhật `last_exported_at`.
 
 #### 6B — GoodsReceiptModule (UC-03)
 - [ ] **6B.1** `GET /api/v1/goods-receipts/pending-pos` — Danh sách PO Approved chưa nhận hàng.
@@ -176,3 +176,4 @@
 | 18/10/2026 | Task 4D — DataImportModule (UC-04) | CSV Template, Validation All-or-Nothing, ACID Upsert Sales & Inventory | `c114c42` |
 | 18/10/2026 | Giai đoạn 5 — DSS Engine (UC-01) | ABC-XYZ, SS, ROP-SOQ, WSM Ranking, Analyze, Human Adjust, Approve PO, Gemini Explain | `a0bed46` |
 | 18/10/2026 | Seed Data Expansion | 90 ngày lịch sử bán hàng, NCC, SKU và điều kiện cung ứng thực tế | `b7a7547` |
+| 18/10/2026 | Task 6A — PurchaseOrderModule (UC-02) | PO list/detail, runtime Overdue (BR-09), ACID Cancel & on-order reversal (BR-07), Export | `e7960ca` |
