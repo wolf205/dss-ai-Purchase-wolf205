@@ -129,8 +129,8 @@
 - [x] **7A.4** Toast / notification system — Success, Error, Warning.
 
 #### 7B — Feature Screens
-- [ ] **7B.1** `auth/` — Màn hình Login (form validation, error message).
-- [ ] **7B.2** `dss-review/` (UC-01) — Trigger analyze, bộ lọc ngành hàng, bảng đề xuất với Badge ABC-XYZ, nút "Xem giải thích" (gọi LLM on-demand), modal Supplier Ranking (bảng điểm WSM), chỉnh sửa quantity/supplier, nút Approve. Biểu đồ Recharts: actual sales history + forecast 14 ngày + CI 95% band.
+- [x] **7B.1** `auth/` — Màn hình Login (form validation, error message).
+- [x] **7B.2** `dss-review/` (UC-01) — Trigger analyze, bộ lọc ngành hàng, bảng đề xuất với Badge ABC-XYZ, nút "Xem giải thích" (gọi LLM on-demand), modal Supplier Ranking (bảng điểm WSM), chỉnh sửa quantity/supplier, nút Approve. Biểu đồ Recharts: actual sales history + forecast 14 ngày + CI 95% band.
 - [ ] **7B.3** `orders/` (UC-02) — Danh sách PO (filter status/overdue), badge Overdue, modal chi tiết, nút Cancel (form reason), nút Export PDF/Excel.
 - [ ] **7B.4** `receipts/` (UC-03) — Dropdown chọn PO Approved, form nhập `receivedQuantity` từng dòng, soft warning khi giao vượt, nút Confirm Receipt.
 - [ ] **7B.5** `data-import/` (UC-04) — Nút tải file mẫu (sales/inventory), drag-drop upload, data preview table, bảng lỗi chi tiết từng dòng (row + skuCode + issue).

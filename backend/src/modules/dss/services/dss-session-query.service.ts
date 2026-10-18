@@ -13,6 +13,23 @@ export class DssSessionQueryService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Lấy phiên đề xuất mua hàng trạng thái Draft gần nhất (nếu có)
+   * GET /api/v1/dss/sessions/active/draft
+   */
+  async getActiveDraftSession(): Promise<DssSessionDetailResponseDto | null> {
+    const session = await this.prisma.recommendationSession.findFirst({
+      where: { status: 'Draft' },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (!session) {
+      return null;
+    }
+
+    return this.getSessionById(Number(session.id));
+  }
+
+  /**
    * Lấy chi tiết phiên phân tích và bảng danh sách các mặt hàng đề xuất mua (UC-01)
    * GET /api/v1/dss/sessions/:id
    */

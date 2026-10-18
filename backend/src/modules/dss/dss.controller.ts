@@ -97,6 +97,23 @@ export class DssController {
     );
   }
 
+  @Get('sessions/active/draft')
+  @Roles(Role.STORE_MANAGER, Role.PURCHASING_STAFF)
+  @ApiOperation({
+    summary:
+      'Lấy phiên đề xuất DSS trạng thái Draft gần nhất (Get Active Draft Session)',
+    description:
+      'Trả về thông tin chi tiết của phiên đề xuất Draft đang hoạt động gần nhất (nếu có), hoặc null nếu chưa có phiên Draft nào.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy phiên phân tích Draft thành công hoặc null',
+    type: DssSessionDetailResponseDto,
+  })
+  async getActiveDraftSession(): Promise<DssSessionDetailResponseDto | null> {
+    return await this.sessionQueryService.getActiveDraftSession();
+  }
+
   @Get('sessions/:id')
   @Roles(Role.STORE_MANAGER, Role.PURCHASING_STAFF)
   @ApiOperation({
