@@ -1,10 +1,15 @@
-import { PoExportData, PurchaseOrderWithRelations } from '../interfaces/purchase-order.interface';
+import {
+  PoExportData,
+  PurchaseOrderWithRelations,
+} from '../interfaces/purchase-order.interface';
 
 export function formatCurrencyVND(amount: number): string {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'decimal',
-    maximumFractionDigits: 0,
-  }).format(amount) + ' đ';
+  return (
+    new Intl.NumberFormat('vi-VN', {
+      style: 'decimal',
+      maximumFractionDigits: 0,
+    }).format(amount) + ' đ'
+  );
 }
 
 export function formatDateVN(dateInput: Date | string): string {
@@ -29,13 +34,19 @@ export function exportPoToCsv(po: PurchaseOrderWithRelations): PoExportData {
   lines.push(`Trạng thái,${po.status}`);
   lines.push(`Ngày duyệt đơn,${formatDateVN(po.approvalDate)}`);
   lines.push(`Ngày giao dự kiến,${formatDateVN(po.expectedDeliveryDate)}`);
-  lines.push(`Nhà cung cấp,${po.supplier.supplierName} (${po.supplier.supplierCode})`);
+  lines.push(
+    `Nhà cung cấp,${po.supplier.supplierName} (${po.supplier.supplierCode})`,
+  );
   lines.push(`Người liên hệ,${po.supplier.contactPerson || 'Chưa cập nhật'}`);
   lines.push(`Số điện thoại,${po.supplier.phoneNumber || 'Chưa cập nhật'}`);
   lines.push(`Email,${po.supplier.email || 'Chưa cập nhật'}`);
-  lines.push(`Địa chỉ,${(po.supplier.address || 'Chưa cập nhật').replace(/,/g, ' ')}`);
+  lines.push(
+    `Địa chỉ,${(po.supplier.address || 'Chưa cập nhật').replace(/,/g, ' ')}`,
+  );
   lines.push('');
-  lines.push('STT,Mã SKU,Tên sản phẩm,Đơn vị tính,Số lượng,Đơn giá cam kết (VNĐ),Thành tiền (VNĐ)');
+  lines.push(
+    'STT,Mã SKU,Tên sản phẩm,Đơn vị tính,Số lượng,Đơn giá cam kết (VNĐ),Thành tiền (VNĐ)',
+  );
 
   let totalAmount = 0;
   po.lineItems.forEach((item, idx) => {
@@ -67,7 +78,9 @@ export function exportPoToCsv(po: PurchaseOrderWithRelations): PoExportData {
  * Xuất đơn mua hàng định dạng HTML In ấn / Báo giá chuyên nghiệp (Printable Voucher),
  * tích hợp sẵn CSS Media Print, Layout phong cách DSS hiện đại.
  */
-export function exportPoToHtmlPrint(po: PurchaseOrderWithRelations): PoExportData {
+export function exportPoToHtmlPrint(
+  po: PurchaseOrderWithRelations,
+): PoExportData {
   let totalAmount = 0;
   const rowsHtml = po.lineItems
     .map((item, idx) => {

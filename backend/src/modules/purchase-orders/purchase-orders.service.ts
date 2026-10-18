@@ -30,7 +30,9 @@ export class PurchaseOrdersService {
    * Tra cứu danh sách Đơn mua hàng (PO) kèm bộ lọc và phân trang (UC-02 Bước 2, 3).
    * Tự động tính toán cờ quá hạn giao hàng runtime theo BR-09.
    */
-  async findAll(query: QueryPurchaseOrderDto): Promise<PurchaseOrderListResponseDto> {
+  async findAll(
+    query: QueryPurchaseOrderDto,
+  ): Promise<PurchaseOrderListResponseDto> {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const skip = (page - 1) * limit;
@@ -117,7 +119,9 @@ export class PurchaseOrdersService {
   /**
    * Xem chi tiết Đơn mua hàng kèm đối tác NCC và các dòng line items bảo lưu snapshot (UC-02 Bước 4, 5).
    */
-  async findOne(id: string | number | bigint): Promise<PurchaseOrderDetailResponseDto> {
+  async findOne(
+    id: string | number | bigint,
+  ): Promise<PurchaseOrderDetailResponseDto> {
     const poId = BigInt(id);
     const po = await this.prisma.purchaseOrder.findUnique({
       where: { id: poId },
@@ -162,7 +166,9 @@ export class PurchaseOrdersService {
     dto: CancelPurchaseOrderDto,
   ): Promise<PurchaseOrderDetailResponseDto> {
     const poId = BigInt(id);
-    this.logger.log(`Yêu cầu hủy đơn mua hàng PO ID ${id} với lý do: ${dto.cancellationReason}`);
+    this.logger.log(
+      `Yêu cầu hủy đơn mua hàng PO ID ${id} với lý do: ${dto.cancellationReason}`,
+    );
 
     // 1. Kiểm tra đơn hàng tồn tại
     const po = await this.prisma.purchaseOrder.findUnique({
@@ -221,7 +227,9 @@ export class PurchaseOrdersService {
       }
     });
 
-    this.logger.log(`Đã hủy thành công PO ID ${id} và hoàn trả on_order_quantity cho ${po.lineItems.length} SKU.`);
+    this.logger.log(
+      `Đã hủy thành công PO ID ${id} và hoàn trả on_order_quantity cho ${po.lineItems.length} SKU.`,
+    );
 
     // 4. Trả về thông tin chi tiết đơn đã hủy
     return await this.findOne(poId);
@@ -304,13 +312,17 @@ export class PurchaseOrdersService {
       isOverdue,
       cancellationReason: po.cancellationReason,
       cancelledAt: po.cancelledAt ? po.cancelledAt.toISOString() : null,
-      lastExportedAt: po.lastExportedAt ? po.lastExportedAt.toISOString() : null,
+      lastExportedAt: po.lastExportedAt
+        ? po.lastExportedAt.toISOString()
+        : null,
       createdAt: po.createdAt.toISOString(),
       updatedAt: po.updatedAt.toISOString(),
     };
   }
 
-  private mapToDetailDto(po: PurchaseOrderWithRelations): PurchaseOrderDetailResponseDto {
+  private mapToDetailDto(
+    po: PurchaseOrderWithRelations,
+  ): PurchaseOrderDetailResponseDto {
     const summary = this.mapToSummaryDto({
       ...po,
       lineItems: po.lineItems.map((l) => ({ id: l.id })),
@@ -337,7 +349,9 @@ export class PurchaseOrdersService {
         quantity: item.quantity,
         historicalUnitPrice: Number(item.historicalUnitPrice),
         historicalMoq: item.historicalMoq,
-        lineTotal: Number(item.lineTotal ?? item.quantity * Number(item.historicalUnitPrice)),
+        lineTotal: Number(
+          item.lineTotal ?? item.quantity * Number(item.historicalUnitPrice),
+        ),
       })),
     };
   }

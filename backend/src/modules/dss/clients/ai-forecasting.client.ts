@@ -48,7 +48,8 @@ export class AiForecastingClient {
 
     try {
       const timeoutMs =
-        Number(this.configService.get<string>('AI_SERVICE_TIMEOUT_MS')) || 30000;
+        Number(this.configService.get<string>('AI_SERVICE_TIMEOUT_MS')) ||
+        30000;
 
       const response = await fetch(`${aiServiceUrl}/api/v1/forecast`, {
         method: 'POST',

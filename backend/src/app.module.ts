@@ -11,6 +11,7 @@ import { ConfigurationModule } from './modules/configuration/configuration.modul
 import { DataImportModule } from './modules/data-import/data-import.module';
 import { DssModule } from './modules/dss/dss.module';
 import { PurchaseOrdersModule } from './modules/purchase-orders/purchase-orders.module';
+import { GoodsReceiptsModule } from './modules/goods-receipts/goods-receipts.module';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
 @Module({
@@ -29,6 +30,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     DataImportModule,
     DssModule,
     PurchaseOrdersModule,
+    GoodsReceiptsModule,
   ],
   providers: [
     {

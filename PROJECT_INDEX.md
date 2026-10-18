@@ -101,7 +101,7 @@
 
 ---
 
-### Giai đoạn 6 — Purchase Orders & Goods Receipt (Closed-Loop) 🔄 ĐANG TRIỂN KHAI
+### Giai đoạn 6 — Purchase Orders & Goods Receipt (Closed-Loop) ✅ HOÀN THÀNH
 
 #### 6A — PurchaseOrderModule (UC-02)
 - [x] **6A.1** `GET /api/v1/purchase-orders` — Danh sách PO (filter: status, supplierId, isOverdue; pagination). `isOverdue` tính runtime: `expectedDeliveryDate < TODAY && status = Approved`.
@@ -110,13 +110,13 @@
 - [x] **6A.4** `POST /api/v1/purchase-orders/{id}/export` — Xuất PDF hoặc Excel (query param `format`); cập nhật `last_exported_at`.
 
 #### 6B — GoodsReceiptModule (UC-03)
-- [ ] **6B.1** `GET /api/v1/goods-receipts/pending-pos` — Danh sách PO Approved chưa nhận hàng.
-- [ ] **6B.2** `POST /api/v1/goods-receipts` — ACID Transaction (INV-31..38): validate PO Approved + SKUs thuộc PO; chặn nếu 100% receivedQuantity = 0 (`ZERO_FULFILLMENT_RECEIPT`); tạo `goods_receipts` + `receipt_line_items`; tăng `current_inventory`; giảm `on_order_quantity`; đóng PO → Completed; tính OTIF (BR-13) và cập nhật rolling 5-order window (BR-24).
+- [x] **6B.1** `GET /api/v1/goods-receipts/pending-pos` — Danh sách PO Approved chưa nhận hàng.
+- [x] **6B.2** `POST /api/v1/goods-receipts` — ACID Transaction (INV-31..38): validate PO Approved + SKUs thuộc PO; chặn nếu 100% receivedQuantity = 0 (`ZERO_FULFILLMENT_RECEIPT`); tạo `goods_receipts` + `receipt_line_items`; tăng `current_inventory`; giảm `on_order_quantity`; đóng PO → Completed; tính OTIF (BR-13) và cập nhật rolling 5-order window (BR-24).
 
 #### 6C — OTIF Calculation (Application Layer — trong UC-03 transaction)
-- [ ] **6C.1** `FulfillmentRate = min(100%, receivedQty / orderedQty × 100%)` — Khóa tối đa 100%.
-- [ ] **6C.2** `DaysLate = max(0, actualDate - expectedDate)` — `OnTimeFactor`: 0 ngày → 1.0, 1 → 0.67, 2 → 0.33, ≥3 → 0.0.
-- [ ] **6C.3** `OrderScore = (OnTimeFactor × 50) + (FulfillmentRate × 0.5)` — Cập nhật rolling 5-order `performance_score`.
+- [x] **6C.1** `FulfillmentRate = min(100%, receivedQty / orderedQty × 100%)` — Khóa tối đa 100%.
+- [x] **6C.2** `DaysLate = max(0, actualDate - expectedDate)` — `OnTimeFactor`: 0 ngày → 1.0, 1 → 0.67, 2 → 0.33, ≥3 → 0.0.
+- [x] **6C.3** `OrderScore = (OnTimeFactor × 50) + (FulfillmentRate × 0.5)` — Cập nhật rolling 5-order `performance_score`.
 
 ---
 

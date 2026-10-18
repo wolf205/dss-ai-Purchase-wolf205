@@ -2,7 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Response } from 'express';
 import { PurchaseOrdersController } from './purchase-orders.controller';
 import { PurchaseOrdersService } from './purchase-orders.service';
-import { Role } from '../../common/enums/role.enum';
 
 describe('PurchaseOrdersController', () => {
   let controller: PurchaseOrdersController;

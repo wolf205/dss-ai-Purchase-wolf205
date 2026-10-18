@@ -42,7 +42,8 @@ export class QueryPurchaseOrderDto {
   @IsOptional()
   @IsString()
   @IsIn(['Approved', 'Completed', 'Cancelled'], {
-    message: 'status phải là một trong các giá trị: Approved, Completed, Cancelled.',
+    message:
+      'status phải là một trong các giá trị: Approved, Completed, Cancelled.',
   })
   status?: string;
 

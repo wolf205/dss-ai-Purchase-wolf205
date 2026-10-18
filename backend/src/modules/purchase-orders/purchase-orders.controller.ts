@@ -26,10 +26,7 @@ import { PurchaseOrdersService } from './purchase-orders.service';
 import { QueryPurchaseOrderDto } from './dto/query-purchase-order.dto';
 import { CancelPurchaseOrderDto } from './dto/cancel-purchase-order.dto';
 import { ExportPurchaseOrderQueryDto } from './dto/export-purchase-order-query.dto';
-import {
-  PurchaseOrderDetailResponseDto,
-  PurchaseOrderSummaryResponseDto,
-} from './dto/purchase-order-response.dto';
+import { PurchaseOrderDetailResponseDto } from './dto/purchase-order-response.dto';
 import { StandardApiResponse } from '../../common/dto/api-response.dto';
 
 @ApiTags('Purchase Orders (UC-02)')
@@ -37,9 +34,7 @@ import { StandardApiResponse } from '../../common/dto/api-response.dto';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('api/v1/purchase-orders')
 export class PurchaseOrdersController {
-  constructor(
-    private readonly purchaseOrdersService: PurchaseOrdersService,
-  ) {}
+  constructor(private readonly purchaseOrdersService: PurchaseOrdersService) {}
 
   @Get()
   @Roles(Role.STORE_MANAGER, Role.PURCHASING_STAFF)
@@ -97,14 +92,16 @@ export class PurchaseOrdersController {
   @HttpCode(HttpStatus.OK)
   @Roles(Role.STORE_MANAGER, Role.PURCHASING_STAFF)
   @ApiOperation({
-    summary: 'Hủy Đơn mua hàng & Hoàn trả on_order_quantity (UC-02 Luồng rẽ nhánh AF-1)',
+    summary:
+      'Hủy Đơn mua hàng & Hoàn trả on_order_quantity (UC-02 Luồng rẽ nhánh AF-1)',
     description:
       'Chỉ cho phép hủy khi PO ở trạng thái Approved (BR-06). Tự động giảm trừ on_order_quantity cho từng SKU trong ACID transaction (BR-07).',
   })
   @ApiParam({ name: 'id', description: 'ID của đơn mua hàng', example: '201' })
   @ApiResponse({
     status: 200,
-    description: 'Hủy đơn hàng thành công, trả về chi tiết đơn đã cập nhật Cancelled.',
+    description:
+      'Hủy đơn hàng thành công, trả về chi tiết đơn đã cập nhật Cancelled.',
     type: PurchaseOrderDetailResponseDto,
   })
   @ApiResponse({
@@ -116,10 +113,7 @@ export class PurchaseOrdersController {
     description:
       'PO_ALREADY_CLOSED: Đơn mua hàng đã ở trạng thái Completed hoặc Cancelled, không thể hủy bỏ.',
   })
-  async cancel(
-    @Param('id') id: string,
-    @Body() dto: CancelPurchaseOrderDto,
-  ) {
+  async cancel(@Param('id') id: string, @Body() dto: CancelPurchaseOrderDto) {
     const data = await this.purchaseOrdersService.cancel(id, dto);
     return {
       success: true,
