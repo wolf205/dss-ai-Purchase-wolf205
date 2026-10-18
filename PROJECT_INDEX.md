@@ -120,13 +120,13 @@
 
 ---
 
-### Giai đoạn 7 — Web UI (React + Vite) ⏳ CHƯA BẮT ĐẦU
+### Giai đoạn 7 — Web UI (React + Vite) 🔄 ĐANG THỰC HIỆN
 
-#### 7A — Hạ tầng Frontend
-- [ ] **7A.1** Layout hệ thống — Sidebar (nav theo role), Navbar, responsive breakpoints, Design tokens (colors, spacing).
-- [ ] **7A.2** AuthContext + ProtectedRoute — accessToken in memory, role-based route guard.
-- [ ] **7A.3** Axios client — Base URL `/api/v1`, withCredentials, interceptor tự động retry sau 401 (gọi `/auth/refresh`).
-- [ ] **7A.4** Toast / notification system — Success, Error, Warning.
+#### 7A — Hạ tầng Frontend ✅ HOÀN THÀNH
+- [x] **7A.1** Layout hệ thống — Sidebar (nav theo role), Navbar, responsive breakpoints, Design tokens (colors, spacing).
+- [x] **7A.2** AuthContext + ProtectedRoute — accessToken in memory, role-based route guard.
+- [x] **7A.3** Axios client — Base URL `/api/v1`, withCredentials, interceptor tự động retry sau 401 (gọi `/auth/refresh`).
+- [x] **7A.4** Toast / notification system — Success, Error, Warning.
 
 #### 7B — Feature Screens
 - [ ] **7B.1** `auth/` — Màn hình Login (form validation, error message).
