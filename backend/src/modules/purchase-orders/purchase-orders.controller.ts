@@ -32,7 +32,7 @@ import { StandardApiResponse } from '../../common/dto/api-response.dto';
 @ApiTags('Purchase Orders (UC-02)')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('api/v1/purchase-orders')
+@Controller('purchase-orders')
 export class PurchaseOrdersController {
   constructor(private readonly purchaseOrdersService: PurchaseOrdersService) {}
 

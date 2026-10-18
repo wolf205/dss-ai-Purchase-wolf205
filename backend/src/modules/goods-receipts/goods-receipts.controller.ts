@@ -32,7 +32,7 @@ import { StandardApiResponse } from '../../common/dto/api-response.dto';
 @ApiTags('Goods Receipts (UC-03)')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Controller('api/v1/goods-receipts')
+@Controller('goods-receipts')
 export class GoodsReceiptsController {
   constructor(private readonly goodsReceiptsService: GoodsReceiptsService) {}
 
