@@ -131,7 +131,7 @@
 #### 7B — Feature Screens
 - [x] **7B.1** `auth/` — Màn hình Login (form validation, error message).
 - [x] **7B.2** `dss-review/` (UC-01) — Trigger analyze, bộ lọc ngành hàng, bảng đề xuất với Badge ABC-XYZ, nút "Xem giải thích" (gọi LLM on-demand), modal Supplier Ranking (bảng điểm WSM), chỉnh sửa quantity/supplier, nút Approve. Biểu đồ Recharts: actual sales history + forecast 14 ngày + CI 95% band.
-- [ ] **7B.3** `orders/` (UC-02) — Danh sách PO (filter status/overdue), badge Overdue, modal chi tiết, nút Cancel (form reason), nút Export PDF/Excel.
+- [x] **7B.3** `orders/` (UC-02) — Danh sách PO (filter status/overdue), badge Overdue, modal chi tiết, nút Cancel (form reason), nút Export PDF/Excel.
 - [ ] **7B.4** `receipts/` (UC-03) — Dropdown chọn PO Approved, form nhập `receivedQuantity` từng dòng, soft warning khi giao vượt, nút Confirm Receipt.
 - [ ] **7B.5** `data-import/` (UC-04) — Nút tải file mẫu (sales/inventory), drag-drop upload, data preview table, bảng lỗi chi tiết từng dòng (row + skuCode + issue).
 - [ ] **7B.6** `catalog/` (UC-05) — Danh sách SKU (filter ngành hàng, search, pagination), form thêm/sửa (MANAGER), badge Active/Inactive, xem tồn kho.
@@ -177,3 +177,4 @@
 | 18/10/2026 | Giai đoạn 5 — DSS Engine (UC-01) | ABC-XYZ, SS, ROP-SOQ, WSM Ranking, Analyze, Human Adjust, Approve PO, Gemini Explain | `a0bed46` |
 | 18/10/2026 | Seed Data Expansion | 90 ngày lịch sử bán hàng, NCC, SKU và điều kiện cung ứng thực tế | `b7a7547` |
 | 18/10/2026 | Task 6A — PurchaseOrderModule (UC-02) | PO list/detail, runtime Overdue (BR-09), ACID Cancel & on-order reversal (BR-07), Export | `e7960ca` |
+| 18/10/2026 | Task 7B.3 — Purchase Orders UI (UC-02) | PO table, filters, Overdue badge (BR-09), detail modal snapshot, cancel modal (BR-07/10), PDF/Excel export | Done |
