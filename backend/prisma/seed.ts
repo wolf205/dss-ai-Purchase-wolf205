@@ -36,6 +36,33 @@ async function main() {
   // 2. Tài khoản người dùng (Users)
   const passwordHash = await bcrypt.hash('password123', 10);
 
+  // Tài khoản mẫu chuẩn DSS
+  await prisma.user.upsert({
+    where: { username: 'manager' },
+    update: { passwordHash },
+    create: {
+      username: 'manager',
+      passwordHash,
+      fullName: 'Quản Lý Cửa Hàng (Manager)',
+      email: 'manager@dss.local',
+      role: 'STORE_MANAGER',
+      status: 'Active',
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { username: 'staff' },
+    update: { passwordHash },
+    create: {
+      username: 'staff',
+      passwordHash,
+      fullName: 'Nhân Viên Mua Hàng (Staff)',
+      email: 'staff@dss.local',
+      role: 'PURCHASING_STAFF',
+      status: 'Active',
+    },
+  });
+
   const manager = await prisma.user.upsert({
     where: { username: 'manager_an' },
     update: { passwordHash },
