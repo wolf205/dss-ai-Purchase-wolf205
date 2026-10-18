@@ -135,7 +135,7 @@
 - [x] **7B.4** `receipts/` (UC-03) — Dropdown chọn PO Approved, form nhập `receivedQuantity` từng dòng, soft warning khi giao vượt, nút Confirm Receipt.
 - [x] **7B.5** `data-import/` (UC-04) — Nút tải file mẫu (sales/inventory), drag-drop upload, data preview table, bảng lỗi chi tiết từng dòng (row + skuCode + issue).
 - [x] **7B.6** `catalog/` (UC-05) — Danh sách SKU (filter ngành hàng, search, pagination), form thêm/sửa (MANAGER), badge Active/Inactive, xem tồn kho.
-- [ ] **7B.7** `suppliers/` (UC-06) — Danh sách NCC kèm OTIF badge 5 đơn, form hồ sơ (MANAGER), tab Supply Conditions (giá/MOQ/SKU), lịch sử giao hàng.
+- [x] **7B.7** `suppliers/` (UC-06) — Danh sách NCC kèm OTIF badge 5 đơn, form hồ sơ (MANAGER), tab Supply Conditions (giá/MOQ/SKU), lịch sử giao hàng.
 - [ ] **7B.8** `configuration/` (UC-07) — 4 sliders trọng số WSM (live validation tổng = 100%), radio Service Level (90/95/98/99%), input Review Period (1-30 ngày), nút Save + Reset.
 
 ---
