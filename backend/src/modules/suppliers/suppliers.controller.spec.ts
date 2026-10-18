@@ -3,8 +3,11 @@ import { SuppliersController } from './suppliers.controller';
 import { SuppliersService } from './suppliers.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { UpdateSupplierStatusDto } from './dto/update-supplier-status.dto';
+import { CreateSupplyConditionDto } from './dto/create-supply-condition.dto';
 import { QuerySupplierDto } from './dto/query-supplier.dto';
 import { SupplierResponseDto } from './dto/supplier-response.dto';
+import { SupplyConditionResponseDto } from './dto/supply-condition-response.dto';
 
 describe('SuppliersController', () => {
   let controller: SuppliersController;
@@ -31,6 +34,26 @@ describe('SuppliersController', () => {
     updatedAt: '2026-09-15T08:00:00.000Z',
   };
 
+  const mockCondition: SupplyConditionResponseDto = {
+    id: '1',
+    supplierId: '1',
+    productId: '12',
+    purchasePrice: 32000,
+    moq: 10,
+    status: 'Active',
+    product: {
+      id: '12',
+      skuCode: 'MILK-TH-1L',
+      productName: 'Sữa tươi tiệt trùng TH True Milk 1L',
+      barcode: '8936036010011',
+      unit: 'Hộp',
+      status: 'Active',
+      categoryName: 'Đồ Uống',
+    },
+    createdAt: '2026-09-15T08:00:00.000Z',
+    updatedAt: '2026-09-15T08:00:00.000Z',
+  };
+
   const mockQueryResult = {
     items: [mockSupplier],
     pagination: {
@@ -52,6 +75,14 @@ describe('SuppliersController', () => {
             findById: jest.fn().mockResolvedValue(mockSupplier),
             create: jest.fn().mockResolvedValue(mockSupplier),
             update: jest.fn().mockResolvedValue(mockSupplier),
+            updateStatus: jest.fn().mockResolvedValue({
+              ...mockSupplier,
+              status: 'Inactive',
+            }),
+            findConditionsBySupplierId: jest
+              .fn()
+              .mockResolvedValue([mockCondition]),
+            createCondition: jest.fn().mockResolvedValue(mockCondition),
           },
         },
       ],
@@ -123,6 +154,46 @@ describe('SuppliersController', () => {
 
       expect(service.update).toHaveBeenCalledWith('1', updateDto);
       expect(result).toEqual(mockSupplier);
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should update supplier status and return updated supplier DTO', async () => {
+      const statusDto: UpdateSupplierStatusDto = {
+        status: 'Inactive',
+      };
+
+      const result = await controller.updateStatus('1', statusDto);
+
+      expect(service.updateStatus).toHaveBeenCalledWith('1', statusDto);
+      expect(result).toEqual({
+        ...mockSupplier,
+        status: 'Inactive',
+      });
+    });
+  });
+
+  describe('findConditions', () => {
+    it('should return list of supply conditions for a supplier', async () => {
+      const result = await controller.findConditions('1');
+
+      expect(service.findConditionsBySupplierId).toHaveBeenCalledWith('1');
+      expect(result).toEqual([mockCondition]);
+    });
+  });
+
+  describe('createCondition', () => {
+    it('should assign SKU to supplier and return created condition', async () => {
+      const dto: CreateSupplyConditionDto = {
+        productId: '12',
+        purchasePrice: 32000,
+        moq: 10,
+      };
+
+      const result = await controller.createCondition('1', dto);
+
+      expect(service.createCondition).toHaveBeenCalledWith('1', dto);
+      expect(result).toEqual(mockCondition);
     });
   });
 });

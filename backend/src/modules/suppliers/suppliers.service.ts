@@ -10,39 +10,28 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { QuerySupplierDto } from './dto/query-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { UpdateSupplierStatusDto } from './dto/update-supplier-status.dto';
+import { CreateSupplyConditionDto } from './dto/create-supply-condition.dto';
+import { UpdateSupplyConditionDto } from './dto/update-supply-condition.dto';
 import { SupplierResponseDto } from './dto/supplier-response.dto';
+import { SupplyConditionResponseDto } from './dto/supply-condition-response.dto';
 import { PaginationMetaDto } from '../../common/dto/api-response.dto';
+import { SupplyConditionsService } from './supply-conditions.service';
+import { mapToSupplierResponseDto } from './helpers/supplier-mapper.helper';
 
-interface SupplierWithRelations {
-  id: bigint;
-  supplierCode: string;
-  supplierName: string;
-  contactPerson: string | null;
-  phoneNumber: string | null;
-  email: string | null;
-  address: string | null;
-  committedLeadTimeDays: number;
-  status: string;
-  performanceScore: Prisma.Decimal | number;
-  allTimePerformanceScore: Prisma.Decimal | number;
-  completedOrderCount: number;
-  createdAt: Date;
-  updatedAt: Date;
-  supplyConditions?: { id: bigint }[];
-  purchaseOrders?: {
-    id: bigint;
-    goodsReceipt?: {
-      daysLate: number;
-      overallFulfillmentRate: Prisma.Decimal | number;
-    } | null;
-  }[];
-}
+// Re-exports phục vụ tương thích ngược (Backward Compatibility)
+export * from './interfaces/suppliers.interface';
+export * from './helpers/supplier-scoring.helper';
+export * from './helpers/supplier-mapper.helper';
 
 @Injectable()
 export class SuppliersService {
   private readonly logger = new Logger(SuppliersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly supplyConditionsService: SupplyConditionsService,
+  ) {}
 
   /**
    * Tra cứu danh sách nhà cung cấp (hỗ trợ phân trang, lọc trạng thái, tìm kiếm từ khóa).
@@ -75,37 +64,34 @@ export class SuppliersService {
       ];
     }
 
-    this.logger.log(
-      `Tra cứu nhà cung cấp: page=${page}, limit=${limit}, search=${query.search || ''}, status=${where.status || 'All'}`,
-    );
+    // 3. Đếm tổng số bản ghi thỏa điều kiện
+    const totalItems = await this.prisma.supplier.count({ where });
 
-    const [rawSuppliers, totalItems] = await Promise.all([
-      this.prisma.supplier.findMany({
-        where,
-        include: {
-          supplyConditions: {
-            where: { status: 'Active' },
-            select: { id: true },
-          },
-          purchaseOrders: {
-            where: { status: 'Completed' },
-            include: { goodsReceipt: true },
-            orderBy: { id: 'desc' },
-            take: 5,
-          },
+    // 4. Lấy danh sách kèm quan hệ cần thiết để tính OTIF 5 đơn gần nhất
+    const suppliers = await this.prisma.supplier.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { id: 'desc' },
+      include: {
+        supplyConditions: {
+          where: { status: 'Active' },
+          select: { id: true },
         },
-        orderBy: { id: 'asc' },
-        skip,
-        take: limit,
-      }),
-      this.prisma.supplier.count({ where }),
-    ]);
+        purchaseOrders: {
+          where: { status: 'Completed' },
+          include: { goodsReceipt: true },
+          orderBy: { id: 'desc' },
+          take: 5,
+        },
+      },
+    });
+
+    const items = suppliers.map((supplier) =>
+      mapToSupplierResponseDto(supplier),
+    );
 
     const totalPages = Math.ceil(totalItems / limit) || 1;
-
-    const items: SupplierResponseDto[] = rawSuppliers.map((supplier) =>
-      this.mapToResponseDto(supplier),
-    );
 
     return {
       items,
@@ -119,8 +105,7 @@ export class SuppliersService {
   }
 
   /**
-   * Tạo mới một đối tác Nhà cung cấp trong hệ thống Master Data (UC-06).
-   * Tuân thủ BR-21 (Mã NCC bất biến, duy nhất toàn cục không phân biệt hoa thường),
+   * Tạo mới nhà cung cấp tuân thủ BR-21 (Mã duy nhất, không trùng lặp Case-Insensitive)
    * và BR-24 (Khởi tạo Cold Start: performanceScore = 0.8000, 80%).
    */
   async create(dto: CreateSupplierDto): Promise<SupplierResponseDto> {
@@ -174,7 +159,7 @@ export class SuppliersService {
       },
     });
 
-    return this.mapToResponseDto(newSupplier);
+    return mapToSupplierResponseDto(newSupplier);
   }
 
   /**
@@ -206,7 +191,7 @@ export class SuppliersService {
       });
     }
 
-    return this.mapToResponseDto(supplier);
+    return mapToSupplierResponseDto(supplier);
   }
 
   /**
@@ -259,12 +244,10 @@ export class SuppliersService {
       updateData.committedLeadTimeDays = dto.committedLeadTimeDays;
     }
     if (dto.email !== undefined) {
-      updateData.email =
-        dto.email && dto.email.trim() ? dto.email.trim() : null;
+      updateData.email = dto.email ? dto.email.trim() : null;
     }
     if (dto.address !== undefined) {
-      updateData.address =
-        dto.address && dto.address.trim() ? dto.address.trim() : null;
+      updateData.address = dto.address ? dto.address.trim() : null;
     }
 
     const updatedSupplier = await this.prisma.supplier.update({
@@ -284,74 +267,96 @@ export class SuppliersService {
       },
     });
 
-    return this.mapToResponseDto(updatedSupplier);
+    return mapToSupplierResponseDto(updatedSupplier);
   }
 
   /**
-   * Chuyển đổi Prisma Supplier Entity sang SupplierResponseDto
-   * và tính toán các chỉ số OTIF 5 đơn gần nhất + nhãn phong độ BR-24.
+   * Đổi trạng thái nhà cung cấp (Active <-> Inactive) theo UC-06 Bước 6 và BR-24.
+   * Ràng buộc bất biến: Chặn chuyển sang Inactive nếu NCC còn đơn mua hàng (PO)
+   * ở trạng thái Approved đang chờ giao hàng (EF-4, BR-24).
    */
-  private mapToResponseDto(
-    supplier: SupplierWithRelations,
-  ): SupplierResponseDto {
-    const activeSkuCount = supplier.supplyConditions
-      ? supplier.supplyConditions.length
-      : 0;
+  async updateStatus(
+    id: string | number | bigint,
+    dto: UpdateSupplierStatusDto,
+  ): Promise<SupplierResponseDto> {
+    const supplierId = BigInt(id);
+    this.logger.log(`Yêu cầu đổi trạng thái NCC ID ${id} sang: ${dto.status}`);
 
-    const recentOrders = supplier.purchaseOrders || [];
+    // 1. Kiểm tra nhà cung cấp tồn tại
+    const supplier = await this.prisma.supplier.findUnique({
+      where: { id: supplierId },
+    });
 
-    let recent5OrderOnTimeRate: number | null = null;
-    let recent5OrderFulfillmentRate: number | null = null;
-
-    if (recentOrders.length > 0) {
-      // 1. Tỷ lệ giao đúng hạn 5 đơn gần nhất (daysLate == 0 theo BR-13)
-      const onTimeOrders = recentOrders.filter(
-        (po) => po.goodsReceipt && po.goodsReceipt.daysLate === 0,
-      ).length;
-      recent5OrderOnTimeRate = Number(
-        (onTimeOrders / recentOrders.length).toFixed(4),
-      );
-
-      // 2. Tỷ lệ giao đủ hàng 5 đơn gần nhất
-      const fulfillmentSum = recentOrders.reduce(
-        (sum, po) => sum + Number(po.goodsReceipt?.overallFulfillmentRate || 0),
-        0,
-      );
-      recent5OrderFulfillmentRate = Number(
-        (fulfillmentSum / recentOrders.length).toFixed(4),
-      );
+    if (!supplier) {
+      throw new NotFoundException({
+        code: 'RESOURCE_NOT_FOUND',
+        message: `Nhà cung cấp với ID ${id} không tồn tại.`,
+      });
     }
 
-    // 3. Phân loại nhãn phong độ theo BR-24
-    const completedCount = supplier.completedOrderCount;
-    let performanceLabel: string;
-    if (completedCount < 3) {
-      performanceLabel = '[NCC Mới - Điểm khởi tạo: 80%]';
-    } else if (completedCount < 5) {
-      performanceLabel = `[Lịch sử: ${completedCount} đơn]`;
-    } else {
-      performanceLabel = '[Phong độ 5 đơn gần nhất]';
+    // 2. Nếu chuyển sang Inactive, kiểm tra đơn PO Approved đang chờ giao (EF-4, BR-24)
+    if (dto.status === 'Inactive') {
+      const activeApprovedPoCount = await this.prisma.purchaseOrder.count({
+        where: {
+          supplierId,
+          status: 'Approved',
+        },
+      });
+
+      if (activeApprovedPoCount > 0) {
+        this.logger.warn(
+          `Từ chối chuyển NCC ID ${id} sang Inactive do còn ${activeApprovedPoCount} PO Approved (EF-4, BR-24)`,
+        );
+        throw new ConflictException({
+          code: 'ACTIVE_PO_EXISTS',
+          message: `Không thể ngừng hợp tác với nhà cung cấp này do đang có ${activeApprovedPoCount} Đơn mua hàng (PO) ở trạng thái 'Approved' đang chờ giao hàng. Vui lòng hoàn tất nhận hàng (UC-03) hoặc hủy các đơn mua hàng này (UC-02) trước khi ngừng hoạt động đối tác.`,
+        });
+      }
     }
 
-    return {
-      id: supplier.id.toString(),
-      supplierCode: supplier.supplierCode,
-      supplierName: supplier.supplierName,
-      contactPerson: supplier.contactPerson,
-      phoneNumber: supplier.phoneNumber,
-      email: supplier.email,
-      address: supplier.address,
-      committedLeadTimeDays: supplier.committedLeadTimeDays,
-      status: supplier.status,
-      performanceScore: Number(supplier.performanceScore),
-      allTimePerformanceScore: Number(supplier.allTimePerformanceScore),
-      completedOrderCount: supplier.completedOrderCount,
-      activeSkuCount,
-      recent5OrderOnTimeRate,
-      recent5OrderFulfillmentRate,
-      performanceLabel,
-      createdAt: supplier.createdAt.toISOString(),
-      updatedAt: supplier.updatedAt.toISOString(),
-    };
+    // 3. Cập nhật trạng thái
+    const updatedSupplier = await this.prisma.supplier.update({
+      where: { id: supplierId },
+      data: { status: dto.status },
+      include: {
+        supplyConditions: {
+          where: { status: 'Active' },
+          select: { id: true },
+        },
+        purchaseOrders: {
+          where: { status: 'Completed' },
+          include: { goodsReceipt: true },
+          orderBy: { id: 'desc' },
+          take: 5,
+        },
+      },
+    });
+
+    return mapToSupplierResponseDto(updatedSupplier);
+  }
+
+  // --- Các phương thức điều kiện cung ứng (Ủy quyền cho SupplyConditionsService) ---
+
+  async findConditionsBySupplierId(
+    id: string | number | bigint,
+  ): Promise<SupplyConditionResponseDto[]> {
+    return await this.supplyConditionsService.findConditionsBySupplierId(id);
+  }
+
+  async createCondition(
+    supplierIdInput: string | number | bigint,
+    dto: CreateSupplyConditionDto,
+  ): Promise<SupplyConditionResponseDto> {
+    return await this.supplyConditionsService.createCondition(
+      supplierIdInput,
+      dto,
+    );
+  }
+
+  async updateCondition(
+    id: string | number | bigint,
+    dto: UpdateSupplyConditionDto,
+  ): Promise<SupplyConditionResponseDto> {
+    return await this.supplyConditionsService.updateCondition(id, dto);
   }
 }

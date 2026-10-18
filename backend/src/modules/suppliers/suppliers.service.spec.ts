@@ -7,8 +7,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../prisma/prisma.service';
 import { SuppliersService } from './suppliers.service';
+import { SupplyConditionsService } from './supply-conditions.service';
 import { CreateSupplierDto } from './dto/create-supplier.dto';
 import { UpdateSupplierDto } from './dto/update-supplier.dto';
+import { UpdateSupplierStatusDto } from './dto/update-supplier-status.dto';
+import { CreateSupplyConditionDto } from './dto/create-supply-condition.dto';
+import { UpdateSupplyConditionDto } from './dto/update-supply-condition.dto';
 import { QuerySupplierDto } from './dto/query-supplier.dto';
 
 describe('SuppliersService', () => {
@@ -44,6 +48,26 @@ describe('SuppliersService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    purchaseOrder: {
+      count: jest.fn(),
+      findFirst: jest.fn(),
+    },
+    product: {
+      findUnique: jest.fn(),
+    },
+    supplyCondition: {
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      count: jest.fn(),
+    },
+  };
+
+  const mockSupplyConditionsService = {
+    findConditionsBySupplierId: jest.fn(),
+    createCondition: jest.fn(),
+    updateCondition: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -53,6 +77,10 @@ describe('SuppliersService', () => {
         {
           provide: PrismaService,
           useValue: mockPrisma,
+        },
+        {
+          provide: SupplyConditionsService,
+          useValue: mockSupplyConditionsService,
         },
       ],
     }).compile();
@@ -407,6 +435,143 @@ describe('SuppliersService', () => {
             'Mã nhà cung cấp (supplierCode) là định danh bất biến, tuyệt đối không được phép chỉnh sửa.',
         });
       }
+    });
+  });
+
+  describe('updateStatus', () => {
+    it('should successfully update supplier status to Inactive when approved PO count is 0', async () => {
+      mockPrisma.supplier.findUnique.mockResolvedValue(mockPrismaSupplier);
+      mockPrisma.purchaseOrder.count.mockResolvedValue(0);
+      mockPrisma.supplier.update.mockResolvedValue({
+        ...mockPrismaSupplier,
+        status: 'Inactive',
+      });
+
+      const statusDto: UpdateSupplierStatusDto = { status: 'Inactive' };
+      const result = await service.updateStatus('1', statusDto);
+
+      expect(mockPrisma.supplier.findUnique).toHaveBeenCalledWith({
+        where: { id: BigInt(1) },
+      });
+      expect(mockPrisma.purchaseOrder.count).toHaveBeenCalledWith({
+        where: {
+          supplierId: BigInt(1),
+          status: 'Approved',
+        },
+      });
+      expect(mockPrisma.supplier.update).toHaveBeenCalledWith({
+        where: { id: BigInt(1) },
+        data: { status: 'Inactive' },
+        include: expect.any(Object),
+      });
+      expect(result.status).toBe('Inactive');
+    });
+
+    it('should throw ConflictException (ACTIVE_PO_EXISTS) when updating status to Inactive and approved PO count > 0 (EF-4)', async () => {
+      mockPrisma.supplier.findUnique.mockResolvedValue(mockPrismaSupplier);
+      mockPrisma.purchaseOrder.count.mockResolvedValue(2);
+
+      await expect(
+        service.updateStatus('1', { status: 'Inactive' }),
+      ).rejects.toThrow(ConflictException);
+
+      try {
+        await service.updateStatus('1', { status: 'Inactive' });
+      } catch (err: unknown) {
+        const errorResponse = (err as ConflictException).getResponse() as {
+          code: string;
+          message: string;
+        };
+        expect(errorResponse.code).toBe('ACTIVE_PO_EXISTS');
+        expect(errorResponse.message).toContain(
+          "Không thể ngừng hợp tác với nhà cung cấp này do đang có 2 Đơn mua hàng (PO) ở trạng thái 'Approved' đang chờ giao hàng",
+        );
+      }
+      expect(mockPrisma.supplier.update).not.toHaveBeenCalled();
+    });
+
+    it('should successfully update supplier status to Active without checking POs', async () => {
+      const inactiveSupplier = {
+        ...mockPrismaSupplier,
+        status: 'Inactive',
+      };
+      mockPrisma.supplier.findUnique.mockResolvedValue(inactiveSupplier);
+      mockPrisma.supplier.update.mockResolvedValue({
+        ...inactiveSupplier,
+        status: 'Active',
+      });
+
+      const result = await service.updateStatus('1', { status: 'Active' });
+
+      expect(mockPrisma.purchaseOrder.count).not.toHaveBeenCalled();
+      expect(mockPrisma.supplier.update).toHaveBeenCalledWith({
+        where: { id: BigInt(1) },
+        data: { status: 'Active' },
+        include: expect.any(Object),
+      });
+      expect(result.status).toBe('Active');
+    });
+
+    it('should throw NotFoundException (RESOURCE_NOT_FOUND) when supplier does not exist', async () => {
+      mockPrisma.supplier.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateStatus('999', { status: 'Inactive' }),
+      ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('delegation to SupplyConditionsService', () => {
+    it('should delegate findConditionsBySupplierId to SupplyConditionsService', async () => {
+      mockSupplyConditionsService.findConditionsBySupplierId.mockResolvedValue([
+        { id: '1', supplierId: '1', productId: '12' },
+      ]);
+
+      const result = await service.findConditionsBySupplierId('1');
+
+      expect(
+        mockSupplyConditionsService.findConditionsBySupplierId,
+      ).toHaveBeenCalledWith('1');
+      expect(result).toHaveLength(1);
+    });
+
+    it('should delegate createCondition to SupplyConditionsService', async () => {
+      const dto: CreateSupplyConditionDto = {
+        productId: '12',
+        purchasePrice: 32000,
+        moq: 10,
+      };
+      mockSupplyConditionsService.createCondition.mockResolvedValue({
+        id: '1',
+        ...dto,
+      });
+
+      const result = await service.createCondition('1', dto);
+
+      expect(mockSupplyConditionsService.createCondition).toHaveBeenCalledWith(
+        '1',
+        dto,
+      );
+      expect(result.id).toBe('1');
+    });
+
+    it('should delegate updateCondition to SupplyConditionsService', async () => {
+      const dto: UpdateSupplyConditionDto = {
+        purchasePrice: 35000,
+        moq: 15,
+      };
+      mockSupplyConditionsService.updateCondition.mockResolvedValue({
+        id: '1',
+        ...dto,
+      });
+
+      const result = await service.updateCondition('1', dto);
+
+      expect(mockSupplyConditionsService.updateCondition).toHaveBeenCalledWith(
+        '1',
+        dto,
+      );
+      expect(result.id).toBe('1');
     });
   });
 });
