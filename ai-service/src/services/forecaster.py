@@ -1,6 +1,9 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 import logging
 import math
+import os
 from typing import List, Optional
 import pandas as pd
 
@@ -263,13 +266,26 @@ def run_forecast_for_sku(series: SkuSeries, horizon_days: int) -> SkuForecastRes
 
 
 
+_executor = ThreadPoolExecutor(max_workers=min(4, os.cpu_count() or 2))
+
+
 async def run_forecast(payload: TimeSeriesPayload) -> ForecastResponse:
     """
-    Điều phối dự báo theo batch cho toàn bộ danh sách SKU trong TimeSeriesPayload.
+    Điều phối dự báo song song qua ThreadPoolExecutor cho toàn bộ danh sách SKU trong TimeSeriesPayload.
     """
-    results: List[SkuForecastResult] = []
-    for item in payload.series:
-        sku_result = run_forecast_for_sku(item, payload.horizon_days)
-        results.append(sku_result)
+    if not payload.series:
+        return ForecastResponse(success=True, results=[])
 
-    return ForecastResponse(success=True, results=results)
+    loop = asyncio.get_running_loop()
+    tasks = [
+        loop.run_in_executor(
+            _executor,
+            run_forecast_for_sku,
+            item,
+            payload.horizon_days,
+        )
+        for item in payload.series
+    ]
+    results = await asyncio.gather(*tasks)
+
+    return ForecastResponse(success=True, results=list(results))
