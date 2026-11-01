@@ -208,6 +208,13 @@ export class DssSessionEvaluationResponseDto {
   })
   summary: OverallEvaluationSummaryDto | null;
 
+  @ApiPropertyOptional({
+    type: OverallEvaluationSummaryDto,
+    description:
+      'Chỉ số KPI đối soát tổng chu kỳ tuần (Weekly Order Horizon Aggregation)',
+  })
+  weeklySummary?: OverallEvaluationSummaryDto | null;
+
   @ApiProperty({
     type: [SkuEvaluationDto],
     description: 'Danh sách chi tiết đánh giá độ chính xác từng SKU',

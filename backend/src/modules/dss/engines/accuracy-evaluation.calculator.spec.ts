@@ -5,32 +5,32 @@ import {
 
 describe('AccuracyEvaluationCalculator (Pure Domain Engine)', () => {
   describe('classifyQualityRating', () => {
-    it('should classify <= 20% as EXCELLENT', () => {
+    it('should classify <= 30% as EXCELLENT', () => {
       expect(AccuracyEvaluationCalculator.classifyQualityRating(0)).toBe(
         'EXCELLENT',
       );
       expect(AccuracyEvaluationCalculator.classifyQualityRating(14.5)).toBe(
         'EXCELLENT',
       );
-      expect(AccuracyEvaluationCalculator.classifyQualityRating(20.0)).toBe(
+      expect(AccuracyEvaluationCalculator.classifyQualityRating(30.0)).toBe(
         'EXCELLENT',
       );
     });
 
-    it('should classify > 20% and <= 35% as ACCEPTABLE', () => {
-      expect(AccuracyEvaluationCalculator.classifyQualityRating(20.01)).toBe(
+    it('should classify > 30% and <= 45% as ACCEPTABLE', () => {
+      expect(AccuracyEvaluationCalculator.classifyQualityRating(30.01)).toBe(
         'ACCEPTABLE',
       );
-      expect(AccuracyEvaluationCalculator.classifyQualityRating(28.4)).toBe(
+      expect(AccuracyEvaluationCalculator.classifyQualityRating(37.5)).toBe(
         'ACCEPTABLE',
       );
-      expect(AccuracyEvaluationCalculator.classifyQualityRating(35.0)).toBe(
+      expect(AccuracyEvaluationCalculator.classifyQualityRating(45.0)).toBe(
         'ACCEPTABLE',
       );
     });
 
-    it('should classify > 35% as NEEDS_TUNING', () => {
-      expect(AccuracyEvaluationCalculator.classifyQualityRating(35.01)).toBe(
+    it('should classify > 45% as NEEDS_TUNING', () => {
+      expect(AccuracyEvaluationCalculator.classifyQualityRating(45.01)).toBe(
         'NEEDS_TUNING',
       );
       expect(AccuracyEvaluationCalculator.classifyQualityRating(65.2)).toBe(
@@ -156,13 +156,34 @@ describe('AccuracyEvaluationCalculator (Pure Domain Engine)', () => {
       // Sku1: act 10, pred 10, absErr 0
       // Sku2: act 10, pred 15, absErr 5
       // Total Act = 20, Total Pred = 25, Total AbsErr = 5
-      // Overall WAPE = (5 / 20) * 100 = 25.0% -> ACCEPTABLE
+      // Overall WAPE = (5 / 20) * 100 = 25.0% -> EXCELLENT (<= 30%)
       // Overall Bias = ((25 - 20) / 20) * 100 = +25.0%
       expect(overall.overallWape).toBe(25.0);
       expect(overall.overallBias).toBe(25.0);
-      expect(overall.qualityRating).toBe('ACCEPTABLE');
+      expect(overall.qualityRating).toBe('EXCELLENT');
       expect(overall.totalActual).toBe(20);
       expect(overall.totalPredicted).toBe(25);
+    });
+  });
+
+  describe('calculateWeeklyHorizonMetrics', () => {
+    it('should compute aggregated weekly horizon metrics correctly', () => {
+      // SKU 1: 2 ngày, ngày 1 lệch +2, ngày 2 lệch -2
+      // Theo ngày: AbsErr = 4, WAPE = 4/20 = 20%
+      // Nhưng theo tuần: Total Pred = 20, Total Act = 20 -> Weekly AbsErr = 0! Weekly WAPE = 0%!
+      const sku1 = AccuracyEvaluationCalculator.calculateSkuMetrics([
+        { date: '2026-11-02', predicted: 12, actual: 10 },
+        { date: '2026-11-03', predicted: 8, actual: 10 },
+      ]);
+
+      const weekly = AccuracyEvaluationCalculator.calculateWeeklyHorizonMetrics([
+        sku1,
+      ]);
+      expect(weekly.overallWape).toBe(0.0);
+      expect(weekly.overallBias).toBe(0.0);
+      expect(weekly.qualityRating).toBe('EXCELLENT');
+      expect(weekly.totalPredicted).toBe(20);
+      expect(weekly.totalActual).toBe(20);
     });
   });
 });

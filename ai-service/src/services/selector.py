@@ -1,6 +1,6 @@
 from enum import Enum
 import math
-from typing import Sequence, Union
+from typing import Optional, Sequence, Union
 from pydantic import Field
 
 from src.models.base import CamelModel
@@ -56,6 +56,10 @@ class SeriesMetrics(CamelModel):
     is_short_series: bool = Field(
         ...,
         description="Chuỗi ngắn: True nếu chiều dài N < 30 ngày"
+    )
+    adi: Optional[float] = Field(
+        default=None,
+        description="Average Demand Interval: Số ngày trung bình giữa 2 lần phát sinh nhu cầu"
     )
 
 
@@ -114,6 +118,7 @@ def calculate_series_metrics(
 
     # Nếu chuỗi toàn số 0, tránh ZeroDivisionError: cv = 0.0
     cv = (std / mean) if mean > 0.0 else 0.0
+    adi = round(n / non_zero_count, 4) if non_zero_count > 0 else 999.0
 
     is_short_series = (n < 30)
     is_intermittent = (cv > 1.0) or (non_zero_ratio < 0.7)
@@ -126,6 +131,7 @@ def calculate_series_metrics(
         non_zero_ratio=round(non_zero_ratio, 6),
         is_intermittent=is_intermittent,
         is_short_series=is_short_series,
+        adi=adi,
     )
 
 

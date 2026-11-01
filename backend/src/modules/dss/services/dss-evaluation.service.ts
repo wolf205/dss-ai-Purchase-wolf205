@@ -247,6 +247,25 @@ export class DssEvaluationService {
       dailyAggregateTimeline,
     };
 
+    // 6. Tính toán KPI đối soát tổng chu kỳ tuần (Weekly Order Horizon)
+    const weeklyMetrics =
+      AccuracyEvaluationCalculator.calculateWeeklyHorizonMetrics(
+        skuMetricsList,
+      );
+
+    const weeklySummary: OverallEvaluationSummaryDto = {
+      overallWape: weeklyMetrics.overallWape,
+      overallMape: weeklyMetrics.overallMape,
+      overallMae: weeklyMetrics.overallMae,
+      overallBias: weeklyMetrics.overallBias,
+      totalPredicted: weeklyMetrics.totalPredicted,
+      totalActual: weeklyMetrics.totalActual,
+      qualityRating: weeklyMetrics.qualityRating,
+      evaluatedDaysCount: evaluatedDates.length,
+      totalDaysHorizon: sortedDates.length,
+      dailyAggregateTimeline,
+    };
+
     return {
       sessionId: session.id.toString(),
       sessionCode: session.sessionCode,
@@ -256,6 +275,7 @@ export class DssEvaluationService {
       message: `Đã hoàn tất đối soát với ${evaluatedDates.length}/${sortedDates.length} ngày bán hàng thực tế.`,
       evaluationWindow,
       summary,
+      weeklySummary,
       skuEvaluations,
     };
   }

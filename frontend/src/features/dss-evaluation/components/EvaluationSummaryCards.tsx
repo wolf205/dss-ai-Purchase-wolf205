@@ -4,28 +4,32 @@ import type { OverallEvaluationSummary } from '../types';
 
 interface EvaluationSummaryCardsProps {
   summary: OverallEvaluationSummary;
+  weeklySummary?: OverallEvaluationSummary | null;
 }
 
-export const EvaluationSummaryCards: React.FC<EvaluationSummaryCardsProps> = ({ summary }) => {
+export const EvaluationSummaryCards: React.FC<EvaluationSummaryCardsProps> = ({
+  summary,
+  weeklySummary,
+}) => {
   const getQualityBadge = (rating: 'EXCELLENT' | 'ACCEPTABLE' | 'NEEDS_TUNING') => {
     switch (rating) {
       case 'EXCELLENT':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-            Xuất Sắc (&le; 20%)
+            Xuất Sắc (&le; 30%)
           </span>
         );
       case 'ACCEPTABLE':
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-            Chấp Nhận Được (20-35%)
+            Chấp Nhận Được (30-45%)
           </span>
         );
       case 'NEEDS_TUNING':
       default:
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-600 border border-rose-500/20">
-            Cần Hiệu Chỉnh (&gt; 35%)
+            Cần Hiệu Chỉnh (&gt; 45%)
           </span>
         );
     }
@@ -37,7 +41,7 @@ export const EvaluationSummaryCards: React.FC<EvaluationSummaryCardsProps> = ({ 
       <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            Sai Số WAPE (Chuẩn Vàng)
+            Sai Số WAPE (Theo Ngày)
           </span>
           <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
             <Target className="w-5 h-5" />
@@ -49,7 +53,17 @@ export const EvaluationSummaryCards: React.FC<EvaluationSummaryCardsProps> = ({ 
           </span>
           <span className="text-xs text-slate-400">weighted error</span>
         </div>
-        <div className="mt-3">{getQualityBadge(summary.qualityRating)}</div>
+        <div className="mt-3 flex items-center justify-between">
+          <div>{getQualityBadge(summary.qualityRating)}</div>
+          {weeklySummary && (
+            <div className="text-right">
+              <span className="text-[11px] font-medium text-slate-400 block">WAPE Chu Kỳ Tuần</span>
+              <span className="text-xs font-bold text-emerald-600">
+                {weeklySummary.overallWape.toFixed(1)}% ({getQualityBadge(weeklySummary.qualityRating)})
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Thẻ 2: Forecast Bias */}

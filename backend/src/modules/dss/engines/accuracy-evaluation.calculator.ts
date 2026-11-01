@@ -51,13 +51,13 @@ export interface OverallAccuracyCalculationResult {
 
 export class AccuracyEvaluationCalculator {
   /**
-   * Xếp loại chất lượng dự báo dựa trên ngưỡng WAPE chuẩn bán lẻ
+   * Xếp loại chất lượng dự báo dựa trên ngưỡng WAPE chuẩn bán lẻ FMCG Daily
    */
   static classifyQualityRating(wape: number): AccuracyQualityRating {
-    if (wape <= 20) {
+    if (wape <= 30) {
       return 'EXCELLENT';
     }
-    if (wape <= 35) {
+    if (wape <= 45) {
       return 'ACCEPTABLE';
     }
     return 'NEEDS_TUNING';
@@ -173,6 +173,62 @@ export class AccuracyEvaluationCalculator {
       totalPredicted: Math.round(grandTotalPred),
       totalActual: Math.round(grandTotalAct),
       qualityRating: this.classifyQualityRating(overallWape),
+    };
+  }
+
+  /**
+   * Tính toán chỉ số đối soát tổng chu kỳ tuần (Weekly Horizon Aggregation).
+   * Triệt tiêu sai lệch nhịp ngày, phản ánh độ chính xác của quyết định đặt hàng (ROP/SOQ) chu kỳ 7 ngày.
+   */
+  static calculateWeeklyHorizonMetrics(
+    skuMetricsList: SkuAccuracyCalculationResult[],
+  ): OverallAccuracyCalculationResult {
+    if (!skuMetricsList || skuMetricsList.length === 0) {
+      return {
+        overallWape: 0,
+        overallMape: 0,
+        overallMae: 0,
+        overallBias: 0,
+        totalPredicted: 0,
+        totalActual: 0,
+        qualityRating: 'EXCELLENT',
+      };
+    }
+
+    let grandTotalAct = 0;
+    let grandTotalPred = 0;
+    let totalWeeklyAbsErr = 0;
+    const weeklyMapeTerms: number[] = [];
+
+    for (const sku of skuMetricsList) {
+      grandTotalAct += sku.totalActual;
+      grandTotalPred += sku.totalPredicted;
+      const skuWeeklyAbsErr = Math.abs(sku.totalActual - sku.totalPredicted);
+      totalWeeklyAbsErr += skuWeeklyAbsErr;
+      weeklyMapeTerms.push((skuWeeklyAbsErr / (sku.totalActual + 1)) * 100);
+    }
+
+    const weeklyWape =
+      grandTotalAct > 0 ? (totalWeeklyAbsErr / grandTotalAct) * 100 : 0;
+    const weeklyMape =
+      weeklyMapeTerms.length > 0
+        ? weeklyMapeTerms.reduce((a, b) => a + b, 0) / weeklyMapeTerms.length
+        : 0;
+    const weeklyMae =
+      skuMetricsList.length > 0 ? totalWeeklyAbsErr / skuMetricsList.length : 0;
+    const weeklyBias =
+      grandTotalAct > 0
+        ? ((grandTotalPred - grandTotalAct) / grandTotalAct) * 100
+        : 0;
+
+    return {
+      overallWape: Number(weeklyWape.toFixed(2)),
+      overallMape: Number(weeklyMape.toFixed(2)),
+      overallMae: Number(weeklyMae.toFixed(2)),
+      overallBias: Number(weeklyBias.toFixed(2)),
+      totalPredicted: Math.round(grandTotalPred),
+      totalActual: Math.round(grandTotalAct),
+      qualityRating: this.classifyQualityRating(weeklyWape),
     };
   }
 }

@@ -236,11 +236,16 @@ async function main() {
         `   - Tổng số lượng bán thực tế: ${evalRes.summary.totalActual}`,
       );
       console.log(
-        `   - WAPE (Sai số bình quân có trọng số): ${evalRes.summary.overallWape.toFixed(2)}%`,
+        `   - WAPE Theo Ngày (Daily WAPE): ${evalRes.summary.overallWape.toFixed(2)}% [${evalRes.summary.qualityRating}]`,
       );
       console.log(`   - MAPE: ${evalRes.summary.overallMape.toFixed(2)}%`);
       console.log(
         `   - BIAS (Độ lệch thiên kiến): ${evalRes.summary.overallBias.toFixed(2)}%`,
+      );
+    }
+    if (evalRes.weeklySummary) {
+      console.log(
+        `   🌟 WAPE CHU KỲ TUẦN (Weekly Horizon): ${evalRes.weeklySummary.overallWape.toFixed(2)}% [${evalRes.weeklySummary.qualityRating}]`,
       );
     }
 
@@ -249,8 +254,11 @@ async function main() {
       sessionCode: analysisRes.sessionCode,
       startDate: week.asOfDate,
       endDate: week.weekEndDate,
-      wape: evalRes.summary
+      dailyWape: evalRes.summary
         ? `${evalRes.summary.overallWape.toFixed(2)}%`
+        : 'N/A',
+      weeklyWape: evalRes.weeklySummary
+        ? `${evalRes.weeklySummary.overallWape.toFixed(2)}%`
         : 'N/A',
       mape: evalRes.summary
         ? `${evalRes.summary.overallMape.toFixed(2)}%`

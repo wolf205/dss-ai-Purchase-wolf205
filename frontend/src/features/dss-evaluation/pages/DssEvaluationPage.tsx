@@ -225,7 +225,10 @@ export const DssEvaluationPage: React.FC = () => {
           </div>
 
           {/* 1. Summary KPI Cards */}
-          <EvaluationSummaryCards summary={evaluation.summary} />
+          <EvaluationSummaryCards
+            summary={evaluation.summary}
+            weeklySummary={evaluation.weeklySummary}
+          />
 
           {/* 2. Store-wide Aggregated Forecast vs Actual Chart */}
           <ForecastVsActualChart

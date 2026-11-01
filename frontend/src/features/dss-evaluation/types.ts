@@ -48,6 +48,7 @@ export interface DssSessionEvaluationResponse {
   message?: string;
   evaluationWindow: EvaluationWindow;
   summary: OverallEvaluationSummary | null;
+  weeklySummary?: OverallEvaluationSummary | null;
   skuEvaluations: SkuEvaluation[];
 }
 
