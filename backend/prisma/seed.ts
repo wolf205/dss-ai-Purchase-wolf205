@@ -8,6 +8,17 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('=== BẮT ĐẦU KHỞI TẠO BỘ DỮ LIỆU BENCHMARK RETAIL THỰC TẾ (WALMART M5) ===');
 
+  console.log('🧹 Dọn sạch dữ liệu vận hành cũ trong database...');
+  await prisma.activityLog.deleteMany({});
+  await prisma.receiptLineItem.deleteMany({});
+  await prisma.goodsReceipt.deleteMany({});
+  await prisma.pOLineItem.deleteMany({});
+  await prisma.purchaseOrder.deleteMany({});
+  await prisma.recommendationItem.deleteMany({});
+  await prisma.recommendationSession.deleteMany({});
+  await prisma.inventorySnapshot.deleteMany({});
+  await prisma.salesRecord.deleteMany({});
+
   // 1. DSS Configuration (Cấu hình tham số chuẩn UC-07)
   await prisma.dSSConfiguration.upsert({
     where: { id: 1 },

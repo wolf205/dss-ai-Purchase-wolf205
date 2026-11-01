@@ -5,7 +5,7 @@ Chuẩn hóa sang mô hình chuỗi thời gian thực tế cho Hệ thống DSS
 Sinh ra:
 1. data/benchmark/sales_history_benchmark.csv (90 ngày Baseline)
 2. data/benchmark/inventory_snapshot_benchmark.csv (Tồn kho đếm thực tế đầu kỳ)
-3. data/demo_batches/ (4 đợt tuần: week_1..4 sales & inventory)
+3. data/demo_batches/ (8 đợt tuần: week_1..4 đối soát DB, week_5..8 demo tương lai)
 4. data/demo_batches/README.md (Hướng dẫn sử dụng demo từng bước)
 """
 
@@ -13,6 +13,7 @@ import os
 import sys
 import zipfile
 import csv
+import urllib.request
 from datetime import date, timedelta
 import pandas as pd
 import numpy as np
@@ -117,52 +118,52 @@ SKU_MAPPINGS = [
         "unit": "Lon",
         "barcode": "8934588012121",
         "sellingPrice": 11000,
-        "initialStockDays": 2.0, # Cảnh báo
+        "initialStockDays": 2.2, # Cảnh báo
         "suppliers": [
-            {"supplierCode": "NCC-PEP", "purchasePrice": 7900, "moq": 48, "leadTime": 1},
-            {"supplierCode": "NCC-MAS", "purchasePrice": 8100, "moq": 24, "leadTime": 2},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 7900, "moq": 48, "leadTime": 1},
+            {"supplierCode": "NCC-MAS", "purchasePrice": 8300, "moq": 24, "leadTime": 2},
         ],
     },
     {
-        "m5_item_id": "FOODS_2_276",
+        "m5_item_id": "FOODS_2_379",
         "skuCode": "AQUAFINA-500",
-        "productName": "Nước tinh khiết Aquafina 500ml",
+        "productName": "Nước tinh khiết Aquafina chai 500ml",
         "categoryCode": "BEV",
         "unit": "Chai",
         "barcode": "8934588012138",
         "sellingPrice": 6500,
-        "initialStockDays": 9.0, # Tồn nhiều
+        "initialStockDays": 7.0, # Bình thường
         "suppliers": [
             {"supplierCode": "NCC-PEP", "purchasePrice": 4200, "moq": 48, "leadTime": 1},
-            {"supplierCode": "NCC-MAS", "purchasePrice": 4500, "moq": 24, "leadTime": 2},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 4500, "moq": 24, "leadTime": 2},
         ],
     },
     {
-        "m5_item_id": "FOODS_2_065",
+        "m5_item_id": "FOODS_2_106",
         "skuCode": "TEA-C2-360",
-        "productName": "Trà xanh C2 hương chanh 360ml",
+        "productName": "Trà xanh C2 hương chanh chai 360ml",
         "categoryCode": "BEV",
         "unit": "Chai",
         "barcode": "8934588012145",
         "sellingPrice": 9000,
-        "initialStockDays": 3.0,
+        "initialStockDays": 1.0, # Thiếu hàng
         "suppliers": [
-            {"supplierCode": "NCC-PEP", "purchasePrice": 6400, "moq": 24, "leadTime": 2},
-            {"supplierCode": "NCC-MAS", "purchasePrice": 6700, "moq": 12, "leadTime": 1},
+            {"supplierCode": "NCC-URC", "purchasePrice": 6400, "moq": 24, "leadTime": 2},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 6800, "moq": 12, "leadTime": 1},
         ],
     },
     {
-        "m5_item_id": "FOODS_2_024",
+        "m5_item_id": "FOODS_2_028",
         "skuCode": "ENERGY-RED-250",
         "productName": "Nước tăng lực Red Bull lon 250ml",
         "categoryCode": "BEV",
         "unit": "Lon",
         "barcode": "8934588012152",
         "sellingPrice": 15000,
-        "initialStockDays": 2.2,
+        "initialStockDays": 3.0, # Bình thường
         "suppliers": [
-            {"supplierCode": "NCC-PEP", "purchasePrice": 11000, "moq": 24, "leadTime": 2},
-            {"supplierCode": "NCC-MAS", "purchasePrice": 11500, "moq": 12, "leadTime": 1},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 11500, "moq": 24, "leadTime": 2},
+            {"supplierCode": "NCC-PEP", "purchasePrice": 12000, "moq": 12, "leadTime": 1},
         ],
     },
 
@@ -173,176 +174,176 @@ SKU_MAPPINGS = [
         "productName": "Snack khoai tây Lay's vị tự nhiên 56g",
         "categoryCode": "SNK",
         "unit": "Gói",
-        "barcode": "8934673400034",
+        "barcode": "8934688123014",
         "sellingPrice": 14000,
-        "initialStockDays": 1.2, # Thiếu hàng
+        "initialStockDays": 1.2, # Thiếu hàng (< ROP)
         "suppliers": [
             {"supplierCode": "NCC-PEP", "purchasePrice": 9800, "moq": 30, "leadTime": 1},
-            {"supplierCode": "NCC-ORN", "purchasePrice": 10200, "moq": 15, "leadTime": 2},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 10500, "moq": 15, "leadTime": 2},
         ],
     },
     {
-        "m5_item_id": "FOODS_3_120",
+        "m5_item_id": "FOODS_3_090",
         "skuCode": "BANH-COSY-136G",
         "productName": "Bánh quy sữa Cosy Marie Kinh Đô 136g",
         "categoryCode": "SNK",
         "unit": "Gói",
-        "barcode": "8934673400041",
+        "barcode": "8934688123021",
         "sellingPrice": 18000,
-        "initialStockDays": 3.0,
-        "suppliers": [
-            {"supplierCode": "NCC-KDO", "purchasePrice": 13200, "moq": 20, "leadTime": 2},
-            {"supplierCode": "NCC-ORN", "purchasePrice": 13800, "moq": 10, "leadTime": 1},
-        ],
-    },
-    {
-        "m5_item_id": "FOODS_3_182",
-        "skuCode": "CHOCO-KID-28G",
-        "productName": "Bánh ChocoPie Orion hộp 12 cái 396g",
-        "categoryCode": "SNK",
-        "unit": "Hộp",
-        "barcode": "8934673400058",
-        "sellingPrice": 62000,
         "initialStockDays": 1.8, # Cảnh báo
         "suppliers": [
-            {"supplierCode": "NCC-ORN", "purchasePrice": 46500, "moq": 12, "leadTime": 2},
-            {"supplierCode": "NCC-KDO", "purchasePrice": 48000, "moq": 6, "leadTime": 1},
+            {"supplierCode": "NCC-KDO", "purchasePrice": 13200, "moq": 20, "leadTime": 2},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 14000, "moq": 10, "leadTime": 1},
         ],
     },
     {
-        "m5_item_id": "FOODS_3_248",
+        "m5_item_id": "FOODS_3_555",
+        "skuCode": "CHOCO-KID-28G",
+        "productName": "Socola sữa Kinder Joy trứng đồ chơi 20g",
+        "categoryCode": "SNK",
+        "unit": "Quả",
+        "barcode": "8934688123038",
+        "sellingPrice": 62000,
+        "initialStockDays": 3.5, # Bình thường
+        "suppliers": [
+            {"supplierCode": "NCC-ORN", "purchasePrice": 48000, "moq": 12, "leadTime": 2},
+            {"supplierCode": "NCC-KDO", "purchasePrice": 50000, "moq": 6, "leadTime": 1},
+        ],
+    },
+    {
+        "m5_item_id": "FOODS_3_714",
         "skuCode": "CANDY-ALPEN-150",
-        "productName": "Kẹo sữa Caramen Alpenliebe túi 150g",
+        "productName": "Kẹo sữa caramen Alpenliebe thỏi 150g",
+        "categoryCode": "SNK",
+        "unit": "Thỏi",
+        "barcode": "8934688123045",
+        "sellingPrice": 19000,
+        "initialStockDays": 5.0, # Bình thường
+        "suppliers": [
+            {"supplierCode": "NCC-ORN", "purchasePrice": 14200, "moq": 24, "leadTime": 1},
+            {"supplierCode": "NCC-KDO", "purchasePrice": 14800, "moq": 12, "leadTime": 2},
+        ],
+    },
+    {
+        "m5_item_id": "FOODS_3_252",
+        "skuCode": "SNACK-OISHI-40G",
+        "productName": "Snack bắp ngọt Oishi gói 40g",
         "categoryCode": "SNK",
         "unit": "Gói",
-        "barcode": "8934673400065",
-        "sellingPrice": 19000,
-        "initialStockDays": 4.5,
+        "barcode": "8934688123052",
+        "sellingPrice": 7000,
+        "initialStockDays": 6.0, # Bình thường
         "suppliers": [
-            {"supplierCode": "NCC-ORN", "purchasePrice": 14000, "moq": 20, "leadTime": 2},
-            {"supplierCode": "NCC-KDO", "purchasePrice": 14500, "moq": 10, "leadTime": 1},
-        ],
-    },
-    {
-        "m5_item_id": "FOODS_3_468",
-        "skuCode": "GUM-COOL-58G",
-        "productName": "Kẹo cao su không đường Cool Air hũ 58.4g",
-        "categoryCode": "SNK",
-        "unit": "Hũ",
-        "barcode": "8934673400072",
-        "sellingPrice": 28000,
-        "initialStockDays": 6.0,
-        "suppliers": [
-            {"supplierCode": "NCC-ORN", "purchasePrice": 21000, "moq": 12, "leadTime": 2},
-            {"supplierCode": "NCC-KDO", "purchasePrice": 22000, "moq": 6, "leadTime": 1},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 4800, "moq": 50, "leadTime": 2},
+            {"supplierCode": "NCC-KDO", "purchasePrice": 5200, "moq": 25, "leadTime": 1},
         ],
     },
 
     # --- Category: INS (Mì ăn liền & Thực phẩm đóng gói) ---
     {
-        "m5_item_id": "FOODS_3_090",
+        "m5_item_id": "FOODS_3_080",
         "skuCode": "NOOD-HAOHAO-75",
-        "productName": "Mì tôm chua cay Hảo Hảo gói 75g",
+        "productName": "Mì tôm Hảo Hảo tôm chua cay 75g",
         "categoryCode": "INS",
         "unit": "Gói",
-        "barcode": "8934563138164",
+        "barcode": "8934563123018",
         "sellingPrice": 4500,
-        "initialStockDays": 1.0, # Thiếu hàng nghiêm trọng (< ROP)
+        "initialStockDays": 1.0, # Thiếu hàng (< ROP)
         "suppliers": [
-            {"supplierCode": "NCC-MAS", "purchasePrice": 3200, "moq": 60, "leadTime": 1},
-            {"supplierCode": "NCC-KDO", "purchasePrice": 3400, "moq": 30, "leadTime": 2},
+            {"supplierCode": "NCC-ACE", "purchasePrice": 3200, "moq": 60, "leadTime": 2},
+            {"supplierCode": "NCC-MAS", "purchasePrice": 3400, "moq": 30, "leadTime": 1},
         ],
     },
     {
-        "m5_item_id": "FOODS_2_282",
+        "m5_item_id": "FOODS_3_040",
         "skuCode": "NOOD-OMACHI-80",
         "productName": "Mì khoai tây Omachi sườn hầm ngũ quả 80g",
         "categoryCode": "INS",
         "unit": "Gói",
-        "barcode": "8934563138171",
+        "barcode": "8934563123025",
         "sellingPrice": 9500,
-        "initialStockDays": 2.5,
-        "suppliers": [
-            {"supplierCode": "NCC-MAS", "purchasePrice": 7100, "moq": 30, "leadTime": 1},
-            {"supplierCode": "NCC-KDO", "purchasePrice": 7500, "moq": 15, "leadTime": 2},
-        ],
-    },
-    {
-        "m5_item_id": "FOODS_2_056",
-        "skuCode": "CHILI-CHINSU-250",
-        "productName": "Tương ớt Chinsu chai 250g",
-        "categoryCode": "INS",
-        "unit": "Chai",
-        "barcode": "8934563138188",
-        "sellingPrice": 14500,
-        "initialStockDays": 3.0,
-        "suppliers": [
-            {"supplierCode": "NCC-MAS", "purchasePrice": 10500, "moq": 24, "leadTime": 1},
-            {"supplierCode": "NCC-UNL", "purchasePrice": 11200, "moq": 12, "leadTime": 2},
-        ],
-    },
-    {
-        "m5_item_id": "FOODS_2_108",
-        "skuCode": "OIL-NEPTUNE-1L",
-        "productName": "Dầu ăn thượng hạng Neptune Light 1L",
-        "categoryCode": "INS",
-        "unit": "Chai",
-        "barcode": "8934563138195",
-        "sellingPrice": 56000,
         "initialStockDays": 2.0, # Cảnh báo
         "suppliers": [
-            {"supplierCode": "NCC-KDO", "purchasePrice": 42000, "moq": 12, "leadTime": 2},
-            {"supplierCode": "NCC-MAS", "purchasePrice": 44000, "moq": 6, "leadTime": 1},
+            {"supplierCode": "NCC-MAS", "purchasePrice": 7100, "moq": 30, "leadTime": 1},
+            {"supplierCode": "NCC-ACE", "purchasePrice": 7400, "moq": 15, "leadTime": 2},
         ],
     },
     {
-        "m5_item_id": "FOODS_2_142",
+        "m5_item_id": "FOODS_3_300",
+        "skuCode": "RICE-ST25-5KG",
+        "productName": "Gạo đặc sản ST25 chính hãng túi 5kg",
+        "categoryCode": "INS",
+        "unit": "Túi",
+        "barcode": "8934563123032",
+        "sellingPrice": 185000,
+        "initialStockDays": 2.5, # Cảnh báo
+        "suppliers": [
+            {"supplierCode": "NCC-MAS", "purchasePrice": 145000, "moq": 10, "leadTime": 2},
+            {"supplierCode": "NCC-ORN", "purchasePrice": 152000, "moq": 5, "leadTime": 1},
+        ],
+    },
+    {
+        "m5_item_id": "FOODS_3_200",
+        "skuCode": "OIL-NEPTUNE-1L",
+        "productName": "Dầu ăn thực vật cao cấp Neptune Light 1L",
+        "categoryCode": "INS",
+        "unit": "Chai",
+        "barcode": "8934563123049",
+        "sellingPrice": 56000,
+        "initialStockDays": 3.5, # Bình thường
+        "suppliers": [
+            {"supplierCode": "NCC-KDO", "purchasePrice": 43000, "moq": 12, "leadTime": 2},
+            {"supplierCode": "NCC-MAS", "purchasePrice": 45000, "moq": 6, "leadTime": 1},
+        ],
+    },
+    {
+        "m5_item_id": "FOODS_3_150",
         "skuCode": "SAUCE-NAMNGU-500",
         "productName": "Nước mắm Nam Ngư Đệ Nhị chai 500ml",
         "categoryCode": "INS",
         "unit": "Chai",
-        "barcode": "8934563138201",
+        "barcode": "8934563123056",
         "sellingPrice": 24000,
-        "initialStockDays": 3.5,
+        "initialStockDays": 3.0, # Bình thường
         "suppliers": [
-            {"supplierCode": "NCC-MAS", "purchasePrice": 18000, "moq": 15, "leadTime": 1},
-            {"supplierCode": "NCC-UNL", "purchasePrice": 19000, "moq": 10, "leadTime": 2},
+            {"supplierCode": "NCC-MAS", "purchasePrice": 18500, "moq": 15, "leadTime": 1},
+            {"supplierCode": "NCC-ACE", "purchasePrice": 19500, "moq": 10, "leadTime": 2},
         ],
     },
 
     # --- Category: HPC (Hóa mỹ phẩm & Chăm sóc cá nhân) ---
     {
-        "m5_item_id": "HOUSEHOLD_1_334",
+        "m5_item_id": "HOUSEHOLD_1_118",
         "skuCode": "DET-OMO-3KG",
-        "productName": "Bột giặt OMO Comfort Tinh dầu thơm túi 3kg",
+        "productName": "Bột giặt OMO đỏ hệ bọt thông minh túi 3kg",
         "categoryCode": "HPC",
         "unit": "Túi",
         "barcode": "8934839124018",
         "sellingPrice": 165000,
-        "initialStockDays": 1.5, # Thiếu hàng (< ROP)
+        "initialStockDays": 1.5, # Thiếu hàng
         "suppliers": [
             {"supplierCode": "NCC-UNL", "purchasePrice": 132000, "moq": 8, "leadTime": 2},
             {"supplierCode": "NCC-MAS", "purchasePrice": 138000, "moq": 4, "leadTime": 1},
         ],
     },
     {
-        "m5_item_id": "HOUSEHOLD_1_418",
+        "m5_item_id": "HOUSEHOLD_1_020",
         "skuCode": "DISH-SUNLIGHT-750",
-        "productName": "Nước rửa chén Sunlight Chanh túi 750g",
+        "productName": "Nước rửa chén Sunlight chanh túi 750g",
         "categoryCode": "HPC",
         "unit": "Túi",
         "barcode": "8934839124025",
         "sellingPrice": 28000,
-        "initialStockDays": 2.2, # Cảnh báo
+        "initialStockDays": 2.0, # Cảnh báo
         "suppliers": [
             {"supplierCode": "NCC-UNL", "purchasePrice": 21000, "moq": 20, "leadTime": 2},
             {"supplierCode": "NCC-MAS", "purchasePrice": 22500, "moq": 10, "leadTime": 1},
         ],
     },
     {
-        "m5_item_id": "HOUSEHOLD_1_465",
+        "m5_item_id": "HOUSEHOLD_2_300",
         "skuCode": "SOAP-LIFE-90G",
-        "productName": "Xà bông cục Lifebuoy Bảo vệ vượt trội 90g",
+        "productName": "Xà bông cục Lifebuoy bảo vệ vượt trội 90g",
         "categoryCode": "HPC",
         "unit": "Cục",
         "barcode": "8934839124032",
@@ -384,12 +385,37 @@ SKU_MAPPINGS = [
 ]
 
 
-def extract_and_generate():
-    print("=== BẮT ĐẦU TRÍCH XUẤT VÀ CHUẨN HÓA DỮ LIỆU THỰC TẾ WALMART M5 ===")
-    
-    zip_path = "data/raw/m5.zip"
+def ensure_m5_zip():
+    raw_dir = "data/raw"
+    os.makedirs(raw_dir, exist_ok=True)
+    zip_path = os.path.join(raw_dir, "m5.zip")
+
     if not os.path.exists(zip_path):
-        raise FileNotFoundError(f"Không tìm thấy {zip_path}")
+        url = "https://github.com/Nixtla/m5-forecasts/raw/main/datasets/m5.zip"
+        print(f"⏳ Đang tải m5.zip (~50MB) từ Nixtla Dataset Mirror ({url})...")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp, open(zip_path, "wb") as f_out:
+            total_size = int(resp.headers.get("Content-Length", 0))
+            downloaded = 0
+            chunk_size = 1024 * 1024
+            while True:
+                chunk = resp.read(chunk_size)
+                if not chunk:
+                    break
+                f_out.write(chunk)
+                downloaded += len(chunk)
+                if total_size > 0:
+                    pct = (downloaded / total_size) * 100
+                    print(f"  -> Đã tải {downloaded // (1024*1024)}MB / {total_size // (1024*1024)}MB ({pct:.1f}%)", end="\r")
+        print("\n✅ Tải m5.zip hoàn tất!")
+
+    return zip_path
+
+
+def extract_and_generate():
+    print("=== BẮT ĐẦU TRÍCH XUẤT VÀ CHUẨN HÓA DỮ LIỆU THỰC TẾ WALMART M5 (146 NGÀY) ===")
+    
+    zip_path = ensure_m5_zip()
 
     # Đọc calendar và sales_train_validation từ zip
     with zipfile.ZipFile(zip_path, "r") as z:
@@ -414,29 +440,34 @@ def extract_and_generate():
         raise ValueError(f"Thiếu các item sau trong CA_1: {missing_items}")
     print(f"✅ Đã tìm thấy đầy đủ {len(SKU_MAPPINGS)} item trong Store CA_1!")
 
-    # Tổng số ngày: 90 ngày baseline + 28 ngày (4 tuần) = 118 ngày
-    TOTAL_DAYS = 118
+    # Tổng số ngày: 90 ngày Baseline + 4 tuần DB (28 ngày) + 4 tuần Demo tương lai (28 ngày) = 146 ngày
     BASELINE_DAYS = 90
     WEEK_DAYS = 7
+    PAST_WEEKS = 4
+    FUTURE_WEEKS = 4
+    TOTAL_WEEKS = PAST_WEEKS + FUTURE_WEEKS
+    TOTAL_DAYS = BASELINE_DAYS + TOTAL_WEEKS * WEEK_DAYS # 90 + 56 = 146 ngày
 
-    # Lấy 118 ngày cuối cùng trong sales_train_validation: d_1796 đến d_1913
+    # Lấy 146 ngày cuối cùng trong sales_train_validation: d_1768 đến d_1913
     d_indices = [f"d_{i}" for i in range(1913 - TOTAL_DAYS + 1, 1914)]
     assert len(d_indices) == TOTAL_DAYS
 
     # Thiết lập mốc ngày thực tế trong hệ thống DSS:
-    # Baseline 90 ngày kết thúc vào ngày hôm nay: 2026-11-01
-    # Tuần 1 bắt đầu từ ngày mai: 2026-11-02 đến 2026-11-08 (khớp chính xác với khoảng dự báo 7 ngày của DSS)
-    baseline_end_date = date(2026, 11, 1)
+    # Baseline 90 ngày: 2026-07-07 đến 2026-10-04
+    # 4 tuần tiếp nối lưu DB: 2026-10-05 đến 2026-11-01 (kết thúc đúng ngày hôm nay)
+    # 4 tuần demo tương lai: 2026-11-02 đến 2026-11-29
+    baseline_end_date = date(2026, 10, 4)
     start_date = baseline_end_date - timedelta(days=BASELINE_DAYS - 1)
     
     date_list = [start_date + timedelta(days=i) for i in range(TOTAL_DAYS)]
 
     print(f"Khoảng thời gian: từ {date_list[0]} đến {date_list[-1]}")
     print(f"- Baseline 90 ngày: {date_list[0]} -> {date_list[BASELINE_DAYS - 1]}")
-    print(f"- Tuần 1 (Forecast 7 ngày tiếp theo): {date_list[BASELINE_DAYS]} -> {date_list[BASELINE_DAYS + 6]}")
-    print(f"- Tuần 2: {date_list[BASELINE_DAYS + 7]} -> {date_list[BASELINE_DAYS + 13]}")
-    print(f"- Tuần 3: {date_list[BASELINE_DAYS + 14]} -> {date_list[BASELINE_DAYS + 20]}")
-    print(f"- Tuần 4: {date_list[BASELINE_DAYS + 21]} -> {date_list[BASELINE_DAYS + 27]}")
+    for w in range(1, TOTAL_WEEKS + 1):
+        s_idx = BASELINE_DAYS + (w - 1) * WEEK_DAYS
+        e_idx = s_idx + WEEK_DAYS - 1
+        label = "DB" if w <= 4 else "Demo Tương Lai"
+        print(f"- Tuần {w} ({label}): {date_list[s_idx]} -> {date_list[e_idx]}")
 
     # Thu thập chuỗi số lượng bán thực tế cho từng SKU
     sku_daily_series = {}
@@ -485,10 +516,10 @@ def extract_and_generate():
         writer.writerows(init_inv_rows)
     print(f"✅ Đã tạo {init_inv_csv_path} ({len(init_inv_rows) - 1} SKU)")
 
-    # 3. Xuất 4 Đợt Tuần (Demo Batches)
+    # 3. Xuất 8 Đợt Tuần (Demo Batches 1 đến 8)
     simulated_stock = current_stocks.copy()
 
-    for week_num in range(1, 5):
+    for week_num in range(1, TOTAL_WEEKS + 1):
         w_start_idx = BASELINE_DAYS + (week_num - 1) * WEEK_DAYS
         w_end_idx = w_start_idx + WEEK_DAYS
 
@@ -501,7 +532,7 @@ def extract_and_generate():
             for mapping in SKU_MAPPINGS:
                 sku = mapping["skuCode"]
                 qty = sku_daily_series[sku][day_idx]
-                if qty > 0:  # UC-04 yêu cầu: Số lượng bán phải là số nguyên dương > 0
+                if qty > 0:  # UC-04: Số lượng bán phải là số nguyên dương > 0
                     rev = int(qty * mapping["sellingPrice"])
                     w_sales_rows.append([d_str, sku, qty, rev])
                 week_sales_by_sku[sku] += qty
@@ -519,10 +550,8 @@ def extract_and_generate():
             sold = week_sales_by_sku[sku]
             baseline_vals = sku_daily_series[sku][:w_start_idx]
             d_mean = max(1.0, float(np.mean(baseline_vals)))
-            # Hàng về kho từ đơn PO của tuần trước ~ 7 * d_mean
             replenished = int(round(d_mean * 7))
             new_stock = max(0, simulated_stock[sku] - sold + replenished)
-            # Giữ mức tối thiểu hợp lý
             new_stock = max(new_stock, int(round(d_mean * 1.5)))
             simulated_stock[sku] = new_stock
             w_inv_rows.append([sku, new_stock])
@@ -532,9 +561,18 @@ def extract_and_generate():
             writer = csv.writer(f)
             writer.writerows(w_inv_rows)
 
-        print(f"✅ Đã tạo Đợt Tuần {week_num}: {sales_batch_path} & {inv_batch_path}")
+        label = "DB Lưu Thực Tế" if week_num <= 4 else "Demo Tương Lai"
+        print(f"✅ Đã tạo Đợt Tuần {week_num} ({label}): {sales_batch_path} & {inv_batch_path}")
 
-    # 4. Tạo file README hướng dẫn sử dụng trong data/demo_batches/
+    # 4. Tự động xóa file raw zip sau khi trích xuất xong
+    try:
+        if os.path.exists(zip_path):
+            os.remove(zip_path)
+            print("🧹 Đã dọn sạch data/raw/m5.zip sau khi trích xuất dữ liệu.")
+    except Exception as e:
+        print("Lưu ý: Không thể xóa m5.zip:", e)
+
+    # 5. Tạo file README hướng dẫn sử dụng trong data/demo_batches/
     readme_content = """# Hướng Dẫn Sử Dụng Bộ Dữ Liệu Bán Lẻ Thực Tế (Walmart M5 Benchmark)
 
 Bộ dữ liệu này được trích xuất 100% từ chuỗi dữ liệu bán hàng thực tế của **Walmart M5 (Siêu thị CA_1)**, chuẩn hóa sang 25 mặt hàng tiêu dùng nhanh (FMCG) quen thuộc tại Việt Nam và tuân thủ định dạng kiểm tra nghiêm ngặt của `UC-04: Nhập dữ liệu vận hành`.
@@ -545,35 +583,33 @@ Bộ dữ liệu này được trích xuất 100% từ chuỗi dữ liệu bán 
 |---|---|---|
 | `data/benchmark/sales_history_benchmark.csv` | 2026-07-07 đến 2026-10-04 (90 ngày) | Nạp sẵn vào cơ sở dữ liệu làm nền lịch sử bán hàng qua `npm run prisma:seed` |
 | `data/benchmark/inventory_snapshot_benchmark.csv` | 2026-10-04 | Tồn kho ban đầu trước đợt phân tích Tuần 1 |
-| `week_1_sales.csv` & `week_1_inventory.csv` | 2026-10-05 đến 2026-10-11 (Tuần 1) | Tải lên sau khi hoàn thành phiên DSS Tuần 1 để đối soát |
-| `week_2_sales.csv` & `week_2_inventory.csv` | 2026-10-12 đến 2026-10-18 (Tuần 2) | Tải lên sau khi hoàn thành phiên DSS Tuần 2 |
-| `week_3_sales.csv` & `week_3_inventory.csv` | 2026-10-19 đến 2026-10-25 (Tuần 3) | Tải lên sau khi hoàn thành phiên DSS Tuần 3 |
-| `week_4_sales.csv` & `week_4_inventory.csv` | 2026-10-26 đến 2026-11-01 (Tuần 4) | Tải lên sau khi hoàn thành phiên DSS Tuần 4 |
+| `week_1_sales.csv` & `week_1_inventory.csv` | 2026-10-05 đến 2026-10-11 (Tuần 1) | Đã lưu vào CSDL qua chu kỳ phân tích & đối soát tự động |
+| `week_2_sales.csv` & `week_2_inventory.csv` | 2026-10-12 đến 2026-10-18 (Tuần 2) | Đã lưu vào CSDL qua chu kỳ phân tích & đối soát tự động |
+| `week_3_sales.csv` & `week_3_inventory.csv` | 2026-10-19 đến 2026-10-25 (Tuần 3) | Đã lưu vào CSDL qua chu kỳ phân tích & đối soát tự động |
+| `week_4_sales.csv` & `week_4_inventory.csv` | 2026-10-26 đến 2026-11-01 (Tuần 4) | Đã lưu vào CSDL qua chu kỳ phân tích & đối soát tự động (Kết thúc hôm nay) |
+| `week_5_sales.csv` & `week_5_inventory.csv` | 2026-11-02 đến 2026-11-08 (Tuần 5) | **Dành cho Demo Trực Tiếp**: Tải lên để kích hoạt chu kỳ tuần mới |
+| `week_6_sales.csv` & `week_6_inventory.csv` | 2026-11-09 đến 2026-11-15 (Tuần 6) | **Dành cho Demo Trực Tiếp**: Vòng lặp tuần tiếp theo |
+| `week_7_sales.csv` & `week_7_inventory.csv` | 2026-11-16 đến 2026-11-22 (Tuần 7) | **Dành cho Demo Trực Tiếp**: Vòng lặp tuần tiếp theo |
+| `week_8_sales.csv` & `week_8_inventory.csv` | 2026-11-23 đến 2026-11-29 (Tuần 8) | **Dành cho Demo Trực Tiếp**: Vòng lặp tuần tiếp theo |
 
 ---
 
-## Kịch bản Demo Từng Bước (Walkthrough)
+## Kịch bản Demo Trực Tiếp Cho Giảng Viên / Hội Đồng Tốt Nghiệp
 
-### Vòng lặp 1 (Tuần 1):
-1. Chạy lệnh nạp dữ liệu nền: `cd backend && npm run prisma:seed`
-2. Đăng nhập hệ thống (tài khoản `manager` / mật khẩu `password123`).
-3. Truy cập màn hình **Đề xuất mua hàng (DSS Review)**, bấm **Phân tích mua hàng**.
-4. Hệ thống AI dự báo nhu cầu cho 7 ngày tiếp theo và gợi ý SOQ, nhà cung cấp tối ưu.
-5. Xem giải thích (Why Buy), duyệt phiên để sinh Đơn đặt hàng PO.
-6. Sang màn hình **Quản lý đơn hàng (Purchase Orders)** & **Nhận hàng (Goods Receipt)** để duyệt và xác nhận nhập kho PO.
-
-### Vòng lặp 2 (Đối soát Tuần 1 & Phân tích Tuần 2):
-1. Sau khi vận hành xong tuần 1, truy cập **Nhập dữ liệu (Data Import)**.
-2. Tải lên tệp `data/demo_batches/week_1_sales.csv` và `data/demo_batches/week_1_inventory.csv`.
-3. Truy cập trang **Đánh giá & Hiệu quả DSS** -> Chọn phiên Tuần 1 vừa duyệt -> Hệ thống tự động so khớp dự báo với doanh số bán thực tế của `week_1_sales.csv` và hiển thị chỉ số WAPE, MAPE, Service Level thực tế kèm biểu đồ Recharts!
-4. Quay lại trang DSS Review để bấm **Phân tích mua hàng** cho Tuần 2!
+1. Đăng nhập hệ thống bằng tài khoản Quản lý (`manager` / `password123`).
+2. Mở màn hình **Đánh Giá & Hiệu Quả**: Xem lịch sử 4 tuần đã đối soát (`REC-...-W1` đến `W4`), quan sát các chỉ số WAPE, MAPE, Bias và biểu đồ đối soát thực tế.
+3. Chuyển sang màn hình **Đề Xuất Mua Hàng DSS**:
+   - Bấm **Phân tích mua hàng**: Hệ thống kết nối AI dự báo cho Tuần 5 (`2026-11-02` đến `2026-11-08`).
+   - Xem bảng xếp hạng nhà cung cấp WSM, bấm **Giải thích (Why Buy)** để xem phân tích tự nhiên từ Google Gemini Flash.
+   - Bấm **Phê duyệt mua hàng** để tự động tạo các đơn hàng POs.
+4. Mở màn hình **Nhập Dữ Liệu**: Tải lên tệp `week_5_sales.csv` và `week_5_inventory.csv`.
+5. Quay lại màn hình **Đánh Giá & Hiệu Quả**: Xem kết quả đối soát độ chính xác của Tuần 5 được cập nhật ngay lập tức!
 """
     with open("data/demo_batches/README.md", "w", encoding="utf-8") as f:
         f.write(readme_content)
     print("✅ Đã tạo data/demo_batches/README.md")
-    print("=== HOÀN TẤT TRÍCH XUẤT VÀ TẠO BỘ DỮ LIỆU BENCHMARK THỰC TẾ ===")
+    print("=== HOÀN TẤT TRÍCH XUẤT VÀ TẠO BỘ DỮ LIỆU BENCHMARK THỰC TẾ (146 NGÀY) ===")
 
 
 if __name__ == "__main__":
     extract_and_generate()
-

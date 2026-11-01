@@ -99,8 +99,6 @@ export class AiForecastingClient {
     resultMap: Map<string, SkuForecastResult>,
     horizonDays: number,
   ): void {
-    const now = new Date();
-
     for (const item of inputs) {
       const pIdStr = item.productId.toString();
       if (resultMap.has(pIdStr)) {
@@ -145,10 +143,14 @@ export class AiForecastingClient {
       }
 
       // Chuỗi dự báo horizonDays ngày có dao động tự nhiên theo nhịp bán hàng
+      const lastDate =
+        history.length > 0 && history[history.length - 1].date
+          ? new Date(`${history[history.length - 1].date}T00:00:00.000Z`)
+          : new Date();
       const dailyForecasts: ForecastDailyItem[] = [];
       for (let i = 1; i <= horizonDays; i++) {
-        const nextDay = new Date(now);
-        nextDay.setDate(now.getDate() + i);
+        const nextDay = new Date(lastDate);
+        nextDay.setUTCDate(lastDate.getUTCDate() + i);
         const dStr = nextDay.toISOString().split('T')[0];
         const w = nextDay.getUTCDay();
         const factor = dayFactors[w] ?? 1.0;

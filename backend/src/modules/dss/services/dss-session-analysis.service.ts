@@ -102,25 +102,60 @@ export class DssSessionAnalysisService {
     const productIds = products.map((p) => p.id);
 
     // 5. Lấy và tổng hợp lịch sử bán hàng 90 ngày gần nhất
-    const ninetyDaysAgo = new Date();
+    const effectiveDate = dto.asOfDate ? new Date(dto.asOfDate) : new Date();
+    const ninetyDaysAgo = new Date(effectiveDate);
     ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
     ninetyDaysAgo.setHours(0, 0, 0, 0);
+
+    const salesDateFilter: Prisma.DateTimeFilter = {
+      gte: ninetyDaysAgo,
+    };
+    if (dto.asOfDate) {
+      const endOfAnalysis = new Date(effectiveDate);
+      endOfAnalysis.setHours(0, 0, 0, 0);
+      salesDateFilter.lt = endOfAnalysis;
+    }
 
     const salesRecords = await this.prisma.salesRecord.findMany({
       where: {
         productId: { in: productIds },
-        saleDate: { gte: ninetyDaysAgo },
+        saleDate: salesDateFilter,
       },
       orderBy: { saleDate: 'asc' },
     });
 
     const salesByProduct = this.aggregateSalesRecords(products, salesRecords);
 
+    // Tính toán mốc ngày bắt đầu và kết thúc của chuỗi lịch sử 90 ngày
+    const historyEndDate = new Date(effectiveDate);
+    historyEndDate.setUTCDate(historyEndDate.getUTCDate() - 1);
+    const historyEndDateStr = historyEndDate.toISOString().split('T')[0];
+
+    const historyStartDate = new Date(effectiveDate);
+    historyStartDate.setUTCDate(historyStartDate.getUTCDate() - 90);
+    const historyStartDateStr = historyStartDate.toISOString().split('T')[0];
+
     // 6. Lấy dự báo nhu cầu từ AI Client (kèm SMA fallback)
-    const forecastInputs: SkuForecastInput[] = products.map((p) => ({
-      productId: p.id,
-      history: salesByProduct.get(p.id.toString())!.records,
-    }));
+    const forecastInputs: SkuForecastInput[] = products.map((p) => {
+      const sales = salesByProduct.get(p.id.toString())!;
+      const records = [...sales.records];
+
+      // Đảm bảo chuỗi có neo ngày bắt đầu và ngày kết thúc lịch sử để AI service xác định đúng chu kỳ
+      if (
+        records.length === 0 ||
+        records[records.length - 1].date < historyEndDateStr
+      ) {
+        records.push({ date: historyEndDateStr, quantity: 0 });
+      }
+      if (records[0].date > historyStartDateStr) {
+        records.unshift({ date: historyStartDateStr, quantity: 0 });
+      }
+
+      return {
+        productId: p.id,
+        history: records,
+      };
+    });
 
     const forecastMap =
       await this.aiForecastingClient.getForecasts(forecastInputs);
@@ -252,7 +287,9 @@ export class DssSessionAnalysisService {
     }
 
     // 9. Lưu vào CSDL trong ACID Transaction (INV-REC-06)
-    const sessionCode = await this.generateSessionCode();
+    const sessionCode = await this.generateSessionCode(
+      dto.asOfDate ? effectiveDate : undefined,
+    );
 
     const createdSession = await this.prisma.$transaction(async (tx) => {
       const session = await tx.recommendationSession.create({
@@ -268,6 +305,7 @@ export class DssSessionAnalysisService {
             totalSuggestedAmount.toFixed(2),
           ),
           createdBy: username,
+          ...(dto.asOfDate ? { createdAt: effectiveDate } : {}),
         },
       });
 
@@ -352,8 +390,8 @@ export class DssSessionAnalysisService {
   /**
    * Sinh mã phiên đề xuất theo quy chuẩn: REC-YYYYMMDD-XXX
    */
-  private async generateSessionCode(): Promise<string> {
-    const today = new Date();
+  private async generateSessionCode(asOfDate?: Date): Promise<string> {
+    const today = asOfDate || new Date();
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, '0');
     const dd = String(today.getDate()).padStart(2, '0');

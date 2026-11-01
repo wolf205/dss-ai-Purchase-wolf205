@@ -19,7 +19,10 @@ export class DssApprovalService {
    * ACID Transaction: Chốt session -> Tạo POs + PO lines -> Tăng on_order_quantity (INV-24..27)
    * POST /api/v1/dss/sessions/:id/approve
    */
-  async approveSession(sessionId: number): Promise<ApproveSessionResponseDto> {
+  async approveSession(
+    sessionId: number,
+    approvedAtDate?: Date,
+  ): Promise<ApproveSessionResponseDto> {
     const session = await this.prisma.recommendationSession.findUnique({
       where: { id: BigInt(sessionId) },
       include: {
@@ -86,12 +89,16 @@ export class DssApprovalService {
     // Thực thi ACID Transaction toàn vẹn (INV-24, 25, 26, 27)
     const generatedPurchaseOrders = await this.prisma.$transaction(
       async (tx) => {
+        const effectiveApprovalDate = approvedAtDate
+          ? new Date(approvedAtDate)
+          : new Date();
+
         // 1. Chốt phiên đề xuất sang Approved (INV-24)
         await tx.recommendationSession.update({
           where: { id: session.id },
           data: {
             status: 'Approved',
-            approvedAt: new Date(),
+            approvedAt: effectiveApprovalDate,
           },
         });
 
@@ -103,17 +110,19 @@ export class DssApprovalService {
         }
 
         // Tạo tiền tố sinh mã PO theo ngày: PO-YYYYMMDD-
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const dd = String(today.getDate()).padStart(2, '0');
+        const yyyy = effectiveApprovalDate.getFullYear();
+        const mm = String(effectiveApprovalDate.getMonth() + 1).padStart(
+          2,
+          '0',
+        );
+        const dd = String(effectiveApprovalDate.getDate()).padStart(2, '0');
         const prefix = `PO-${yyyy}${mm}${dd}-`;
 
         let seqCounter = await tx.purchaseOrder.count({
           where: { poNumber: { startsWith: prefix } },
         });
 
-        const approvalDate = new Date();
+        const approvalDate = new Date(effectiveApprovalDate);
         approvalDate.setHours(0, 0, 0, 0);
 
         // 2. Tạo PO cho từng nhóm nhà cung cấp (INV-25)
