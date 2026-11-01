@@ -333,3 +333,57 @@ class TestForecastApi(unittest.TestCase):
             run_forecast_for_sku(mock_series, horizon_days=14)
         self.assertIn("has empty sales history", str(ctx.exception))
 
+    def test_recency_momentum_boost_dual_window_and_damping(self):
+        """Kiểm tra hệ số bù thiên kiến đà tăng trưởng Dual-Window và cơ chế Damping."""
+        from src.models.request import DailySalesPoint
+        from src.services.forecaster import _calculate_recency_momentum_boost
+
+        # Tạo chuỗi 60 ngày: 45 ngày đầu bán 5.0, 15 ngày gần nhất bán tăng vọt lên 10.0 (đà tăng gấp đôi)
+        base = date(2026, 6, 1)
+        series = [
+            DailySalesPoint(date=base + timedelta(days=i), quantity=5.0)
+            for i in range(45)
+        ] + [
+            DailySalesPoint(date=base + timedelta(days=45 + i), quantity=10.0)
+            for i in range(15)
+        ]
+
+        boost_day_0 = _calculate_recency_momentum_boost(series, step_index=0)
+        boost_day_13 = _calculate_recency_momentum_boost(series, step_index=13)
+
+        # Đà tăng trưởng gấp đôi nên boost_day_0 phải > 1.15 và <= 1.30
+        self.assertGreater(boost_day_0, 1.15)
+        self.assertLessEqual(boost_day_0, 1.30)
+
+        # Damping factor làm cho ngày 13 có boost nhỏ hơn ngày 0
+        self.assertLess(boost_day_13, boost_day_0)
+        self.assertGreater(boost_day_13, 1.0)
+
+    def test_blend_forecasts_weighting(self):
+        """Kiểm tra logic kết hợp mô hình Ensemble Blending."""
+        from src.models.response import DailyForecast, SkuForecastResult
+        from src.services.forecaster import _blend_forecasts
+
+        d1 = date(2026, 8, 1)
+        res1 = SkuForecastResult(
+            sku_id=1,
+            daily_average=10.0,
+            daily_demand_std=2.0,
+            model_used="AutoARIMA",
+            daily_forecasts=[DailyForecast(date=d1, predicted=10.0, lower=8.0, upper=12.0)],
+        )
+        res2 = SkuForecastResult(
+            sku_id=1,
+            daily_average=20.0,
+            daily_demand_std=2.0,
+            model_used="TSB",
+            daily_forecasts=[DailyForecast(date=d1, predicted=20.0, lower=15.0, upper=25.0)],
+        )
+
+        blended = _blend_forecasts(res1, res2, primary_weight=0.6)
+        # 0.6 * 10.0 + 0.4 * 20.0 = 14.0
+        self.assertAlmostEqual(blended.daily_forecasts[0].predicted, 14.0)
+        self.assertEqual(blended.daily_average, 14.0)
+        self.assertEqual(blended.model_used, "AutoARIMA")
+
+

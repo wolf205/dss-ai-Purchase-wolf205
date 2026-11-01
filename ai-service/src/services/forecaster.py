@@ -15,6 +15,7 @@ from src.models.response import DailyForecast, ForecastResponse, SkuForecastResu
 from src.services.preprocessor import (
     pad_zero_demand_dataframe,
     pad_zero_demand_series,
+    clean_and_winsorize_series,
 )
 from src.services.selector import (
     ForecastModel,
@@ -28,17 +29,21 @@ logger = logging.getLogger(__name__)
 def _calculate_day_of_week_factors(padded_series: List[DailySalesPoint]) -> List[float]:
     """
     Tính hệ số mùa vụ theo ngày trong tuần (0 = Thứ Hai .. 6 = Chủ Nhật).
+    Ưu tiên chuỗi quan sát gần nhất (tối đa 56 ngày = 8 tuần) để phản ánh đúng
+    thói quen tiêu dùng hiện tại của cửa hàng.
     Giới hạn an toàn trong khoảng [0.4, 2.2] để tránh biến dạng chuỗi.
     """
+    if len(padded_series) < 7:
+        return [1.0] * 7
+
+    recent_series = padded_series[-56:] if len(padded_series) > 56 else padded_series
+    valid_count = len(recent_series)
+
     day_sums = [0.0] * 7
     day_counts = [0] * 7
     total_qty = 0.0
-    valid_count = len(padded_series)
 
-    if valid_count < 7:
-        return [1.0] * 7
-
-    for pt in padded_series:
+    for pt in recent_series:
         w = pt.date.weekday()
         q = float(pt.quantity)
         day_sums[w] += q
@@ -58,30 +63,53 @@ def _calculate_day_of_week_factors(padded_series: List[DailySalesPoint]) -> List
     return factors
 
 
-def _calculate_recency_momentum_boost(padded_series: List[DailySalesPoint]) -> float:
+def _calculate_recency_momentum_boost(
+    padded_series: List[DailySalesPoint],
+    step_index: int = 0,
+) -> float:
     """
-    Tính hệ số bù thiên kiến đà tăng trưởng gần đây (Recency Momentum).
-    Nếu nhu cầu 28 ngày gần nhất cao hơn trung bình toàn kỳ (mùa vụ cuối năm),
-    áp dụng hệ số điều chỉnh nhẹ [1.0, 1.15] để triệt tiêu Under-forecasting Bias.
+    Tính hệ số bù thiên kiến đà tăng trưởng và triệt tiêu Under-forecasting Bias (Dual-Window Adaptive Momentum).
+    So sánh nhu cầu ngắn hạn (14 ngày gần nhất) với trung hạn (42 ngày gần nhất)
+    để kịp thời bắt nhịp các đợt tăng tốc tiêu thụ mà mô hình làm mịn mũ bị trễ.
+    Hỗ trợ Damping Factor theo bước dự báo tương lai (step_index: 0..h-1).
+    Giới hạn an toàn trong khoảng [0.85, 1.30].
     """
     n = len(padded_series)
-    if n < 42:
+    if n < 28:
         return 1.0
 
-    recent_window = min(28, n // 2)
-    recent_vals = [float(p.quantity) for p in padded_series[-recent_window:]]
-    recent_mean = sum(recent_vals) / recent_window
+    short_window = min(14, n // 2)
+    mid_window = min(42, n)
+
+    short_vals = [float(p.quantity) for p in padded_series[-short_window:]]
+    short_mean = sum(short_vals) / short_window
+
+    mid_vals = [float(p.quantity) for p in padded_series[-mid_window:]]
+    mid_mean = sum(mid_vals) / mid_window
 
     all_vals = [float(p.quantity) for p in padded_series]
     all_mean = sum(all_vals) / n
 
-    if all_mean <= 0.0001:
+    baseline = max(mid_mean, all_mean)
+    if baseline <= 0.0001:
         return 1.0
 
-    momentum_ratio = recent_mean / all_mean
-    if momentum_ratio > 1.05:
-        return round(min(1.15, 1.0 + (momentum_ratio - 1.0) * 0.5), 4)
-    return 1.0
+    momentum_ratio = short_mean / baseline
+
+    if momentum_ratio > 1.03:
+        raw_boost = 1.0 + (momentum_ratio - 1.0) * 0.75
+        base_boost = min(1.30, raw_boost)
+    elif momentum_ratio < 0.95:
+        raw_reduction = 1.0 - (1.0 - momentum_ratio) * 0.5
+        base_boost = max(0.88, raw_reduction)
+    else:
+        base_boost = 1.0
+
+    # Damping factor: suy giảm nhẹ dần về 1.0 theo chân trời dự báo
+    damping = 0.98 ** step_index
+    final_boost = 1.0 + (base_boost - 1.0) * damping
+
+    return round(final_boost, 4)
 
 
 def _build_sma_forecasts(
@@ -108,14 +136,14 @@ def _build_sma_forecasts(
 
     pred = round(max(0.0, float(sma_mean)), 4)
     day_factors = _calculate_day_of_week_factors(padded_series)
-    momentum_boost = _calculate_recency_momentum_boost(padded_series)
 
     daily_forecasts: List[DailyForecast] = []
     preds: List[float] = []
 
-    for d in future_dates:
+    for i, d in enumerate(future_dates):
         w = d.weekday()
         factor = day_factors[w]
+        momentum_boost = _calculate_recency_momentum_boost(padded_series, step_index=i)
         adjusted_pred = round(max(0.0, pred * factor * momentum_boost), 4)
         preds.append(adjusted_pred)
         lower = round(max(0.0, adjusted_pred - 1.96 * std_val), 4)
@@ -147,22 +175,28 @@ def _forecast_intermittent(
 ) -> SkuForecastResult:
     """
     Dự báo cho chuỗi ngắt quãng (Intermittent Demand) bằng CrostonClassic hoặc TSB qua statsforecast
-    kết hợp Day-of-Week Seasonality Overlay và Recency Momentum Boost.
+    kết hợp Day-of-Week Seasonality Overlay và Dual-Window Adaptive Momentum Boost.
     """
     df = pad_zero_demand_dataframe(sku_id, history)
-    padded = pad_zero_demand_series(history)
+    padded = clean_and_winsorize_series(pad_zero_demand_series(history))
 
     use_tsb = (model_choice == ForecastModel.TSB)
     model_name = ForecastModel.TSB.value if use_tsb else ForecastModel.CROSTON.value
     col_name = "TSB" if use_tsb else "CrostonClassic"
 
     # Chạy dự báo điểm đơn thuần (nhanh < 30ms)
-    m_instance = TSB(alpha_d=0.1, alpha_p=0.1) if use_tsb else CrostonClassic()
+    # TSB adaptive alpha: phản ứng nhạy hơn với nhịp mua mới của cửa hàng
+    if use_tsb:
+        alpha_d = 0.2 if metrics.non_zero_ratio > 0.4 else 0.1
+        alpha_p = 0.15 if metrics.non_zero_ratio > 0.4 else 0.1
+        m_instance = TSB(alpha_d=alpha_d, alpha_p=alpha_p)
+    else:
+        m_instance = CrostonClassic()
+
     sf = StatsForecast(models=[m_instance], freq="D", n_jobs=1)
     fcst_df = sf.forecast(df=df, h=horizon_days)
 
     day_factors = _calculate_day_of_week_factors(padded)
-    momentum_boost = _calculate_recency_momentum_boost(padded)
 
     daily_forecasts: List[DailyForecast] = []
     preds: List[float] = []
@@ -172,6 +206,7 @@ def _forecast_intermittent(
         raw_pred = float(row[col_name])
         w = d.weekday()
         factor = day_factors[w]
+        momentum_boost = _calculate_recency_momentum_boost(padded, step_index=i)
         pred = round(max(0.0, raw_pred * factor * momentum_boost), 4)
         preds.append(pred)
 
@@ -207,8 +242,7 @@ def _forecast_continuous(
     Tối ưu hóa không gian siêu tham số với chu kỳ tuần (season_length=7), cho tốc độ xử lý nhanh gấp 5-10 lần.
     """
     df = pad_zero_demand_dataframe(sku_id, history)
-    padded = pad_zero_demand_series(history)
-    momentum_boost = _calculate_recency_momentum_boost(padded)
+    padded = clean_and_winsorize_series(pad_zero_demand_series(history))
 
     is_hw = (model_choice == ForecastModel.HOLT_WINTERS)
     model_name = ForecastModel.HOLT_WINTERS.value if is_hw else ForecastModel.AUTO_ARIMA.value
@@ -240,6 +274,7 @@ def _forecast_continuous(
     for i, d in enumerate(future_dates):
         row = fcst_df.iloc[i]
         raw_pred = float(row[col_name])
+        momentum_boost = _calculate_recency_momentum_boost(padded, step_index=i)
         pred = round(max(0.0, raw_pred * momentum_boost), 4)
         preds.append(pred)
 
@@ -267,6 +302,37 @@ def _forecast_continuous(
     )
 
 
+def _blend_forecasts(
+    res_primary: SkuForecastResult,
+    res_secondary: SkuForecastResult,
+    primary_weight: float = 0.65,
+) -> SkuForecastResult:
+    """
+    Kết hợp trọng số (Ensemble Blending) giữa 2 mô hình nhằm làm mịn phương sai và sai số.
+    """
+    sec_weight = 1.0 - primary_weight
+    blended: List[DailyForecast] = []
+    preds: List[float] = []
+
+    for i in range(len(res_primary.daily_forecasts)):
+        p1 = res_primary.daily_forecasts[i]
+        p2 = res_secondary.daily_forecasts[i]
+        pred = round(primary_weight * p1.predicted + sec_weight * p2.predicted, 4)
+        preds.append(pred)
+        lower = round(primary_weight * p1.lower + sec_weight * p2.lower, 4)
+        upper = round(max(lower, primary_weight * p1.upper + sec_weight * p2.upper), 4)
+        blended.append(DailyForecast(date=p1.date, predicted=pred, lower=lower, upper=upper))
+
+    daily_avg = round(sum(preds) / len(preds) if preds else res_primary.daily_average, 4)
+    return SkuForecastResult(
+        sku_id=res_primary.sku_id,
+        daily_average=daily_avg,
+        daily_demand_std=res_primary.daily_demand_std,
+        model_used=res_primary.model_used,
+        daily_forecasts=blended,
+    )
+
+
 def run_forecast_for_sku(series: SkuSeries, horizon_days: int) -> SkuForecastResult:
     """
     Thực hiện toàn bộ quy trình tiền xử lý, chọn thuật toán và dự báo cho một SKU.
@@ -275,7 +341,7 @@ def run_forecast_for_sku(series: SkuSeries, horizon_days: int) -> SkuForecastRes
     if not series.history:
         raise ValueError(f"SKU {series.sku_id} has empty sales history")
 
-    padded_series = pad_zero_demand_series(series.history)
+    padded_series = clean_and_winsorize_series(pad_zero_demand_series(series.history))
     last_date = padded_series[-1].date
     future_dates = [last_date + timedelta(days=i) for i in range(1, horizon_days + 1)]
 
@@ -308,7 +374,7 @@ def run_forecast_for_sku(series: SkuSeries, horizon_days: int) -> SkuForecastRes
 
     # model_choice in (ForecastModel.AUTO_ARIMA, ForecastModel.HOLT_WINTERS)
     try:
-        return _forecast_continuous(
+        cont_res = _forecast_continuous(
             series.sku_id,
             series.history,
             future_dates,
@@ -316,6 +382,22 @@ def run_forecast_for_sku(series: SkuSeries, horizon_days: int) -> SkuForecastRes
             model_choice,
             horizon_days,
         )
+        # Nếu chuỗi có tính chất chuyển tiếp (0.5 < CV <= 1.0 và non_zero_ratio < 0.85) -> Ensemble với TSB
+        if 0.5 < metrics.cv <= 1.0 and metrics.non_zero_ratio < 0.85:
+            try:
+                tsb_res = _forecast_intermittent(
+                    series.sku_id,
+                    series.history,
+                    future_dates,
+                    metrics,
+                    ForecastModel.TSB,
+                    horizon_days,
+                )
+                return _blend_forecasts(cont_res, tsb_res, primary_weight=0.65)
+            except Exception as e:
+                logger.info("Ensemble blending skipped (%s), using pure continuous result", e)
+                return cont_res
+        return cont_res
     except Exception as err:
         logger.warning(
             "Continuous forecast (%s) failed for sku %d: %s. Graceful fallback to SMA.",

@@ -7,6 +7,8 @@ from src.services.preprocessor import (
     pad_zero_demand,
     pad_zero_demand_series,
     pad_zero_demand_dataframe,
+    clean_and_winsorize_values,
+    clean_and_winsorize_series,
 )
 
 
@@ -146,6 +148,31 @@ class TestPreprocessor(unittest.TestCase):
             pd.Timestamp("2026-08-04"),
         ]
         self.assertListEqual(list(df["ds"]), expected_timestamps)
+
+    def test_clean_and_winsorize_values_outlier_capped(self):
+        """Test that an extreme sales spike is safely winsorized."""
+        # 14 days of normal sales ~5-7, with one extreme spike of 100.0
+        normal_series = [5.0, 6.0, 7.0, 5.0, 6.0, 0.0, 0.0, 5.0, 6.0, 7.0, 6.0, 5.0, 6.0, 100.0]
+        cleaned = clean_and_winsorize_values(normal_series, std_multiplier=3.0)
+        
+        # Zero days must remain 0.0
+        self.assertEqual(cleaned[5], 0.0)
+        self.assertEqual(cleaned[6], 0.0)
+        # Normal days should be unchanged
+        self.assertEqual(cleaned[0], 5.0)
+        # The 100.0 spike should be capped to well below 50.0
+        self.assertLess(cleaned[-1], 50.0)
+        self.assertGreater(cleaned[-1], 6.0)
+
+    def test_clean_and_winsorize_series_preserves_short_series(self):
+        """Test that short series (<14 days) are returned without modification."""
+        short_series = [
+            DailySalesPoint(date=date(2026, 8, i + 1), quantity=float(i * 10))
+            for i in range(5)
+        ]
+        cleaned = clean_and_winsorize_series(short_series)
+        self.assertEqual(len(cleaned), 5)
+        self.assertEqual([p.quantity for p in cleaned], [0.0, 10.0, 20.0, 30.0, 40.0])
 
 
 if __name__ == "__main__":
