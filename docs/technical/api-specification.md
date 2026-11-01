@@ -262,6 +262,91 @@ Mọi phản hồi từ Backend NestJS về Client React đều tuân thủ cấ
 
 ---
 
+### 3.6. Lấy Danh Sách Các Phiên Đề Xuất DSS
+* **Endpoint:** `GET /api/v1/dss/sessions`
+* **Quyền hạn:** `STORE_MANAGER`, `PURCHASING_STAFF`
+* **Mô tả:** Trả về danh sách các phiên phân tích DSS gần nhất (sắp xếp giảm dần theo thời gian tạo) phục vụ tra cứu lịch sử và lựa chọn phiên đối soát.
+* **Response DTO (HTTP 200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "1",
+      "sessionCode": "REC-20261101-0001",
+      "scope": "All Categories",
+      "status": "Approved",
+      "totalSuggestedAmount": 45000000.00,
+      "totalApprovedAmount": 42000000.00,
+      "createdBy": "manager_an",
+      "approvedAt": "2026-11-01T15:30:00.000Z",
+      "createdAt": "2026-11-01T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+### 3.7. Đánh Giá Độ Chính Xác & Đối Soát Kết Quả Dự Báo Phiên DSS
+* **Endpoint:** `GET /api/v1/dss/sessions/{id}/evaluation`
+* **Quyền hạn:** `STORE_MANAGER`, `PURCHASING_STAFF`
+* **Mô tả:** Đối soát số lượng nhu cầu dự báo đã lưu trong phiên DSS với doanh số bán hàng thực tế đã ghi nhận trong cùng kỳ (từ `sales_records`). Tính toán các chỉ số chuẩn bán lẻ WAPE, MAPE, MAE, Forecast Bias và xếp hạng chất lượng dự báo theo từng SKU và toàn bộ cửa hàng.
+* **Response DTO (HTTP 200):**
+```json
+{
+  "success": true,
+  "data": {
+    "sessionId": "1",
+    "sessionCode": "REC-20261101-0001",
+    "sessionStatus": "Approved",
+    "approvedAt": "2026-11-01T15:30:00.000Z",
+    "hasActualData": true,
+    "message": "Đã hoàn tất đối soát với 7/7 ngày bán hàng thực tế.",
+    "evaluationWindow": {
+      "startDate": "2026-11-02",
+      "endDate": "2026-11-08",
+      "totalDays": 7
+    },
+    "summary": {
+      "overallWape": 18.4,
+      "overallMape": 22.1,
+      "overallMae": 3.2,
+      "overallBias": 1.5,
+      "totalPredicted": 1250,
+      "totalActual": 1280,
+      "qualityRating": "EXCELLENT",
+      "evaluatedDaysCount": 7,
+      "totalDaysHorizon": 7,
+      "dailyAggregateTimeline": [
+        { "date": "2026-11-02", "predicted": 180.5, "actual": 175 }
+      ]
+    },
+    "skuEvaluations": [
+      {
+        "productId": "10",
+        "skuCode": "MILK-VNM-1L",
+        "productName": "Sữa tươi tiệt trùng Vinamilk 100% 1L",
+        "categoryName": "Bơ Sữa & Sản phẩm từ sữa",
+        "abcXyzGroup": "AX",
+        "wape": 14.2,
+        "mape": 16.5,
+        "mae": 1.8,
+        "bias": 2.1,
+        "totalPredicted": 85,
+        "totalActual": 92,
+        "qualityRating": "EXCELLENT",
+        "dailyTimeline": [
+          { "date": "2026-11-02", "predicted": 12.5, "actual": 14 }
+        ]
+      }
+    ]
+  }
+}
+```
+* **Mã lỗi đặc thù:**
+  * `404 RESOURCE_NOT_FOUND`: Khi không tìm thấy phiên DSS tương ứng với `sessionId`.
+
+---
+
 ## 4. Phân Hệ 2: Quản Lý Đơn Mua Hàng (UC-02 Purchase Orders)
 
 ### 4.1. Tra Cứu Danh Sách Đơn PO

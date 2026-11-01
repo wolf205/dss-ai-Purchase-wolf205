@@ -25,6 +25,9 @@ $RECYCLE.BIN/
 scratch/
 tmp/
 temp/
+data/raw/
+*.zip
+*.tar.gz
 
 # Environment Variables & Secrets (CRITICAL)
 .env

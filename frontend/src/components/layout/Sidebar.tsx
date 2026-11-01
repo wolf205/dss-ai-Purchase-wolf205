@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import type { UserRole } from '../../types/auth';
 import {
   TrendingUp,
+  BarChart3,
   ClipboardList,
   PackageCheck,
   Database,
@@ -33,6 +34,12 @@ const navItems: NavItemConfig[] = [
     path: '/dss',
     icon: TrendingUp,
     description: 'Dự báo & Phê duyệt mua hàng (UC-01)',
+  },
+  {
+    name: 'Đánh Giá & Hiệu Quả',
+    path: '/evaluation',
+    icon: BarChart3,
+    description: 'Đối soát độ chính xác dự báo (WAPE/MAPE)',
   },
   {
     name: 'Đơn Mua Hàng',

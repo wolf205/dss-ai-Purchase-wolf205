@@ -8,6 +8,7 @@ import { DssSessionQueryService } from './services/dss-session-query.service';
 import { DssItemAdjustmentService } from './services/dss-item-adjustment.service';
 import { DssExplainabilityService } from './services/dss-explainability.service';
 import { DssApprovalService } from './services/dss-approval.service';
+import { DssEvaluationService } from './services/dss-evaluation.service';
 import { DssController } from './dss.controller';
 
 @Module({
@@ -22,6 +23,7 @@ import { DssController } from './dss.controller';
     DssItemAdjustmentService,
     DssExplainabilityService,
     DssApprovalService,
+    DssEvaluationService,
   ],
   exports: [
     DssCalculationEngineService,
@@ -32,6 +34,7 @@ import { DssController } from './dss.controller';
     DssItemAdjustmentService,
     DssExplainabilityService,
     DssApprovalService,
+    DssEvaluationService,
   ],
 })
 export class DssModule {}

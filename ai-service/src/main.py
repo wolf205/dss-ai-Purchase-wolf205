@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.api.v1.forecast import router as forecast_router
 
@@ -11,8 +11,10 @@ class Settings(BaseSettings):
     PORT: int = 8000
     NODE_ENV: str = "development"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore",
+    )
 
 
 settings = Settings()

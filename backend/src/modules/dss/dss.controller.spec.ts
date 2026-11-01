@@ -5,6 +5,7 @@ import { DssSessionQueryService } from './services/dss-session-query.service';
 import { DssItemAdjustmentService } from './services/dss-item-adjustment.service';
 import { DssExplainabilityService } from './services/dss-explainability.service';
 import { DssApprovalService } from './services/dss-approval.service';
+import { DssEvaluationService } from './services/dss-evaluation.service';
 import { AuthenticatedUser } from '../auth/interfaces/auth-payload.interface';
 import { Role } from '../../common/enums/role.enum';
 
@@ -15,6 +16,7 @@ describe('DssController', () => {
   let adjustmentService: DssItemAdjustmentService;
   let explainabilityService: DssExplainabilityService;
   let approvalService: DssApprovalService;
+  let evaluationService: DssEvaluationService;
 
   const mockSessionAnalysisService = {
     analyzeSession: jest.fn(),
@@ -34,6 +36,10 @@ describe('DssController', () => {
 
   const mockApprovalService = {
     approveSession: jest.fn(),
+  };
+
+  const mockEvaluationService = {
+    evaluateSession: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -60,6 +66,10 @@ describe('DssController', () => {
           provide: DssApprovalService,
           useValue: mockApprovalService,
         },
+        {
+          provide: DssEvaluationService,
+          useValue: mockEvaluationService,
+        },
       ],
     }).compile();
 
@@ -75,6 +85,7 @@ describe('DssController', () => {
       DssExplainabilityService,
     );
     approvalService = module.get<DssApprovalService>(DssApprovalService);
+    evaluationService = module.get<DssEvaluationService>(DssEvaluationService);
   });
 
   it('should be defined', () => {
@@ -191,6 +202,44 @@ describe('DssController', () => {
       const result = await controller.approveSession(105);
 
       expect(approvalService.approveSession).toHaveBeenCalledWith(105);
+      expect(result).toEqual(mockResponse);
+    });
+  });
+
+  describe('evaluateSession', () => {
+    it('should call evaluationService.evaluateSession and return evaluation details', async () => {
+      const mockResponse = {
+        sessionId: '105',
+        sessionCode: 'REC-20261101-001',
+        sessionStatus: 'Approved',
+        hasActualData: true,
+        evaluationWindow: {
+          startDate: '2026-11-02',
+          endDate: '2026-11-08',
+          totalDays: 7,
+        },
+        summary: {
+          overallWape: 15.5,
+          overallMape: 18.2,
+          overallMae: 2.1,
+          overallBias: 1.2,
+          totalPredicted: 100,
+          totalActual: 105,
+          qualityRating: 'EXCELLENT',
+          evaluatedDaysCount: 7,
+          totalDaysHorizon: 7,
+          dailyAggregateTimeline: [],
+        },
+        skuEvaluations: [],
+      };
+
+      mockEvaluationService.evaluateSession.mockResolvedValue(mockResponse);
+
+      const result = await controller.evaluateSession(105);
+
+      expect(evaluationService.evaluateSession).toHaveBeenCalledWith(
+        BigInt(105),
+      );
       expect(result).toEqual(mockResponse);
     });
   });

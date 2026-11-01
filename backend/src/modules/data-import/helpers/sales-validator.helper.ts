@@ -123,7 +123,10 @@ export async function parseAndValidateSalesFile(
         skuCode: rawSku,
         issue: 'Định dạng ngày không hợp lệ (yêu cầu YYYY-MM-DD).',
       });
-    } else if (rawDate > localTodayStr) {
+    } else if (
+      process.env.ALLOW_FUTURE_SALES_IN_DEV !== 'true' &&
+      rawDate > localTodayStr
+    ) {
       errors.push({
         row: lineNum,
         skuCode: rawSku,
@@ -271,7 +274,10 @@ export async function validateSalesItems(
         skuCode: rawSku,
         issue: 'Định dạng ngày không hợp lệ (yêu cầu YYYY-MM-DD).',
       });
-    } else if (rawDate > localTodayStr) {
+    } else if (
+      process.env.ALLOW_FUTURE_SALES_IN_DEV !== 'true' &&
+      rawDate > localTodayStr
+    ) {
       errors.push({
         row: rowNum,
         skuCode: rawSku,

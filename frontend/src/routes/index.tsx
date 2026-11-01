@@ -13,6 +13,7 @@ import { DataImportPage } from '../pages/placeholders/DataImportPage';
 import { CatalogPage } from '../pages/placeholders/CatalogPage';
 import { SuppliersPage } from '../pages/placeholders/SuppliersPage';
 import { ConfigurationPage } from '../pages/placeholders/ConfigurationPage';
+import { DssEvaluationPage } from '../features/dss-evaluation/pages/DssEvaluationPage';
 
 export const router = createBrowserRouter([
   {
@@ -34,6 +35,10 @@ export const router = createBrowserRouter([
       {
         path: 'dss',
         element: <DssPage />,
+      },
+      {
+        path: 'evaluation',
+        element: <DssEvaluationPage />,
       },
       {
         path: 'orders',

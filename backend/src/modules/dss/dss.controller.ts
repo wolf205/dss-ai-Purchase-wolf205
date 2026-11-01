@@ -21,6 +21,7 @@ import { DssSessionQueryService } from './services/dss-session-query.service';
 import { DssItemAdjustmentService } from './services/dss-item-adjustment.service';
 import { DssExplainabilityService } from './services/dss-explainability.service';
 import { DssApprovalService } from './services/dss-approval.service';
+import { DssEvaluationService } from './services/dss-evaluation.service';
 import { AnalyzeSessionRequestDto } from './dto/analyze-session.dto';
 import { AnalyzeSessionResponseDto } from './dto/analyze-session-response.dto';
 import {
@@ -30,6 +31,10 @@ import {
 import { UpdateRecommendationItemDto } from './dto/update-recommendation-item.dto';
 import { ExplainRecommendationItemResponseDto } from './dto/explain-item-response.dto';
 import { ApproveSessionResponseDto } from './dto/approve-session-response.dto';
+import {
+  DssSessionEvaluationResponseDto,
+  DssSessionSummaryItemDto,
+} from './dto/dss-evaluation.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -49,6 +54,7 @@ export class DssController {
     private readonly itemAdjustmentService: DssItemAdjustmentService,
     private readonly explainabilityService: DssExplainabilityService,
     private readonly approvalService: DssApprovalService,
+    private readonly evaluationService: DssEvaluationService,
   ) {}
 
   @Post('sessions/analyze')
@@ -112,6 +118,31 @@ export class DssController {
   })
   async getActiveDraftSession(): Promise<DssSessionDetailResponseDto | null> {
     return await this.sessionQueryService.getActiveDraftSession();
+  }
+
+  @Get('sessions')
+  @Roles(Role.STORE_MANAGER, Role.PURCHASING_STAFF)
+  @ApiOperation({
+    summary:
+      'Lấy danh sách các phiên đề xuất DSS (Get All Recommendation Sessions)',
+    description:
+      'Trả về danh sách các phiên DSS gần nhất phục vụ tra cứu lịch sử và đối soát đánh giá.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy danh sách các phiên đề xuất DSS thành công',
+    type: [DssSessionSummaryItemDto],
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Chưa xác thực hoặc token không hợp lệ (UNAUTHORIZED)',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền truy cập (FORBIDDEN_ROLE)',
+  })
+  async getAllSessions(): Promise<DssSessionSummaryItemDto[]> {
+    return await this.sessionQueryService.getAllSessions();
   }
 
   @Get('sessions/:id')
@@ -260,5 +291,36 @@ export class DssController {
     @Param('id', ParseIntPipe) id: number,
   ): Promise<ApproveSessionResponseDto> {
     return await this.approvalService.approveSession(id);
+  }
+
+  @Get('sessions/:id/evaluation')
+  @Roles(Role.STORE_MANAGER, Role.PURCHASING_STAFF)
+  @ApiOperation({
+    summary:
+      'Đánh giá độ chính xác và đối soát kết quả dự báo phiên DSS (Evaluate Session Accuracy)',
+    description:
+      'Đối soát số lượng nhu cầu dự báo đã lưu trong phiên DSS với doanh số bán hàng thực tế đã ghi nhận trong cùng kỳ (từ sales_records). Tính toán WAPE, MAPE, MAE, Forecast Bias và xếp hạng chất lượng dự báo.',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lấy kết quả đánh giá đối soát phiên DSS thành công',
+    type: DssSessionEvaluationResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Chưa xác thực hoặc token không hợp lệ (UNAUTHORIZED)',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Không có quyền truy cập (FORBIDDEN_ROLE)',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Không tìm thấy phiên phân tích (RESOURCE_NOT_FOUND)',
+  })
+  async evaluateSession(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<DssSessionEvaluationResponseDto> {
+    return await this.evaluationService.evaluateSession(BigInt(id));
   }
 }

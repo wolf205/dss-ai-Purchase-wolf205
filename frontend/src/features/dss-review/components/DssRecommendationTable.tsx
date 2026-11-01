@@ -90,7 +90,33 @@ export const DssRecommendationTable: React.FC<DssRecommendationTableProps> = ({
                   : String(item.approvedQuantity);
 
               const parsedQty = parseInt(currentQty, 10) || 0;
-              const supplier = item.suggestedSupplier;
+
+              // Kiểm tra xem người dùng có chọn NCC khác với DSS gợi ý không
+              const isSupplierOverridden =
+                item.approvedSupplierId !== null &&
+                item.suggestedSupplier !== null &&
+                item.approvedSupplierId !== item.suggestedSupplier.id;
+
+              // Giải quyết NCC hiệu lực (Effective Supplier)
+              let effectiveSupplier = item.suggestedSupplier;
+              if (isSupplierOverridden && Array.isArray(item.supplierRankings)) {
+                const matched = item.supplierRankings.find(
+                  (r) => r.supplierId === item.approvedSupplierId
+                );
+                if (matched) {
+                  effectiveSupplier = {
+                    id: matched.supplierId,
+                    code: item.suggestedSupplier?.code || `SUP-${matched.supplierId}`,
+                    name: matched.name,
+                    leadTimeDays: matched.leadTime,
+                    moq: matched.moq ?? 1,
+                    unitPrice: matched.price,
+                    wsmScore: matched.score,
+                  };
+                }
+              }
+
+              const supplier = effectiveSupplier;
               const moq = supplier?.moq || 1;
               const unitPrice = supplier?.unitPrice || 0;
               const totalAmount = parsedQty * unitPrice;
@@ -229,14 +255,24 @@ export const DssRecommendationTable: React.FC<DssRecommendationTableProps> = ({
                           <p className="font-semibold text-slate-900 leading-snug line-clamp-1">
                             {supplier.name}
                           </p>
-                          {supplier.wsmScore !== null && (
-                            <span
-                              title="Điểm số tối ưu WSM"
-                              className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-amber-50 text-amber-800 border border-amber-200 shrink-0"
-                            >
-                              {Number(supplier.wsmScore).toFixed(1)} đ
-                            </span>
-                          )}
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isSupplierOverridden && (
+                              <span
+                                title="Nhà cung cấp do người dùng chọn thay cho gợi ý tối ưu ban đầu của DSS"
+                                className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-blue-50 text-blue-700 border border-blue-200"
+                              >
+                                Tự chọn NCC
+                              </span>
+                            )}
+                            {supplier.wsmScore !== null && (
+                              <span
+                                title="Điểm số tối ưu WSM"
+                                className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-amber-50 text-amber-800 border border-amber-200"
+                              >
+                                {Number(supplier.wsmScore).toFixed(1)} đ
+                              </span>
+                            )}
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2 text-[11px] text-slate-500">

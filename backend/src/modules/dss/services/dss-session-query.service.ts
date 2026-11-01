@@ -7,6 +7,7 @@ import {
   SuggestedSupplierDetailDto,
   SupplierRankingDto,
 } from '../dto/dss-session-detail-response.dto';
+import { DssSessionSummaryItemDto } from '../dto/dss-evaluation.dto';
 
 @Injectable()
 export class DssSessionQueryService {
@@ -158,5 +159,39 @@ export class DssSessionQueryService {
       createdAt: session.createdAt.toISOString(),
       items,
     };
+  }
+
+  /**
+   * Lấy danh sách toàn bộ các phiên phân tích mua hàng DSS
+   * GET /api/v1/dss/sessions
+   */
+  async getAllSessions(): Promise<DssSessionSummaryItemDto[]> {
+    const sessions = await this.prisma.recommendationSession.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+      select: {
+        id: true,
+        sessionCode: true,
+        scope: true,
+        status: true,
+        totalSuggestedAmount: true,
+        totalApprovedAmount: true,
+        createdBy: true,
+        approvedAt: true,
+        createdAt: true,
+      },
+    });
+
+    return sessions.map((s) => ({
+      id: s.id.toString(),
+      sessionCode: s.sessionCode,
+      scope: s.scope,
+      status: s.status,
+      totalSuggestedAmount: Number(s.totalSuggestedAmount),
+      totalApprovedAmount: Number(s.totalApprovedAmount),
+      createdBy: s.createdBy,
+      approvedAt: s.approvedAt ? s.approvedAt.toISOString() : null,
+      createdAt: s.createdAt.toISOString(),
+    }));
   }
 }

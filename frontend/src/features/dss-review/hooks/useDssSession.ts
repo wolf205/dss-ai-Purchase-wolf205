@@ -93,10 +93,18 @@ export function useUpdateRecommendationItem(sessionId: number | null) {
           const updatedItems = old.items.map((it) =>
             it.itemId === updatedItem.itemId ? { ...it, ...updatedItem } : it
           );
-          // Tính lại totalApprovedAmount
+          // Tính lại totalApprovedAmount theo NCC thực tế được chọn (approvedSupplierId)
           const newTotalApproved = updatedItems.reduce((sum, it) => {
-            const price = it.suggestedSupplier?.unitPrice ?? 0;
-            return sum + it.approvedQuantity * price;
+            let unitPrice = it.suggestedSupplier?.unitPrice ?? 0;
+            if (it.approvedSupplierId && Array.isArray(it.supplierRankings)) {
+              const matched = it.supplierRankings.find(
+                (r) => r.supplierId === it.approvedSupplierId
+              );
+              if (matched && matched.price !== undefined) {
+                unitPrice = matched.price;
+              }
+            }
+            return sum + it.approvedQuantity * unitPrice;
           }, 0);
 
           return {

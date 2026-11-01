@@ -60,9 +60,7 @@ export class DssApprovalService {
     );
 
     if (unassignedItems.length > 0) {
-      const skuList = unassignedItems
-        .map((i) => i.product.skuCode)
-        .join(', ');
+      const skuList = unassignedItems.map((i) => i.product.skuCode).join(', ');
       throw new BadRequestException({
         code: 'UNASSIGNED_SUPPLIER_ITEMS',
         message: `Có ${unassignedItems.length} mặt hàng được duyệt số lượng lớn hơn 0 nhưng chưa được gán Nhà cung cấp (${skuList}). Vui lòng gán NCC hoặc đưa số lượng về 0 trước khi phê duyệt.`,

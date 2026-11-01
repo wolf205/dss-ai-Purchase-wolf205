@@ -49,7 +49,7 @@ export class AiForecastingClient {
     try {
       const timeoutMs =
         Number(this.configService.get<string>('AI_SERVICE_TIMEOUT_MS')) ||
-        30000;
+        60000;
 
       const response = await fetch(`${aiServiceUrl}/api/v1/forecast`, {
         method: 'POST',
@@ -92,7 +92,7 @@ export class AiForecastingClient {
   }
 
   /**
-   * Tính toán dự báo dự phòng (SMA Fallback) in-memory
+   * Tính toán dự báo dự phòng (SMA Fallback) in-memory kèm hệ số mùa vụ theo ngày trong tuần (Day-of-Week Factor)
    */
   private applySmaFallback(
     inputs: SkuForecastInput[],
@@ -118,18 +118,47 @@ export class AiForecastingClient {
         (count > 1 ? count - 1 : 1);
       const std = Math.sqrt(variance);
 
-      // Chuỗi dự báo horizonDays ngày
+      // Tính toán hệ số mùa vụ theo thứ trong tuần (Day-of-Week Seasonality Factor: 0 = Chủ Nhật .. 6 = Thứ Bảy)
+      const daySums = new Array<number>(7).fill(0);
+      const dayCounts = new Array<number>(7).fill(0);
+
+      for (const h of history) {
+        if (h.date) {
+          const dObj = new Date(h.date);
+          if (!isNaN(dObj.getTime())) {
+            const w = dObj.getUTCDay();
+            daySums[w] += h.quantity;
+            dayCounts[w]++;
+          }
+        }
+      }
+
+      const dayFactors = new Array<number>(7).fill(1.0);
+      if (avg > 0 && history.length >= 7) {
+        for (let w = 0; w < 7; w++) {
+          if (dayCounts[w] > 0) {
+            const dayMean = daySums[w] / dayCounts[w];
+            // Giới hạn hệ số dao động trong khoảng [0.3, 2.5] để bảo toàn tính ổn định
+            dayFactors[w] = Math.max(0.3, Math.min(2.5, dayMean / avg));
+          }
+        }
+      }
+
+      // Chuỗi dự báo horizonDays ngày có dao động tự nhiên theo nhịp bán hàng
       const dailyForecasts: ForecastDailyItem[] = [];
       for (let i = 1; i <= horizonDays; i++) {
         const nextDay = new Date(now);
         nextDay.setDate(now.getDate() + i);
         const dStr = nextDay.toISOString().split('T')[0];
+        const w = nextDay.getUTCDay();
+        const factor = dayFactors[w] ?? 1.0;
 
+        const pred = Number((avg * factor).toFixed(2));
         dailyForecasts.push({
           date: dStr,
-          predicted: Number(avg.toFixed(2)),
-          lower: Number(Math.max(0, avg - 1.96 * std).toFixed(2)),
-          upper: Number((avg + 1.96 * std).toFixed(2)),
+          predicted: pred,
+          lower: Number(Math.max(0, pred - 1.96 * std).toFixed(2)),
+          upper: Number((pred + 1.96 * std).toFixed(2)),
         });
       }
 
