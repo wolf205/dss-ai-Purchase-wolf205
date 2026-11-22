@@ -2,38 +2,66 @@
 name: ai-service
 description: >-
   Hướng dẫn lập trình Python FastAPI AI Forecasting Service: Pydantic v2 schemas (CamelModel,
-  TimeSeriesPayload, ForecastResponse), tiền xử lý (zero-demand padding, stockout uncensoring,
-  MAD winsorization), Batch Hybrid Ensemble (MSTL, AutoETS, DOT, HoltWinters, CrostonSBA, TSB)
-  kết hợp Global Cross-SKU Ridge, fallback (AutoARIMA, SMA), FastAPI router, error handling và
-  health check. Sử dụng khi implement hoặc debug bất kỳ file nào trong ai-service/src/.
+  TimeSeriesPayload, ForecastResponse, SeriesMetrics), tiền xử lý (zero-demand padding, stockout uncensoring,
+  MAD winsorization), profiling (Syntetos-Boylan ADI & CV), Batch Hybrid Ensemble (MSTL, AutoETS, DOT, HoltWinters, CrostonSBA, TSB)
+  kết hợp Global Cross-SKU Ridge, hậu xử lý (DoW seasonality shrinkage, momentum boost, empirical asymmetric CI 95%),
+  fallback (AutoARIMA, SMA), FastAPI router, error handling và health check. Sử dụng khi implement hoặc debug bất kỳ file nào trong ai-service/src/.
 ---
 
 # AI Service Skill — Python FastAPI Forecasting
 
-## 1. Directory Map
+## 1. Directory Map (5-Stage Modular Pipeline)
 
 ```
 ai-service/
-├── main.py                      # Entrypoint shim (re-export src.main:app)
+├── main.py                                  # Entrypoint shim (re-export src.main:app)
 ├── src/
-│   ├── api/
+│   ├── api/                                 # [TẦNG GIAO TIẾP HTTP]
 │   │   └── v1/
-│   │       └── forecast.py      # POST /api/v1/forecast + GET /api/v1/health
-│   ├── models/
-│   │   ├── base.py              # CamelModel (camelCase <-> snake_case)
-│   │   ├── request.py           # Pydantic v2: TimeSeriesPayload, SkuSeries, DailySalesPoint
-│   │   └── response.py          # Pydantic v2: ForecastResponse, SkuForecastResult, DailyForecast
-│   ├── services/
-│   │   ├── preprocessor.py      # Zero-demand padding, Stockout Uncensoring, MAD Winsorization
-│   │   ├── selector.py          # SeriesMetrics & AlgorithmSelectionResult (ForecastModel enum)
-│   │   ├── global_model.py      # Global Cross-SKU Ridge (Huber-damped) + pooled DoW factors
-│   │   └── forecaster.py        # Batch Hybrid Pipeline + single-SKU/SMA/AutoARIMA fallback
-│   └── main.py                  # FastAPI app + Settings + CORS
-├── tests/
+│   │       └── forecast.py                  # POST /api/v1/forecast + GET /api/v1/health
+│   ├── models/                              # [TẦNG DATA CONTRACTS & SCHEMAS]
+│   │   ├── base.py                          # CamelModel (camelCase <-> snake_case)
+│   │   ├── request.py                       # Pydantic v2: TimeSeriesPayload, SkuSeries, DailySalesPoint
+│   │   ├── response.py                      # Pydantic v2: ForecastResponse, SkuForecastResult, DailyForecast
+│   │   └── metrics.py                       # ForecastModel enum, SeriesMetrics, AlgorithmSelectionResult
+│   ├── preprocessing/                       # [BƯỚC 1: TIỀN XỬ LÝ DỮ LIỆU]
+│   │   ├── zero_padding.py                  # Zero-demand padding (pad_zero_demand, pad_zero_demand_series)
+│   │   ├── uncensoring.py                   # Stockout Uncensoring (nội suy trung vị theo thứ)
+│   │   ├── outlier.py                       # Outlier Winsorization (MAD robust 3.0 sigma)
+│   │   ├── adapter.py                       # Chuyển đổi pandas DataFrame cho StatsForecast
+│   │   └── pipeline.py                      # preprocess_sku_series (gộp quy trình chuẩn 1 SKU)
+│   ├── profiling/                           # [BƯỚC 2: PHÂN TÍCH ĐẶC TRƯNG & ĐỊNH TUYẾN]
+│   │   ├── metrics.py                       # Tính toán mean, std, CV, ADI, non_zero_ratio
+│   │   └── selector.py                      # Heuristic rules chọn mô hình theo Syntetos-Boylan
+│   ├── engines/                             # [BƯỚC 3: CÁC ĐỘNG CƠ DỰ BÁO ĐƠN LẺ]
+│   │   ├── baseline.py                      # SMA 7 ngày & Zero Forecast
+│   │   ├── intermittent.py                  # Croston Classic, CrostonSBA, TSB
+│   │   ├── continuous.py                    # MSTL, AutoETS, DynamicOptimizedTheta, HoltWinters, AutoARIMA fallback
+│   │   └── global_ridge.py                  # Global Cross-SKU Ridge (Huber-damped, Lags, Payday, DoW)
+│   ├── postprocessing/                      # [BƯỚC 4: HẬU XỬ LÝ HIỆU CHỈNH & RỦI RO]
+│   │   ├── seasonality.py                   # Day-of-Week Seasonality Shrinkage & Store/Category Pooled Factors
+│   │   ├── momentum.py                      # Dual-Window Adaptive Momentum Boost
+│   │   ├── confidence_interval.py           # Empirical Asymmetric CI 95% (mở rộng √(1 + step/14))
+│   │   └── blending.py                      # Trộn trọng số kết quả dự báo
+│   ├── pipelines/                           # [BƯỚC 5: ĐIỀU PHỐI TỔ HỢP DỰ BÁO]
+│   │   ├── single_sku.py                    # run_forecast_for_sku + Graceful Fallback
+│   │   ├── batch_hybrid.py                  # run_batch_hybrid_forecast (Vectorized StatsForecast + Global Ridge)
+│   │   └── coordinator.py                   # ThreadPoolExecutor & async run_forecast
+│   ├── services/                            # [SHIM LAYER] Backward compatibility re-exports
+│   │   ├── preprocessor.py                  # Re-export từ src.preprocessing
+│   │   ├── selector.py                      # Re-export từ src.models.metrics & src.profiling
+│   │   ├── forecaster.py                    # Re-export từ src.pipelines & src.engines
+│   │   └── global_model.py                  # Re-export từ src.engines & src.postprocessing
+│   └── main.py                              # FastAPI app + Settings + CORS
+├── tests/                                   # Unit & Integration Tests (72 passed)
 │   ├── test_forecast_api.py
 │   ├── test_models.py
 │   ├── test_preprocessor.py
-│   └── test_selector.py
+│   ├── test_selector.py
+│   ├── test_preprocessing_pipeline.py
+│   ├── test_profiling_pipeline.py
+│   ├── test_engines_and_postprocessing.py
+│   └── test_pipelines.py
 ├── requirements.txt
 └── Dockerfile
 ```
@@ -75,30 +103,37 @@ class ForecastResponse(CamelModel):
     results: List[SkuForecastResult]
 ```
 
-## 3. Pipeline & Algorithm Routing (Thực tế trong `src/services/`)
+## 3. Pipeline 5 Giai Đoạn
 
-1. **Tiền xử lý (`preprocessor.py`):**
+1. **Tiền xử lý (`src/preprocessing/`):**
    * `pad_zero_demand_series`: điền `0.0` cho ngày thiếu, cộng dồn nếu trùng ngày.
    * `uncensor_stockout_series`: nội suy ngày hết hàng (`stockout_dates`, `quantity <= 0`) bằng trung vị cùng thứ hoặc trung vị toàn cục.
    * `clean_and_winsorize_series`: cắt ngọn ngoại lai bằng `median + 3.0 * (1.4826 * MAD)` (áp dụng khi `len >= 14` và `>= 5` ngày bán > 0).
-2. **Batch Hybrid Pipeline (`forecaster.py` → `_run_batch_hybrid_forecast`):**
-   * Chạy trên `ThreadPoolExecutor` (tối đa 4 workers) qua `run_forecast`.
-   * Vectorized `StatsForecast` 1 lần cho SKU `length >= 30` và `mean > 0`: `MSTL(7)`, `AutoETS(7)`, `DynamicOptimizedTheta(7)`, `HoltWinters(7)`, `CrostonSBA()`, `TSB(0.15, 0.15)`.
-   * `fit_and_predict_global_cross_sku` (`global_model.py`): kích hoạt khi có `>= 3` SKU đạt `>= 35` ngày lịch sử.
-   * Định tuyến trộn trọng số theo `SeriesMetrics` (`is_short_series`, `is_intermittent`, `cv`, `non_zero_ratio`) → trả về `HybridEnsemble` (hoặc `SMA` cho chuỗi ngắn `< 30` ngày).
-   * CI 95% bất đối xứng thực nghiệm (`_compute_empirical_ci_bounds`), mở rộng theo `sqrt(1 + step / 14)`.
-3. **Graceful Fallback:**
-   * Lỗi batch hoặc lô 1 SKU → `run_forecast_for_sku` (dùng `select_algorithm_with_metrics` từ `selector.py`).
-   * Lỗi nhánh liên tục → fallback `AutoARIMA(level=[95])`; vẫn lỗi (hoặc nhánh ngắt quãng lỗi) → fallback `_build_sma_forecasts`.
+2. **Phân tích đặc trưng & Định tuyến (`src/profiling/`):**
+   * `calculate_series_metrics`: tính $\bar{d}$, $\sigma_d$, $CV$, $ADI$, $\text{non\_zero\_ratio}$.
+   * `select_algorithm_with_metrics`: phân loại Syntetos-Boylan (SMA vs Croston vs Continuous).
+3. **Động cơ dự báo (`src/engines/`):**
+   * `baseline.py`: SMA 7 ngày, Zero Forecast.
+   * `intermittent.py`: CrostonSBA, TSB, DOT, MSTL.
+   * `continuous.py`: MSTL, AutoETS, DOT, HoltWinters, fallback AutoARIMA.
+   * `global_ridge.py`: Huber-damped Global Cross-SKU Ridge (lags 1, 7, 14, 28, payday, DoW).
+4. **Hậu xử lý (`src/postprocessing/`):**
+   * `seasonality.py`: Day-of-Week Seasonality Shrinkage & Store/Category pooled factors.
+   * `momentum.py`: Dual-Window Adaptive Momentum Boost [0.85, 1.30].
+   * `confidence_interval.py`: Empirical Asymmetric CI 95% mở rộng $\sqrt{1 + \text{step}/14}$.
+5. **Điều phối tổ hợp (`src/pipelines/`):**
+   * `single_sku.py`: `run_forecast_for_sku` (chạy đơn SKU kèm 3-tier fallback).
+   * `batch_hybrid.py`: `run_batch_hybrid_forecast` (vectorized StatsForecast + Global Ridge + Adaptive Blending).
+   * `coordinator.py`: `run_forecast` (async wrapper qua ThreadPoolExecutor).
 
-## 5. FastAPI Router Template
+## 4. FastAPI Router Template
 
 ```python
 # src/api/v1/forecast.py
 from fastapi import APIRouter, HTTPException
 from src.models.request import TimeSeriesPayload
 from src.models.response import ForecastResponse
-from src.services.forecaster import run_forecast
+from src.pipelines import run_forecast
 
 router = APIRouter(prefix="/api/v1", tags=["Forecast"])
 
@@ -116,27 +151,12 @@ async def health():
     return {"status": "ok", "service": "retail-dss-forecasting"}
 ```
 
-## 6. Common Commands
+## 5. Common Commands
 
 ```bash
 # Trong thư mục ai-service/
 uvicorn src.main:app --reload --port 8000   # Dev server
-pytest -v                                    # Tests
+pytest -v                                    # Tests (72 passed)
 pytest --cov=src --cov-report=term-missing   # Coverage
-mypy src/                                    # Type checking
 pip install -r requirements.txt              # Cài dependencies
-```
-
-## 7. Requirements Cốt Lõi
-
-```
-fastapi==0.115.0
-uvicorn[standard]==0.31.0
-pydantic==2.9.2
-pydantic-settings==2.5.2
-statsforecast>=2.1.0    # MSTL, AutoETS, DOT, HoltWinters, CrostonSBA, TSB, AutoARIMA
-numpy>=2.0.0
-pandas>=2.2.0
-scipy>=1.14.0
-httpx>=0.28.0           # FastAPI TestClient
 ```

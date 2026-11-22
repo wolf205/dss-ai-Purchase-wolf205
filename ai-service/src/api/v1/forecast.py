@@ -2,7 +2,7 @@ import logging
 from fastapi import APIRouter, HTTPException
 from src.models.request import TimeSeriesPayload
 from src.models.response import ForecastResponse
-from src.services.forecaster import run_forecast
+from src.pipelines import run_forecast
 
 logger = logging.getLogger(__name__)
 
