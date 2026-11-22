@@ -8,15 +8,11 @@ import { DssCalculationEngineService } from './dss-calculation-engine.service';
 import { AiForecastingClient } from '../clients/ai-forecasting.client';
 import { AnalyzeSessionRequestDto } from '../dto/analyze-session.dto';
 import { AnalyzeSessionResponseDto } from '../dto/analyze-session-response.dto';
-import {
-  SkuSalesMetricsInput,
-  SupplierCandidateInput,
-} from '../interfaces/dss-calculation.interface';
-import {
-  SkuForecastInput,
-  SkuSalesHistoryItem,
-} from '../interfaces/ai-forecasting.interface';
+import { SkuSalesMetricsInput } from '../interfaces/dss-calculation.interface';
 import { Prisma } from '@prisma/client';
+import { DssDataPreparerHelper } from '../helpers/dss-data-preparer.helper';
+import { DssItemBuilderHelper } from '../helpers/dss-item-builder.helper';
+import { DssSessionCodeGenerator } from '../helpers/dss-session-code.generator';
 
 @Injectable()
 export class DssSessionAnalysisService {
@@ -101,38 +97,26 @@ export class DssSessionAnalysisService {
 
     const productIds = products.map((p) => p.id);
 
-    // 5. Lấy và tổng hợp lịch sử bán hàng 90 ngày gần nhất tính đến thời điểm phân tích
-    const effectiveDate = dto.asOfDate ? new Date(dto.asOfDate) : new Date();
-    const effectiveUtc = new Date(
-      Date.UTC(
-        effectiveDate.getUTCFullYear(),
-        effectiveDate.getUTCMonth(),
-        effectiveDate.getUTCDate(),
-      ),
-    );
-    const ninetyDaysAgoUtc = new Date(effectiveUtc);
-    ninetyDaysAgoUtc.setUTCDate(ninetyDaysAgoUtc.getUTCDate() - 90);
-
-    const salesDateFilter: Prisma.DateTimeFilter = {
-      gte: ninetyDaysAgoUtc,
-      ...(dto.asOfDate ? { lt: effectiveUtc } : {}),
-    };
+    // 5. Chuẩn bị dữ liệu lịch sử bán hàng và ngày hết hàng trong cửa sổ 90 ngày
+    const dateRange = DssDataPreparerHelper.resolveDateRange(dto.asOfDate);
 
     const salesRecords = await this.prisma.salesRecord.findMany({
       where: {
         productId: { in: productIds },
-        saleDate: salesDateFilter,
+        saleDate: dateRange.salesDateFilter,
       },
       orderBy: { saleDate: 'asc' },
     });
 
-    const salesByProduct = this.aggregateSalesRecords(products, salesRecords);
+    const salesByProduct = DssDataPreparerHelper.aggregateSalesRecords(
+      products,
+      salesRecords,
+    );
 
-    // 5b. Thu thập các ngày tồn kho kiểm đếm = 0 trong 90 ngày (Stockout Uncensoring)
     const stockoutSnapshots = await (this.prisma.inventorySnapshot?.findMany?.({
       where: {
         productId: { in: productIds },
-        snapshotDate: salesDateFilter,
+        snapshotDate: dateRange.salesDateFilter,
         countedQuantity: 0,
       },
       select: {
@@ -141,60 +125,18 @@ export class DssSessionAnalysisService {
       },
     }) ?? Promise.resolve([]));
 
-    const stockoutDatesByProduct = new Map<string, string[]>();
-    for (const snap of stockoutSnapshots) {
-      const pKey = snap.productId.toString();
-      const dStr = snap.snapshotDate.toISOString().split('T')[0];
-      const existing = stockoutDatesByProduct.get(pKey) ?? [];
-      existing.push(dStr);
-      stockoutDatesByProduct.set(pKey, existing);
-    }
+    const stockoutDatesByProduct =
+      DssDataPreparerHelper.mapStockoutDatesByProduct(stockoutSnapshots);
 
-    // Xác định mốc ngày bắt đầu (90 ngày trước) và ngày kết thúc của chuỗi lịch sử
-    const historyEndDate = new Date(effectiveDate);
-    historyEndDate.setUTCDate(historyEndDate.getUTCDate() - 1);
-    const defaultEndDateStr = historyEndDate.toISOString().split('T')[0];
-
-    const latestSaleDateStr =
-      salesRecords.length > 0
-        ? salesRecords[salesRecords.length - 1].saleDate
-            .toISOString()
-            .split('T')[0]
-        : null;
-    const historyEndDateStr =
-      !dto.asOfDate &&
-      latestSaleDateStr &&
-      latestSaleDateStr > defaultEndDateStr
-        ? latestSaleDateStr
-        : defaultEndDateStr;
-
-    const historyStartDateStr = ninetyDaysAgoUtc.toISOString().split('T')[0];
-    const historyDays = 90;
-
-    // 6. Lấy dự báo nhu cầu từ AI Client (kèm SMA fallback)
-    const forecastInputs: SkuForecastInput[] = products.map((p) => {
-      const sales = salesByProduct.get(p.id.toString())!;
-      const records = [...sales.records];
-
-      // Đảm bảo chuỗi có neo ngày bắt đầu và ngày kết thúc lịch sử để AI service xác định đúng chu kỳ
-      if (
-        records.length === 0 ||
-        records[records.length - 1].date < historyEndDateStr
-      ) {
-        records.push({ date: historyEndDateStr, quantity: 0 });
-      }
-      if (records[0].date > historyStartDateStr) {
-        records.unshift({ date: historyStartDateStr, quantity: 0 });
-      }
-
-      const stockoutDates = stockoutDatesByProduct.get(p.id.toString());
-      return {
-        productId: p.id,
-        history: records,
-        categoryCode: p.category?.categoryCode,
-        ...(stockoutDates && stockoutDates.length > 0 ? { stockoutDates } : {}),
-      };
-    });
+    // 6. Lấy dự báo nhu cầu từ AI Client (kèm Graceful Fallback)
+    const forecastInputs = DssDataPreparerHelper.buildForecastInputs(
+      products,
+      salesByProduct,
+      stockoutDatesByProduct,
+      salesRecords,
+      dateRange.effectiveDate,
+      dto.asOfDate,
+    );
 
     const forecastMap =
       await this.aiForecastingClient.getForecasts(forecastInputs);
@@ -205,7 +147,7 @@ export class DssSessionAnalysisService {
       const forecast = forecastMap.get(p.id.toString());
       const avgDemand = forecast
         ? forecast.dailyAverage
-        : sales.totalQty / historyDays;
+        : sales.totalQty / dateRange.historyDays;
       const demandStd = forecast ? forecast.dailyDemandStd : 0;
 
       return {
@@ -224,114 +166,25 @@ export class DssSessionAnalysisService {
       abcMap.set(res.productId.toString(), res);
     }
 
-    // 8. Chạy các engine còn lại (WSM, SS, ROP & SOQ, StockRisk) cho từng SKU
-    let totalSuggestedAmount = 0;
-    let suggestedOrderCount = 0;
-
-    const itemsToCreate: Prisma.RecommendationItemCreateManySessionInput[] = [];
-
-    for (const product of products) {
-      const pIdStr = product.id.toString();
-      const sales = salesByProduct.get(pIdStr)!;
-      const forecast = forecastMap.get(pIdStr)!;
-      const abcRes = abcMap.get(pIdStr)!;
-
-      // 8a. Lọc NCC hợp lệ và xếp hạng WSM (5A.4)
-      const validCandidates: SupplierCandidateInput[] = product.supplyConditions
-        .filter((sc) => sc.supplier && sc.supplier.status === 'Active')
-        .map((sc) => ({
-          supplierId: sc.supplierId,
-          supplierCode: sc.supplier.supplierCode,
-          supplierName: sc.supplier.supplierName,
-          purchasePrice: Number(sc.purchasePrice),
-          committedLeadTimeDays: sc.supplier.committedLeadTimeDays,
-          moq: sc.moq,
-          performanceScore: Number(sc.supplier.performanceScore),
-          completedOrderCount: sc.supplier.completedOrderCount,
-        }));
-
-      const wsmResult = this.calcEngine.rankSuppliersWsm(
-        validCandidates,
+    // 8. Chạy các engine 5A còn lại (WSM, SS, ROP & SOQ, StockRisk) và đóng gói items
+    const { itemsToCreate, suggestedOrderCount, totalSuggestedAmount } =
+      DssItemBuilderHelper.buildRecommendationItems(
+        products,
+        salesByProduct,
+        forecastMap,
+        abcMap,
         wsmWeights,
+        { targetServiceLevel, zFactor, reviewPeriodDays },
+        this.calcEngine,
       );
-      const suggestedSupplier = wsmResult.suggestedSupplier;
 
-      const leadTime = suggestedSupplier
-        ? suggestedSupplier.committedLeadTimeDays
-        : 1;
-      const moq = suggestedSupplier ? suggestedSupplier.moq : 1;
-      const unitPrice = suggestedSupplier ? suggestedSupplier.purchasePrice : 0;
-
-      // 8b. Tính Tồn kho an toàn Safety Stock (5A.2)
-      const ssResult = this.calcEngine.calculateSafetyStock({
-        avgDailyDemand: forecast.dailyAverage,
-        demandStdDev: forecast.dailyDemandStd,
-        leadTimeDays: leadTime,
-        salesDaysCount: sales.distinctDates.size,
-        targetServiceLevel,
-        zFactor,
-      });
-
-      // 8c. Tính ROP & SOQ (5A.3)
-      const ropSoqResult = this.calcEngine.calculateRopAndSoq({
-        forecastedDemand: forecast.dailyAverage,
-        leadTimeDays: leadTime,
-        safetyStock: ssResult.safetyStock,
-        currentInventory: product.currentInventory,
-        onOrderQuantity: product.onOrderQuantity,
-        reviewPeriodDays,
-        moq,
-      });
-
-      // 8d. Phân loại rủi ro StockRiskStatus (5A.5)
-      const riskResult = this.calcEngine.classifyStockRisk({
-        currentInventory: product.currentInventory,
-        onOrderQuantity: product.onOrderQuantity,
-        reorderPoint: ropSoqResult.reorderPoint,
-        forecastedDemand: forecast.dailyAverage,
-        reviewPeriodDays,
-      });
-
-      const suggestedQty = ropSoqResult.suggestedQuantity;
-      if (suggestedQty > 0) {
-        suggestedOrderCount++;
-        totalSuggestedAmount += suggestedQty * unitPrice;
-      }
-
-      itemsToCreate.push({
-        productId: product.id,
-        forecastedDemand: new Prisma.Decimal(forecast.dailyAverage.toFixed(2)),
-        dailyForecasts:
-          forecast.dailyForecasts as unknown as Prisma.InputJsonValue,
-        snapshotCurrentInventory: product.currentInventory, // Snapshot bất biến
-        snapshotOnOrderQuantity: product.onOrderQuantity, // Snapshot bất biến
-        safetyStock: ssResult.safetyStock,
-        reorderPoint: ropSoqResult.reorderPoint,
-        abcXyzGroup: abcRes.badge,
-        stockRiskStatus: riskResult.status,
-        suggestedQuantity: suggestedQty,
-        suggestedSupplierId: wsmResult.suggestedSupplierId
-          ? BigInt(wsmResult.suggestedSupplierId)
-          : null,
-        suggestedSupplierWsmScore: wsmResult.suggestedSupplierScore
-          ? new Prisma.Decimal(wsmResult.suggestedSupplierScore.toFixed(4))
-          : null,
-        supplierRankings:
-          wsmResult.rankings as unknown as Prisma.InputJsonValue,
-        approvedQuantity: suggestedQty, // Mặc định khởi tạo bằng suggestedQuantity
-        approvedSupplierId: wsmResult.suggestedSupplierId
-          ? BigInt(wsmResult.suggestedSupplierId)
-          : null,
-        isOverridden: false,
-        whyBuyExplanation: null, // Chỉ kích hoạt on-demand tại 5B.4
-      });
-    }
-
-    // 9. Lưu vào CSDL trong ACID Transaction (INV-REC-06)
-    const sessionCode = await this.generateSessionCode(
-      dto.asOfDate ? effectiveDate : undefined,
+    // 9. Sinh mã phiên đề xuất REC-YYYYMMDD-XXX
+    const sessionCode = await DssSessionCodeGenerator.generate(
+      this.prisma,
+      dto.asOfDate ? dateRange.effectiveDate : undefined,
     );
 
+    // 10. Lưu vào CSDL trong ACID Transaction toàn vẹn (INV-REC-06)
     const createdSession = await this.prisma.$transaction(async (tx) => {
       const session = await tx.recommendationSession.create({
         data: {
@@ -346,7 +199,7 @@ export class DssSessionAnalysisService {
             totalSuggestedAmount.toFixed(2),
           ),
           createdBy: username,
-          ...(dto.asOfDate ? { createdAt: effectiveDate } : {}),
+          ...(dto.asOfDate ? { createdAt: dateRange.effectiveDate } : {}),
         },
       });
 
@@ -369,82 +222,5 @@ export class DssSessionAnalysisService {
       suggestedOrderCount,
       createdAt: createdSession.createdAt.toISOString(),
     };
-  }
-
-  /**
-   * Gom dữ liệu bán hàng 90 ngày theo từng SKU
-   */
-  private aggregateSalesRecords(
-    products: { id: bigint }[],
-    salesRecords: {
-      productId: bigint;
-      revenue: Prisma.Decimal;
-      quantitySold: number;
-      saleDate: Date;
-    }[],
-  ): Map<
-    string,
-    {
-      totalRevenue: number;
-      totalQty: number;
-      records: SkuSalesHistoryItem[];
-      distinctDates: Set<string>;
-    }
-  > {
-    const salesByProduct = new Map<
-      string,
-      {
-        totalRevenue: number;
-        totalQty: number;
-        records: SkuSalesHistoryItem[];
-        distinctDates: Set<string>;
-      }
-    >();
-
-    for (const p of products) {
-      salesByProduct.set(p.id.toString(), {
-        totalRevenue: 0,
-        totalQty: 0,
-        records: [],
-        distinctDates: new Set(),
-      });
-    }
-
-    for (const record of salesRecords) {
-      const pIdStr = record.productId.toString();
-      const entry = salesByProduct.get(pIdStr);
-      if (entry) {
-        const rev = Number(record.revenue) || 0;
-        const qty = record.quantitySold || 0;
-        const dateStr = record.saleDate.toISOString().split('T')[0];
-
-        entry.totalRevenue += rev;
-        entry.totalQty += qty;
-        entry.records.push({ date: dateStr, quantity: qty });
-        entry.distinctDates.add(dateStr);
-      }
-    }
-
-    return salesByProduct;
-  }
-
-  /**
-   * Sinh mã phiên đề xuất theo quy chuẩn: REC-YYYYMMDD-XXX
-   */
-  private async generateSessionCode(asOfDate?: Date): Promise<string> {
-    const today = asOfDate || new Date();
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const prefix = `REC-${yyyy}${mm}${dd}-`;
-
-    const countToday = await this.prisma.recommendationSession.count({
-      where: {
-        sessionCode: { startsWith: prefix },
-      },
-    });
-
-    const seq = String(countToday + 1).padStart(3, '0');
-    return `${prefix}${seq}`;
   }
 }

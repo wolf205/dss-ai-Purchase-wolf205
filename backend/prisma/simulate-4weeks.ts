@@ -10,15 +10,15 @@ import * as path from 'path';
 
 interface WeekConfig {
   weekNum: number;
-  asOfDate: string; // Ngày phân tích DSS (Thứ Hai)
-  weekEndDate: string; // Ngày kết thúc tuần (Chủ Nhật)
+  asOfDate: string; // Ngày phân tích DSS (Chủ Nhật)
+  weekEndDate: string; // Ngày kết thúc tuần
 }
 
 const WEEKS: WeekConfig[] = [
-  { weekNum: 1, asOfDate: '2026-10-17', weekEndDate: '2026-10-23' },
-  { weekNum: 2, asOfDate: '2026-10-24', weekEndDate: '2026-10-30' },
-  { weekNum: 3, asOfDate: '2026-10-31', weekEndDate: '2026-11-06' },
-  { weekNum: 4, asOfDate: '2026-11-07', weekEndDate: '2026-11-13' },
+  { weekNum: 1, asOfDate: '2026-11-01', weekEndDate: '2026-11-07' },
+  { weekNum: 2, asOfDate: '2026-11-08', weekEndDate: '2026-11-14' },
+  { weekNum: 3, asOfDate: '2026-11-15', weekEndDate: '2026-11-21' },
+  { weekNum: 4, asOfDate: '2026-11-22', weekEndDate: '2026-11-28' },
 ];
 
 async function main() {
@@ -26,6 +26,7 @@ async function main() {
     '================================================================',
   );
   console.log('🚀 BẮT ĐẦU CHẠY MÔ PHỎNG 4 TUẦN PHÂN TÍCH VÀ ĐÁNH GIÁ DSS');
+  console.log('   Neo theo mốc thời gian hiện tại: 2026-11-22 (Chủ Nhật)');
   console.log(
     '================================================================\n',
   );
@@ -81,7 +82,45 @@ async function main() {
     console.log(`   - Tổng số SKU phân tích: ${analysisRes.totalSkusAnalyzed}`);
     console.log(`   - Số SKU cần đặt hàng: ${analysisRes.suggestedOrderCount}`);
 
-    // 2. Phê duyệt phiên đề xuất mua hàng (UC-01 Approve -> sinh POs)
+    // ĐỐI VỚI TUẦN 4 (HÔM NAY 2026-11-22):
+    // Giữ nguyên ở trạng thái Draft / Active để người dùng và hội đồng xem xét trực tiếp trên UI!
+    if (week.weekNum === 4) {
+      console.log(
+        `\n🌟 [CHÚ Ý QUAN TRỌNG] TUẦN 4 (${analysisRes.sessionCode}) LÀ THỜI ĐIỂM HIỆN TẠI (2026-11-22)!`,
+      );
+      console.log(
+        `   👉 Phiên đề xuất được giữ ở trạng thái DRAFT (Chờ phê duyệt).`,
+      );
+      console.log(
+        `   👉 Người dùng có thể đăng nhập Web UI để: xem biểu đồ dự báo, bấm Explain AI on-demand, và phê duyệt POs trực tiếp!`,
+      );
+      const recItems = await prisma.recommendationItem.findMany({
+        where: { sessionId },
+        select: { suggestedQuantity: true },
+      });
+      const totalSuggestedQty = recItems.reduce(
+        (acc, item) => acc + (item.suggestedQuantity || 0),
+        0,
+      );
+
+      summaryResults.push({
+        week: `Tuần ${week.weekNum} (Hiện tại)`,
+        sessionCode: analysisRes.sessionCode,
+        startDate: week.asOfDate,
+        endDate: week.weekEndDate,
+        status: 'Draft (Chờ duyệt)',
+        dailyWape: 'Chờ thực tế',
+        weeklyWape: 'Chờ thực tế',
+        mape: 'Chờ thực tế',
+        bias: 'Chờ thực tế',
+        predQty: totalSuggestedQty,
+        actQty: 'Chưa phát sinh',
+        poCount: 0,
+      });
+      break;
+    }
+
+    // 2. Phê duyệt phiên đề xuất mua hàng (UC-01 Approve -> sinh POs) cho các tuần 1, 2, 3
     console.log(`⏳ Phê duyệt phiên đề xuất ${analysisRes.sessionCode}...`);
     const approvalRes = await approvalService.approveSession(
       Number(sessionId),
@@ -97,30 +136,71 @@ async function main() {
       );
     }
 
-    // 3. Nhập kho hàng đã đặt (UC-03 Goods Receipt) khi hàng tới
+    // 3. Nhập kho hàng đã đặt (UC-03 Goods Receipt) theo kịch bản ĐA DẠNG:
+    //    - On-Time & In-Full (OTIF chuẩn)
+    //    - Late Delivery (Giao trễ 1-2 ngày)
+    //    - Partial Delivery (Giao thiếu một phần số lượng)
     const pos = await prisma.purchaseOrder.findMany({
       where: { sessionId },
-      include: { lineItems: true },
+      include: { lineItems: true, supplier: true },
+      orderBy: { id: 'asc' },
     });
 
-    for (const po of pos) {
-      const receiptDateStr = po.expectedDeliveryDate.toISOString().slice(0, 10);
+    for (let poIdx = 0; poIdx < pos.length; poIdx++) {
+      const po = pos[poIdx];
+      const expectedDate = new Date(po.expectedDeliveryDate);
+      let receiptDate = new Date(expectedDate);
+      let scenarioLabel = 'On-time & In-full (100%)';
+
+      // Mô phỏng nhận hàng đa dạng:
+      // Tuần 1: PO thứ 2 giao trễ 1 ngày (Late)
+      // Tuần 2: PO thứ 2 giao thiếu 15% mặt hàng đầu tiên (Partial)
+      // Tuần 3: PO thứ 2 giao trễ 1 ngày + thiếu 10% (Late & Partial)
+      let isLate = false;
+      let isPartial = false;
+
+      if (week.weekNum === 1 && poIdx === 1) {
+        isLate = true;
+        scenarioLabel = 'Giao trễ 1 ngày (Late Delivery)';
+      } else if (week.weekNum === 2 && poIdx === 1) {
+        isPartial = true;
+        scenarioLabel = 'Giao thiếu hàng (Partial Delivery)';
+      } else if (week.weekNum === 3 && poIdx === 1) {
+        isLate = true;
+        isPartial = true;
+        scenarioLabel = 'Giao trễ 1 ngày & Giao thiếu (Late & Partial)';
+      }
+
+      if (isLate) {
+        receiptDate.setUTCDate(receiptDate.getUTCDate() + 1);
+      }
+
+      const receiptDateStr = receiptDate.toISOString().slice(0, 10);
+
+      const linesToReceive = po.lineItems.map((li, lineIdx) => {
+        let qty = li.quantity;
+        if (isPartial && lineIdx === 0 && qty > 5) {
+          qty = Math.max(1, Math.floor(qty * 0.85)); // Giao thiếu 15% cho dòng đầu
+        }
+        return {
+          poLineItemId: Number(li.id),
+          skuId: Number(li.productId),
+          receivedQuantity: qty,
+        };
+      });
+
       try {
-        await goodsReceiptsService.confirmGoodsReceipt(
+        const gr = await goodsReceiptsService.confirmGoodsReceipt(
           {
             purchaseOrderId: Number(po.id),
             receiptDate: receiptDateStr,
-            note: `Nhập kho tự động theo PO ${po.poNumber} cho tuần ${week.weekNum}`,
-            lines: po.lineItems.map((li) => ({
-              poLineItemId: Number(li.id),
-              skuId: Number(li.productId),
-              receivedQuantity: li.quantity,
-            })),
+            note: `Nhập kho đơn hàng ${po.poNumber} [${scenarioLabel}]`,
+            lines: linesToReceive,
           },
           'warehouse_staff',
         );
         console.log(
-          `   📦 Đã nhận hàng kho cho PO ${po.poNumber} ngày ${receiptDateStr}`,
+          `   📦 Đã nhận hàng cho PO ${po.poNumber} (Phiếu: ${gr.receiptNumber}) ngày ${receiptDateStr} -> ${scenarioLabel}`,
         );
       } catch (err: any) {
         console.warn(
@@ -137,7 +217,6 @@ async function main() {
     if (fs.existsSync(salesFilePath)) {
       const content = fs.readFileSync(salesFilePath, 'utf-8');
       const lines = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
-      const header = lines[0]; // Date,SKU,Quantity,Revenue
       const recordsToInsert: any[] = [];
 
       for (let i = 1; i < lines.length; i++) {
@@ -185,7 +264,7 @@ async function main() {
             where: { id: prod.id },
             data: {
               currentInventory: stock,
-              onOrderQuantity: 0, // Reset hàng đang về sau khi hoàn thành tuần
+              onOrderQuantity: 0, // Reset hàng đang về sau khi hoàn thành nhận hàng tuần
             },
           });
 
@@ -254,6 +333,7 @@ async function main() {
       sessionCode: analysisRes.sessionCode,
       startDate: week.asOfDate,
       endDate: week.weekEndDate,
+      status: 'Approved & Evaluated',
       dailyWape: evalRes.summary
         ? `${evalRes.summary.overallWape.toFixed(2)}%`
         : 'N/A',
@@ -275,7 +355,7 @@ async function main() {
   console.log(
     '\n================================================================',
   );
-  console.log('🏆 BẢNG TỔNG HỢP KẾT QUẢ ĐỐI SOÁT 4 TUẦN VẬN HÀNH DSS');
+  console.log('🏆 BẢNG TỔNG HỢP KẾT QUẢ VẬN HÀNH 4 PHIÊN DSS (CHU KỲ 2026-11-22)');
   console.log(
     '================================================================',
   );

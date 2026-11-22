@@ -1,6 +1,7 @@
 export type StockRiskStatus =
   | 'Critical'
   | 'Warning'
+  | 'Safe'
   | 'Normal'
   | 'Overstock'
   | string;
@@ -112,7 +113,7 @@ export interface ExplainRecommendationItemResponse {
 
 export interface DssFilterState {
   search: string;
-  riskStatus: 'all' | 'Critical' | 'Warning' | 'Normal' | 'Overstock';
+  riskStatus: 'all' | 'Critical' | 'Warning' | 'Safe' | 'Normal' | 'Overstock';
   abcClass: 'all' | 'A' | 'B' | 'C';
   xyzClass: 'all' | 'X' | 'Y' | 'Z';
 }

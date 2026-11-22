@@ -301,7 +301,7 @@ async function main() {
   ];
 
   const productMap = new Map<string, bigint>();
-  const snapshotDate = new Date('2026-10-16T00:00:00.000Z');
+  const snapshotDate = new Date('2026-10-31T00:00:00.000Z');
 
   for (const prod of productsData) {
     const categoryId = categoryMap.get(prod.categoryCode)!;

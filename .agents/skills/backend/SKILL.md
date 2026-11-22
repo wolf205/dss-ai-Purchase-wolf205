@@ -29,7 +29,10 @@ backend/
 │   │   ├── catalog/           # UC-05: categories, products (CRUD + Soft Deactivate)
 │   │   ├── suppliers/         # UC-06: suppliers, supply_conditions, OTIF tracking
 │   │   ├── dss/               # UC-01, UC-07: sessions, calc engine, LLM on-demand
-│   │   │   └── engines/       # DssCalculationEngineService (pure functions)
+│   │   │   ├── clients/       # AI Forecasting & Gemini Explainer clients
+│   │   │   ├── engines/       # DssCalculationEngineService & pure calculators
+│   │   │   ├── helpers/       # Data preparer, item builder, session code generator
+│   │   │   └── services/      # Analysis, query, adjustment, approval, explainability, evaluation
 │   │   ├── purchase-orders/   # UC-02: PO lifecycle, export PDF/Excel, cancel + on-order reversal
 │   │   ├── goods-receipts/    # UC-03: nhận hàng, OTIF calc, stock update
 │   │   ├── data-import/       # UC-04: sales/inventory file import, All-or-Nothing

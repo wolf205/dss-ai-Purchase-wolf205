@@ -143,6 +143,7 @@ export interface StockRiskInput {
   reorderPoint: number; // Điểm đặt hàng lại (ROP >= 0)
   forecastedDemand: number; // Nhu cầu dự báo trung bình ngày (d_forecast >= 0)
   reviewPeriodDays?: number; // Chu kỳ rà soát mua hàng (R, mặc định 7 ngày theo BR-27)
+  safetyStock?: number; // Tồn kho an toàn khuyến nghị (SS >= 0 theo BR-01)
 }
 
 /**

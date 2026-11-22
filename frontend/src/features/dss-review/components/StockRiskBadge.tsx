@@ -26,6 +26,12 @@ const riskMap: Record<string, RiskConfig> = {
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
     description: 'Tồn khả dụng đã chạm hoặc dưới điểm đặt hàng lại ROP',
   },
+  Safe: {
+    label: 'An toàn',
+    dotColor: 'bg-emerald-500',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    description: 'Mức tồn kho an toàn, chưa cần bổ sung',
+  },
   Normal: {
     label: 'An toàn',
     dotColor: 'bg-emerald-500',

@@ -116,4 +116,34 @@ describe('StockRiskCalculator (BR-01)', () => {
     expect(result.status).toBe(StockRiskStatus.OVERSTOCK);
     expect(result.overstockThreshold).toBe(10);
   });
+
+  it('should classify as Critical when onHand <= safetyStock and IP <= ROP', () => {
+    // onHand = 3 <= SS = 5, onOrder = 0 -> IP = 3 <= ROP = 9 -> Critical
+    const result = StockRiskCalculator.classify({
+      currentInventory: 3,
+      onOrderQuantity: 0,
+      reorderPoint: 9,
+      forecastedDemand: 2,
+      reviewPeriodDays: 7,
+      safetyStock: 5,
+    });
+
+    expect(result.status).toBe(StockRiskStatus.CRITICAL);
+    expect(result.label).toBe('🔴 Cần mua gấp');
+  });
+
+  it('should classify as Warning when onHand <= safetyStock but onOrder > 0 and IP > ROP', () => {
+    // onHand = 3 <= SS = 5, onOrder = 10 -> IP = 13 > ROP = 9 -> Warning (hàng đang về)
+    const result = StockRiskCalculator.classify({
+      currentInventory: 3,
+      onOrderQuantity: 10,
+      reorderPoint: 9,
+      forecastedDemand: 2,
+      reviewPeriodDays: 7,
+      safetyStock: 5,
+    });
+
+    expect(result.status).toBe(StockRiskStatus.WARNING);
+    expect(result.label).toBe('🟠 Sắp hết / Chạm ROP');
+  });
 });

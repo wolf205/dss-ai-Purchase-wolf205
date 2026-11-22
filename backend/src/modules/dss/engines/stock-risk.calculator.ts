@@ -8,11 +8,11 @@ import { STOCK_RISK_LABELS, StockRiskStatus } from '../enums/stock-risk.enum';
  * StockRiskCalculator — Động cơ phân loại trạng thái rủi ro tồn kho (BR-01)
  *
  * 1. 🔴 Critical (Cần mua gấp / Hết hàng):
- *    - Khi I_on_hand = 0 VÀ IP <= ROP
+ *    - Khi (I_on_hand = 0 HOẶC I_on_hand <= SS) VÀ IP <= ROP
  *
  * 2. 🟠 Warning (Sắp hết / Chạm ROP):
- *    - Khi IP <= ROP (với I_on_hand > 0)
- *    - Hoặc khi I_on_hand = 0 nhưng IP > ROP (kệ rỗng nhưng đang chờ PO về)
+ *    - Khi IP <= ROP (với I_on_hand > SS)
+ *    - Hoặc khi (I_on_hand = 0 HOẶC I_on_hand <= SS) nhưng IP > ROP (đang chờ PO về)
  *
  * 3. ⚪ Overstock (Dư thừa / Vượt trần):
  *    - Khi IP > ROP + (d_forecast * 2R)
@@ -27,15 +27,18 @@ export class StockRiskCalculator {
     const rop = Math.max(0, Number(input.reorderPoint) || 0);
     const d = Math.max(0, Number(input.forecastedDemand) || 0);
     const R = Math.max(1, Number(input.reviewPeriodDays) || 7);
+    const ss = Math.max(0, Number(input.safetyStock) || 0);
 
     const inventoryPosition = onHand + onOrder;
     const overstockThreshold = Math.ceil(rop + d * (2 * R));
 
+    const isExhaustedOrUnderSS = onHand === 0 || (ss > 0 && onHand <= ss);
+
     let status: StockRiskStatus;
 
-    if (onHand === 0 && inventoryPosition <= rop) {
+    if (isExhaustedOrUnderSS && inventoryPosition <= rop) {
       status = StockRiskStatus.CRITICAL;
-    } else if (inventoryPosition <= rop || onHand === 0) {
+    } else if (inventoryPosition <= rop || isExhaustedOrUnderSS) {
       status = StockRiskStatus.WARNING;
     } else if (inventoryPosition > overstockThreshold) {
       status = StockRiskStatus.OVERSTOCK;

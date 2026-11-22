@@ -88,8 +88,14 @@ export class DssSessionQueryService {
               matchedRanking.leadTime ??
               leadTimeDays,
           );
-          if (wsmScore === null && matchedRanking.wsmScore !== undefined) {
-            wsmScore = Number(matchedRanking.wsmScore);
+          if (
+            wsmScore === null &&
+            (matchedRanking.totalScore !== undefined ||
+              matchedRanking.wsmScore !== undefined)
+          ) {
+            wsmScore = Number(
+              matchedRanking.totalScore ?? matchedRanking.wsmScore,
+            );
           }
         }
 
@@ -111,7 +117,7 @@ export class DssSessionQueryService {
       const supplierRankings: SupplierRankingDto[] = rankings.map((r) => ({
         supplierId: Number(r.supplierId),
         name: String(r.supplierName ?? r.name ?? ''),
-        score: Number(r.wsmScore ?? r.score ?? 0),
+        score: Number(r.totalScore ?? r.wsmScore ?? r.score ?? 0),
         price: Number(r.purchasePrice ?? r.price ?? 0),
         leadTime: Number(r.committedLeadTimeDays ?? r.leadTime ?? 0),
         moq: r.moq !== undefined ? Number(r.moq) : undefined,
@@ -146,6 +152,50 @@ export class DssSessionQueryService {
         isOverridden: item.isOverridden,
         llmExplanation: item.whyBuyExplanation,
       };
+    });
+
+    // Sắp xếp danh sách đề xuất theo mức độ gấp giảm dần (UC-01 Bước 3.2)
+    const RISK_PRIORITY: Record<string, number> = {
+      Critical: 1,
+      Warning: 2,
+      Safe: 3,
+      Normal: 3,
+      Overstock: 4,
+    };
+    const ABC_PRIORITY: Record<string, number> = {
+      A: 1,
+      B: 2,
+      C: 3,
+    };
+
+    items.sort((a, b) => {
+      const pA = RISK_PRIORITY[a.stockRiskStatus] ?? 99;
+      const pB = RISK_PRIORITY[b.stockRiskStatus] ?? 99;
+      if (pA !== pB) return pA - pB;
+
+      // Trong cùng nhóm Critical hoặc Warning:
+      if (pA <= 2) {
+        // 1. Ưu tiên mặt hàng có gợi ý mua > 0 lên trước
+        const hasOrderA = a.suggestedQuantity > 0 ? 1 : 0;
+        const hasOrderB = b.suggestedQuantity > 0 ? 1 : 0;
+        if (hasOrderA !== hasOrderB) return hasOrderB - hasOrderA;
+
+        // 2. Ưu tiên mức độ cạn kiệt (tồn kho / ROP càng nhỏ càng nguy cấp)
+        const ratioA =
+          (a.currentInventory + a.onOrderQuantity) /
+          Math.max(1, a.reorderPoint);
+        const ratioB =
+          (b.currentInventory + b.onOrderQuantity) /
+          Math.max(1, b.reorderPoint);
+        if (ratioA !== ratioB) return ratioA - ratioB;
+
+        // 3. Ưu tiên nhóm hàng A > B > C
+        const abcA = ABC_PRIORITY[a.abcClassification] ?? 9;
+        const abcB = ABC_PRIORITY[b.abcClassification] ?? 9;
+        if (abcA !== abcB) return abcA - abcB;
+      }
+
+      return a.skuCode.localeCompare(b.skuCode);
     });
 
     return {

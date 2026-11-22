@@ -24,7 +24,15 @@ export const DssSummaryBar: React.FC<DssSummaryBarProps> = ({
   const estimatedPoCount = supplierIdSet.size;
 
   const totalBudget = orderedItems.reduce((sum, it) => {
-    const price = it.suggestedSupplier?.unitPrice || 0;
+    let price = it.suggestedSupplier?.unitPrice || 0;
+    if (it.approvedSupplierId && Array.isArray(it.supplierRankings)) {
+      const matched = it.supplierRankings.find(
+        (r) => r.supplierId === it.approvedSupplierId
+      );
+      if (matched) {
+        price = matched.price;
+      }
+    }
     return sum + it.approvedQuantity * price;
   }, 0);
 

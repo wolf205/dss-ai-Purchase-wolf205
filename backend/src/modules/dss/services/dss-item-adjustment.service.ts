@@ -235,8 +235,14 @@ export class DssItemAdjustmentService {
             matchedRanking.leadTime ??
             leadTimeDays,
         );
-        if (wsmScore === null && matchedRanking.wsmScore !== undefined) {
-          wsmScore = Number(matchedRanking.wsmScore);
+        if (
+          wsmScore === null &&
+          (matchedRanking.totalScore !== undefined ||
+            matchedRanking.wsmScore !== undefined)
+        ) {
+          wsmScore = Number(
+            matchedRanking.totalScore ?? matchedRanking.wsmScore,
+          );
         }
       }
 
@@ -258,7 +264,7 @@ export class DssItemAdjustmentService {
     const supplierRankings: SupplierRankingDto[] = rankings.map((r) => ({
       supplierId: Number(r.supplierId),
       name: String(r.supplierName ?? r.name ?? ''),
-      score: Number(r.wsmScore ?? r.score ?? 0),
+      score: Number(r.totalScore ?? r.wsmScore ?? r.score ?? 0),
       price: Number(r.purchasePrice ?? r.price ?? 0),
       leadTime: Number(r.committedLeadTimeDays ?? r.leadTime ?? 0),
       moq: r.moq !== undefined ? Number(r.moq) : undefined,

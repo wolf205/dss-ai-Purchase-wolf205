@@ -131,15 +131,27 @@ export const DssToolbar: React.FC<DssToolbarProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onFilterChange({ riskStatus: 'Normal' })}
+              onClick={() => onFilterChange({ riskStatus: 'Safe' })}
               className={`flex items-center gap-1 px-2 py-1 rounded-md transition-colors cursor-pointer ${
-                filters.riskStatus === 'Normal'
+                filters.riskStatus === 'Safe' || filters.riskStatus === 'Normal'
                   ? 'bg-emerald-600 font-semibold text-white shadow-2xs'
                   : 'text-emerald-700 hover:bg-emerald-50'
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-current" />
               An toàn
+            </button>
+            <button
+              type="button"
+              onClick={() => onFilterChange({ riskStatus: 'Overstock' })}
+              className={`flex items-center gap-1 px-2 py-1 rounded-md transition-colors cursor-pointer ${
+                filters.riskStatus === 'Overstock'
+                  ? 'bg-slate-600 font-semibold text-white shadow-2xs'
+                  : 'text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-current" />
+              Dư thừa
             </button>
           </div>
 

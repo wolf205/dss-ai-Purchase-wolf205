@@ -269,7 +269,7 @@ export const DssRecommendationTable: React.FC<DssRecommendationTableProps> = ({
                                 title="Điểm số tối ưu WSM"
                                 className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-amber-50 text-amber-800 border border-amber-200"
                               >
-                                {Number(supplier.wsmScore).toFixed(1)} đ
+                                {Number(supplier.wsmScore).toFixed(1)} điểm
                               </span>
                             )}
                           </div>
