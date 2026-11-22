@@ -184,7 +184,7 @@ describe('DssSessionAnalysisService (UC-01 Session Orchestration)', () => {
       expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
 
-    it('should query full sales history without 90-day cutoff and anchor history to earliest sale date', async () => {
+    it('should query sales history constrained to 90-day window and anchor history start to 90 days ago', async () => {
       mockPrisma.recommendationSession.updateMany.mockResolvedValue({
         count: 0,
       });
@@ -226,14 +226,7 @@ describe('DssSessionAnalysisService (UC-01 Session Orchestration)', () => {
         },
       ]);
 
-      // Sale from 150 days before asOfDate (2026-11-14) -> must NOT be cut off by 90-day window
       mockPrisma.salesRecord.findMany.mockResolvedValue([
-        {
-          productId: BigInt(1),
-          revenue: new Prisma.Decimal(340000),
-          quantitySold: 10,
-          saleDate: new Date('2026-06-17T00:00:00.000Z'),
-        },
         {
           productId: BigInt(1),
           revenue: new Prisma.Decimal(680000),
@@ -278,15 +271,15 @@ describe('DssSessionAnalysisService (UC-01 Session Orchestration)', () => {
 
       const findManyArg = mockPrisma.salesRecord.findMany.mock.calls[0][0];
       expect(findManyArg.where.saleDate).toEqual({
+        gte: new Date('2026-08-16T00:00:00.000Z'),
         lt: new Date('2026-11-14T00:00:00.000Z'),
       });
-      expect(findManyArg.where.saleDate.gte).toBeUndefined();
 
       const forecastCallArg =
         mockAiForecastingClient.getForecasts.mock.calls[0][0];
       expect(forecastCallArg[0].history[0]).toEqual({
-        date: '2026-06-17',
-        quantity: 10,
+        date: '2026-08-16',
+        quantity: 0,
       });
       expect(forecastCallArg[0].history[1]).toEqual({
         date: '2026-11-13',

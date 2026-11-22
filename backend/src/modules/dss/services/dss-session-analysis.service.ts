@@ -101,35 +101,38 @@ export class DssSessionAnalysisService {
 
     const productIds = products.map((p) => p.id);
 
-    // 5. Lấy và tổng hợp toàn bộ lịch sử bán hàng tính đến thời điểm phân tích
+    // 5. Lấy và tổng hợp lịch sử bán hàng 90 ngày gần nhất tính đến thời điểm phân tích
     const effectiveDate = dto.asOfDate ? new Date(dto.asOfDate) : new Date();
-    const salesDateFilter: Prisma.DateTimeFilter | undefined = dto.asOfDate
-      ? {
-          lt: new Date(
-            Date.UTC(
-              effectiveDate.getUTCFullYear(),
-              effectiveDate.getUTCMonth(),
-              effectiveDate.getUTCDate(),
-            ),
-          ),
-        }
-      : undefined;
+    const effectiveUtc = new Date(
+      Date.UTC(
+        effectiveDate.getUTCFullYear(),
+        effectiveDate.getUTCMonth(),
+        effectiveDate.getUTCDate(),
+      ),
+    );
+    const ninetyDaysAgoUtc = new Date(effectiveUtc);
+    ninetyDaysAgoUtc.setUTCDate(ninetyDaysAgoUtc.getUTCDate() - 90);
+
+    const salesDateFilter: Prisma.DateTimeFilter = {
+      gte: ninetyDaysAgoUtc,
+      ...(dto.asOfDate ? { lt: effectiveUtc } : {}),
+    };
 
     const salesRecords = await this.prisma.salesRecord.findMany({
       where: {
         productId: { in: productIds },
-        ...(salesDateFilter ? { saleDate: salesDateFilter } : {}),
+        saleDate: salesDateFilter,
       },
       orderBy: { saleDate: 'asc' },
     });
 
     const salesByProduct = this.aggregateSalesRecords(products, salesRecords);
 
-    // 5b. Thu thập các ngày tồn kho kiểm đếm = 0 trong toàn bộ lịch sử (Stockout Uncensoring)
+    // 5b. Thu thập các ngày tồn kho kiểm đếm = 0 trong 90 ngày (Stockout Uncensoring)
     const stockoutSnapshots = await (this.prisma.inventorySnapshot?.findMany?.({
       where: {
         productId: { in: productIds },
-        ...(salesDateFilter ? { snapshotDate: salesDateFilter } : {}),
+        snapshotDate: salesDateFilter,
         countedQuantity: 0,
       },
       select: {
@@ -147,7 +150,7 @@ export class DssSessionAnalysisService {
       stockoutDatesByProduct.set(pKey, existing);
     }
 
-    // Xác định mốc ngày bắt đầu (ngày bán sớm nhất thực tế) và ngày kết thúc của toàn bộ chuỗi lịch sử
+    // Xác định mốc ngày bắt đầu (90 ngày trước) và ngày kết thúc của chuỗi lịch sử
     const historyEndDate = new Date(effectiveDate);
     historyEndDate.setUTCDate(historyEndDate.getUTCDate() - 1);
     const defaultEndDateStr = historyEndDate.toISOString().split('T')[0];
@@ -165,19 +168,8 @@ export class DssSessionAnalysisService {
         ? latestSaleDateStr
         : defaultEndDateStr;
 
-    const fallbackStartDate = new Date(effectiveDate);
-    fallbackStartDate.setUTCDate(fallbackStartDate.getUTCDate() - 90);
-    const historyStartDateStr =
-      salesRecords.length > 0
-        ? salesRecords[0].saleDate.toISOString().split('T')[0]
-        : fallbackStartDate.toISOString().split('T')[0];
-
-    const historyStartMs = new Date(`${historyStartDateStr}T00:00:00.000Z`).getTime();
-    const historyEndMs = new Date(`${historyEndDateStr}T00:00:00.000Z`).getTime();
-    const historyDays = Math.max(
-      1,
-      Math.round((historyEndMs - historyStartMs) / (1000 * 60 * 60 * 24)) + 1,
-    );
+    const historyStartDateStr = ninetyDaysAgoUtc.toISOString().split('T')[0];
+    const historyDays = 90;
 
     // 6. Lấy dự báo nhu cầu từ AI Client (kèm SMA fallback)
     const forecastInputs: SkuForecastInput[] = products.map((p) => {
@@ -380,7 +372,7 @@ export class DssSessionAnalysisService {
   }
 
   /**
-   * Gom dữ liệu bán hàng toàn bộ lịch sử theo từng SKU
+   * Gom dữ liệu bán hàng 90 ngày theo từng SKU
    */
   private aggregateSalesRecords(
     products: { id: bigint }[],
