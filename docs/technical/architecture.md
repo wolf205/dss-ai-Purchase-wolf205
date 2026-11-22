@@ -105,7 +105,7 @@ graph TD
     end
 
     subgraph G2 ["2. Phân Tích & Đề Xuất DSS (UC-01)"]
-        SR -->|Chuỗi Thời Gian| AI_SVC[Python AI Service: AutoARIMA / Croston]
+        SR -->|Chuỗi Thời Gian| AI_SVC[Python AI Service: Hybrid Ensemble & Global Cross-SKU]
         AI_SVC -->|daily_forecasts JSONB| CALC[NestJS Engine: ABC-XYZ, SS, ROP, SOQ, WSM]
         PROD & SUPP[(suppliers + conditions)] --> CALC
         CALC --> SESS[(recommendation_sessions & items)]
@@ -173,13 +173,18 @@ Kiến trúc Backend được chia thành chính xác 9 Modules độc lập:
 * **Mô hình triển khai:** Dịch vụ tính toán phi trạng thái (Stateless Compute Service) phát triển bằng FastAPI, lắng nghe tại cổng nội bộ 8000.
 * **Giao thức giao tiếp:** RESTful HTTP đồng bộ (`POST /api/v1/forecast`).
 * **Hợp đồng dữ liệu:**
-  * *Request:* NestJS gửi danh sách Active SKUs kèm chuỗi lịch sử bán hàng gần nhất (ngày và số lượng bán).
-  * *Tiền xử lý:* Tự động điền giá trị 0 cho các ngày không phát sinh đơn hàng (Zero-Demand Handling).
-  * *Lựa chọn thuật toán:*
-    * Nhu cầu ngắt quãng, nhiều ngày 0: Sử dụng mô hình **Croston** hoặc **TSB** (Teunter-Syntetos-Babai) qua thư viện `statsforecast`.
-    * Nhu cầu đều, biến động thấp ($CV \le 0.5$): Sử dụng **AutoARIMA** hoặc **Holt-Winters ETS**.
-    * Chuỗi dữ liệu ngắn ($14 \le N < 30$ ngày): Sử dụng **Simple Moving Average (7 ngày)**.
-  * *Response:* Trả về nhu cầu trung bình ngày ($\bar{d}$), độ lệch chuẩn nhu cầu ngày ($\sigma_d$), và mảng dự báo từng ngày cho **14 ngày tiếp theo** kèm khoảng tin cậy 95% (Lower/Upper bounds).
+  * *Request:* NestJS gửi danh sách Active SKUs kèm chuỗi lịch sử bán hàng gần nhất (ngày, số lượng bán), cùng tùy chọn `categoryCode` (hỗ trợ học chéo theo ngành hàng) và `stockoutDates` (khử hiệu ứng nhu cầu bị kiểm duyệt khi hết hàng).
+  * *Tiền xử lý (3 bước):*
+    1. **Zero-Demand Padding:** Tự động điền giá trị `0.0` cho các ngày không phát sinh giao dịch (cộng dồn nếu trùng ngày).
+    2. **Stockout Uncensoring:** Với các ngày nằm trong `stockoutDates` có lượng bán `<= 0`, nội suy bằng trung vị các ngày có bán không hết hàng (ưu tiên cùng thứ trong tuần).
+    3. **Outlier Winsorization:** Với chuỗi $\ge 14$ ngày và $\ge 5$ ngày có bán, cắt ngọn điểm ngoại lai vượt $\text{median} + 3.0 \times (1.4826 \times \text{MAD})$ (giữ nguyên các ngày `0`).
+  * *Mô hình dự báo & Định tuyến (Batch Hybrid Ensemble Pipeline):*
+    * **Chuỗi ngắn ($N < 30$ ngày):** Sử dụng **Simple Moving Average (7 ngày)** kết hợp hệ số mùa vụ ngày trong tuần gộp từ cửa hàng/ngành hàng (`Day-of-Week Shrinkage`) và hệ số đà tăng trưởng (`Recency Momentum Boost`).
+    * **Chuỗi đủ dài ($N \ge 30$ ngày, lô $\ge 2$ SKU):** Thực thi vectorized `statsforecast` (`MSTL`, `AutoETS`, `DynamicOptimizedTheta`, `HoltWinters`, `CrostonSBA`, `TSB`) kết hợp mô hình học chéo toàn lô **Global Cross-SKU Ridge** (Huber-damped & Bias Calibration, kích hoạt khi có $\ge 3$ SKU đạt $\ge 35$ ngày lịch sử) và trả về `modelUsed = "HybridEnsemble"`:
+      * Nhu cầu ngắt quãng ($CV > 1.0$ hoặc tỷ lệ ngày có bán $< 0.7$): Trộn có trọng số `CrostonSBA * DoW`, `DynamicOptimizedTheta`, `MSTL`, `AutoETS` (tùy mật độ bán) và `20–25%` Global Cross-SKU.
+      * Nhu cầu đều ($CV \le 0.5$) hoặc biến động trung bình ($0.5 < CV \le 1.0$): Trộn `AutoETS`, `MSTL`, `HoltWinters` / `DynamicOptimizedTheta` và `20%` Global Cross-SKU.
+    * **Fallback nội bộ theo SKU:** Nếu luồng batch gặp sự cố cục bộ trên một SKU, hệ thống chuyển về luồng đơn lẻ (`run_forecast_for_sku`): nhánh liên tục fallback về `AutoARIMA` rồi `SMA`; nhánh ngắt quãng fallback về `SMA`.
+  * *Response:* Trả về nhu cầu trung bình ngày ($\bar{d}$), độ lệch chuẩn nhu cầu ngày ($\sigma_d$), `modelUsed`, và mảng dự báo từng ngày cho `horizonDays` ngày tiếp theo (mặc định 14 ngày, phạm vi 7–30) kèm khoảng tin cậy 95% bất đối xứng thực nghiệm (**Empirical Asymmetric CI 95%**, mở rộng theo $\sqrt{1 + \text{step}/14}$).
 * **Cơ chế phòng thủ (Graceful Fallback):** Nếu container Python AI Service gặp sự cố hoặc timeout (> 3 giây), NestJS tự động chuyển sang tính $\bar{d}$ từ trung bình lịch sử thô qua SQL, hiển thị cảnh báo mềm `[Dự báo Dự Phòng]` trên giao diện và không bao giờ làm nghẽn chu trình mua hàng.
 
 ### 5.2. Động Cơ Tính Toán Tất Định (NestJS DssCalculationEngineService)

@@ -101,39 +101,83 @@ export class DssSessionAnalysisService {
 
     const productIds = products.map((p) => p.id);
 
-    // 5. Lấy và tổng hợp lịch sử bán hàng 90 ngày gần nhất
+    // 5. Lấy và tổng hợp toàn bộ lịch sử bán hàng tính đến thời điểm phân tích
     const effectiveDate = dto.asOfDate ? new Date(dto.asOfDate) : new Date();
-    const ninetyDaysAgo = new Date(effectiveDate);
-    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
-    ninetyDaysAgo.setHours(0, 0, 0, 0);
-
-    const salesDateFilter: Prisma.DateTimeFilter = {
-      gte: ninetyDaysAgo,
-    };
-    if (dto.asOfDate) {
-      const endOfAnalysis = new Date(effectiveDate);
-      endOfAnalysis.setHours(0, 0, 0, 0);
-      salesDateFilter.lt = endOfAnalysis;
-    }
+    const salesDateFilter: Prisma.DateTimeFilter | undefined = dto.asOfDate
+      ? {
+          lt: new Date(
+            Date.UTC(
+              effectiveDate.getUTCFullYear(),
+              effectiveDate.getUTCMonth(),
+              effectiveDate.getUTCDate(),
+            ),
+          ),
+        }
+      : undefined;
 
     const salesRecords = await this.prisma.salesRecord.findMany({
       where: {
         productId: { in: productIds },
-        saleDate: salesDateFilter,
+        ...(salesDateFilter ? { saleDate: salesDateFilter } : {}),
       },
       orderBy: { saleDate: 'asc' },
     });
 
     const salesByProduct = this.aggregateSalesRecords(products, salesRecords);
 
-    // Tính toán mốc ngày bắt đầu và kết thúc của chuỗi lịch sử 90 ngày
+    // 5b. Thu thập các ngày tồn kho kiểm đếm = 0 trong toàn bộ lịch sử (Stockout Uncensoring)
+    const stockoutSnapshots = await (this.prisma.inventorySnapshot?.findMany?.({
+      where: {
+        productId: { in: productIds },
+        ...(salesDateFilter ? { snapshotDate: salesDateFilter } : {}),
+        countedQuantity: 0,
+      },
+      select: {
+        productId: true,
+        snapshotDate: true,
+      },
+    }) ?? Promise.resolve([]));
+
+    const stockoutDatesByProduct = new Map<string, string[]>();
+    for (const snap of stockoutSnapshots) {
+      const pKey = snap.productId.toString();
+      const dStr = snap.snapshotDate.toISOString().split('T')[0];
+      const existing = stockoutDatesByProduct.get(pKey) ?? [];
+      existing.push(dStr);
+      stockoutDatesByProduct.set(pKey, existing);
+    }
+
+    // Xác định mốc ngày bắt đầu (ngày bán sớm nhất thực tế) và ngày kết thúc của toàn bộ chuỗi lịch sử
     const historyEndDate = new Date(effectiveDate);
     historyEndDate.setUTCDate(historyEndDate.getUTCDate() - 1);
-    const historyEndDateStr = historyEndDate.toISOString().split('T')[0];
+    const defaultEndDateStr = historyEndDate.toISOString().split('T')[0];
 
-    const historyStartDate = new Date(effectiveDate);
-    historyStartDate.setUTCDate(historyStartDate.getUTCDate() - 90);
-    const historyStartDateStr = historyStartDate.toISOString().split('T')[0];
+    const latestSaleDateStr =
+      salesRecords.length > 0
+        ? salesRecords[salesRecords.length - 1].saleDate
+            .toISOString()
+            .split('T')[0]
+        : null;
+    const historyEndDateStr =
+      !dto.asOfDate &&
+      latestSaleDateStr &&
+      latestSaleDateStr > defaultEndDateStr
+        ? latestSaleDateStr
+        : defaultEndDateStr;
+
+    const fallbackStartDate = new Date(effectiveDate);
+    fallbackStartDate.setUTCDate(fallbackStartDate.getUTCDate() - 90);
+    const historyStartDateStr =
+      salesRecords.length > 0
+        ? salesRecords[0].saleDate.toISOString().split('T')[0]
+        : fallbackStartDate.toISOString().split('T')[0];
+
+    const historyStartMs = new Date(`${historyStartDateStr}T00:00:00.000Z`).getTime();
+    const historyEndMs = new Date(`${historyEndDateStr}T00:00:00.000Z`).getTime();
+    const historyDays = Math.max(
+      1,
+      Math.round((historyEndMs - historyStartMs) / (1000 * 60 * 60 * 24)) + 1,
+    );
 
     // 6. Lấy dự báo nhu cầu từ AI Client (kèm SMA fallback)
     const forecastInputs: SkuForecastInput[] = products.map((p) => {
@@ -151,9 +195,12 @@ export class DssSessionAnalysisService {
         records.unshift({ date: historyStartDateStr, quantity: 0 });
       }
 
+      const stockoutDates = stockoutDatesByProduct.get(p.id.toString());
       return {
         productId: p.id,
         history: records,
+        categoryCode: p.category?.categoryCode,
+        ...(stockoutDates && stockoutDates.length > 0 ? { stockoutDates } : {}),
       };
     });
 
@@ -164,7 +211,9 @@ export class DssSessionAnalysisService {
     const abcXyzInputs: SkuSalesMetricsInput[] = products.map((p) => {
       const sales = salesByProduct.get(p.id.toString())!;
       const forecast = forecastMap.get(p.id.toString());
-      const avgDemand = forecast ? forecast.dailyAverage : sales.totalQty / 90;
+      const avgDemand = forecast
+        ? forecast.dailyAverage
+        : sales.totalQty / historyDays;
       const demandStd = forecast ? forecast.dailyDemandStd : 0;
 
       return {
@@ -331,7 +380,7 @@ export class DssSessionAnalysisService {
   }
 
   /**
-   * Gom dữ liệu bán hàng 90 ngày theo từng SKU
+   * Gom dữ liệu bán hàng toàn bộ lịch sử theo từng SKU
    */
   private aggregateSalesRecords(
     products: { id: bigint }[],

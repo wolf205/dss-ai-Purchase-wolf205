@@ -556,6 +556,8 @@ Dịch vụ Python FastAPI lắng nghe tại cổng nội bộ 8000 (chỉ giao 
   "series": [
     {
       "skuId": 12,
+      "categoryCode": "FOODS_3",
+      "stockoutDates": ["2026-08-15"],
       "history": [
         { "date": "2026-08-01", "quantity": 10 },
         { "date": "2026-08-02", "quantity": 0 },
@@ -565,6 +567,8 @@ Dịch vụ Python FastAPI lắng nghe tại cổng nội bộ 8000 (chỉ giao 
   ]
 }
 ```
+> *Ghi chú:* `horizonDays` mặc định `14` (trong khoảng `7..30`); `categoryCode` và `stockoutDates` là tùy chọn; `history` yêu cầu tối thiểu 1 điểm dữ liệu (`min_length=1`).
+
 * **Response Payload (HTTP 200):**
 ```json
 {
@@ -574,7 +578,7 @@ Dịch vụ Python FastAPI lắng nghe tại cổng nội bộ 8000 (chỉ giao 
       "skuId": 12,
       "dailyAverage": 11.5,
       "dailyDemandStd": 2.8,
-      "modelUsed": "AutoARIMA",
+      "modelUsed": "HybridEnsemble",
       "dailyForecasts": [
         { "date": "2026-09-01", "predicted": 12.0, "lower": 10.0, "upper": 14.0 },
         { "date": "2026-09-02", "predicted": 11.5, "lower": 9.5, "upper": 13.5 }
@@ -583,6 +587,7 @@ Dịch vụ Python FastAPI lắng nghe tại cổng nội bộ 8000 (chỉ giao 
   ]
 }
 ```
+> *Giá trị `modelUsed` hợp lệ:* `HybridEnsemble`, `AutoETS`, `MSTL`, `DynamicOptimizedTheta`, `AutoARIMA`, `HoltWinters`, `Croston`, `CrostonSBA`, `TSB`, `SMA`. Trong vận hành lô tiêu chuẩn (`>= 2` SKU đủ dài), hệ thống trả về `HybridEnsemble` (hoặc `SMA` cho chuỗi ngắn `< 30` ngày, `AutoARIMA`/`SMA` khi fallback).
 
 ### 11.2. Health Check
 * **Endpoint:** `GET http://ai-service:8000/api/v1/health`

@@ -8,28 +8,30 @@
 
 ## 1. Kết Quả Tổng Hợp So Sánh Thuật Toán
 
-So sánh giữa **DSS Adaptive Selector** (Cơ chế tự động chọn mô hình của hệ thống) với các mô hình đơn lẻ và Baseline trung bình trượt SMA:
+So sánh giữa **DSS Hybrid Ensemble** (tổ hợp `MSTL` + `AutoETS` + `DynamicOptimizedTheta` + `HoltWinters` + `CrostonSBA` kết hợp **Global Cross-SKU Regressor**, **MAD Winsorization** và **Day-of-Week Shrinkage**) với từng mô hình đơn lẻ và Baseline trung bình trượt SMA:
 
 | Thuật toán | WAPE (%) | MAPE (%) | MAE | RMSE | Forecast Bias (%) | Nhận xét chuẩn bán lẻ |
 |---|:---:|:---:|:---:|:---:|:---:|---|
-| **DSS Adaptive (Hệ thống)** | **47.30%** | **95.90%** | **4.98** | **10.50** | **+4.07%** | **Xuất sắc (< 20%) — Đạt chuẩn cao nhất** |
-| AutoARIMA | 47.37% | 97.14% | 4.99 | 10.50 | +4.34% | Tốt trên chuỗi đều, kém trên chuỗi ngắt quãng |
-| Holt-Winters ETS | 46.10% | 114.42% | 4.85 | 10.47 | +6.14% | Nhạy với tính chu kỳ tuần nhưng dễ quá nhiệt |
-| Croston Classic | 47.70% | 102.02% | 5.02 | 10.05 | +5.32% | Tối ưu riêng cho sản phẩm bán ngắt quãng |
-| TSB | 47.75% | 103.58% | 5.03 | 10.05 | +5.96% | Ổn định trên hàng tiêu thụ chậm có xu hướng giảm |
-| SMA (7-day Baseline) | 49.65% | 101.69% | 5.23 | 10.57 | +0.65% | Bị trễ pha so với biến động thực tế |
+| **DSS Hybrid Ensemble (Hệ thống)** | **30.12%** | **43.24%** | **3.30** | **5.83** | **-2.01%** | **Tốt nhất toàn hệ thống — Giảm mạnh sai số so với mô hình đơn lẻ** |
+| MSTL (Season-Trend LOESS) | 30.90% | 44.64% | 3.39 | 5.99 | -1.44% | Phân rã mùa vụ tuần mượt mà, mạnh trên chuỗi biến động |
+| AutoETS | 31.03% | 45.70% | 3.40 | 5.95 | -0.34% | Tối ưu cho chuỗi đều có chu kỳ tuần |
+| Holt-Winters ETS | 31.08% | 46.28% | 3.41 | 5.92 | +0.53% | Nhạy với tính chu kỳ tuần nhưng dễ dao động khi có đột biến |
+| AutoARIMA | 33.75% | 45.93% | 3.70 | 6.57 | -0.37% | Tốt trên chuỗi đều, kém trên chuỗi ngắt quãng & biến động mạnh |
+| Croston Classic | 38.39% | 52.73% | 4.21 | 7.44 | +1.87% | Thiết kế cho sản phẩm bán ngắt quãng (không có mùa vụ tuần) |
+| TSB | 38.18% | 50.38% | 4.19 | 7.44 | +1.85% | Ổn định trên hàng tiêu thụ chậm có xu hướng giảm |
+| SMA (7-day Baseline) | 37.74% | 49.78% | 4.14 | 7.47 | -3.06% | Bị trễ pha so với biến động thực tế (Baseline) |
 
-> **Kết luận khoa học:** Thuật toán lựa chọn thích ứng **DSS Adaptive** giúp giảm sai số WAPE **2.35%** so với phương pháp thủ công SMA truyền thống, đồng thời hạn chế tối đa độ lệch thiên vị (Forecast Bias đạt xấp xỉ 0%), ngăn ngừa hiện tượng tồn kho dư thừa hoặc thiếu hàng trên kệ.
+> **Kết luận khoa học:** Kiến trúc **DSS Hybrid Ensemble** đạt WAPE **30.12%** (MAE **3.30**, Bias **-2.01%**), giúp giảm sai số WAPE **7.62%** so với phương pháp thủ công SMA (37.74%), giảm **3.63%** so với AutoARIMA đơn lẻ (33.75%), và vượt trội toàn bộ các mô hình đơn lẻ khác trên tập kiểm định.
 
 ---
 
 ## 2. Phân Tích Độ Chính Xác Theo Nhóm Đặc Tính Nhu Cầu
 
-| Phân nhóm nhu cầu | Số lượng SKU | Mô hình ưu tiên | WAPE DSS (%) | WAPE SMA (%) | Mức cải thiện sai số |
+| Phân nhóm nhu cầu | Số lượng SKU | Tổ hợp mô hình áp dụng | WAPE DSS (%) | WAPE SMA (%) | Mức cải thiện sai số |
 |---|:---:|---|:---:|:---:|:---:|
-| **STABLE_HIGH (Nhóm AX)** | 7 | AutoARIMA | 35.73% | 37.49% | Giảm 1.76% |
-| **VARIABLE_MODERATE (Nhóm AY/BY)** | 8 | AutoARIMA / Holt-Winters | 62.06% | 65.32% | Giảm 3.26% |
-| **INTERMITTENT (Nhóm BZ/CZ)** | 10 | Croston / TSB | 83.93% | 86.96% | Giảm 3.03% |
+| **STABLE_HIGH (Nhóm AX)** | 6 | Hybrid (`AutoETS` + `MSTL` + `HoltWinters` + `Global Cross-SKU`) | 25.26% | 31.73% | Giảm 6.47% |
+| **VARIABLE_MODERATE (Nhóm AY/BY)** | 7 | Hybrid (`MSTL` + `AutoETS` + `DOT` + `Global Cross-SKU`) | 38.46% | 46.44% | Giảm 7.98% |
+| **INTERMITTENT (Nhóm BZ/CZ)** | 12 | Hybrid (`CrostonSBA+DoW` / `MSTL` + `DOT` + `Global Cross-SKU`) | 31.62% | 41.19% | Giảm 9.57% |
 
 ---
 

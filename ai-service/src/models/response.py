@@ -49,7 +49,10 @@ class SkuForecastResult(CamelModel):
     )
     model_used: str = Field(
         ...,
-        description="Thuật toán sử dụng: AutoARIMA | Croston | HoltWinters | SMA | TSB"
+        description=(
+            "Thuật toán sử dụng: HybridEnsemble | AutoETS | MSTL | DynamicOptimizedTheta | "
+            "AutoARIMA | HoltWinters | Croston | CrostonSBA | TSB | SMA"
+        ),
     )
     daily_forecasts: List[DailyForecast] = Field(
         default_factory=list,

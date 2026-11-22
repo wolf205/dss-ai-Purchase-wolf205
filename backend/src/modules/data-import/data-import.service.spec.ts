@@ -270,6 +270,9 @@ describe('DataImportService', () => {
     });
 
     it('should throw ALL_OR_NOTHING_IMPORT_FAILED when date is in the future (> Today)', async () => {
+      const prevAllowFuture = process.env.ALLOW_FUTURE_SALES_IN_DEV;
+      delete process.env.ALLOW_FUTURE_SALES_IN_DEV;
+
       const futureDate = '2099-12-31';
       const csv = `Date,SKU,Quantity,Revenue
 ${futureDate},MILK-TH-1L,10,200000
@@ -282,7 +285,7 @@ ${futureDate},MILK-TH-1L,10,200000
 
       try {
         await service.validateSalesFile(file);
-        fail('Should have thrown BadRequestException');
+        throw new Error('Should have thrown BadRequestException');
       } catch (err) {
         expect(err).toBeInstanceOf(BadRequestException);
         const res = (err as BadRequestException).getResponse() as Record<
@@ -292,6 +295,10 @@ ${futureDate},MILK-TH-1L,10,200000
         expect(res.code).toBe('ALL_OR_NOTHING_IMPORT_FAILED');
         const details = res.details as Array<{ row: number; issue: string }>;
         expect(details[0].issue).toContain('tương lai');
+      } finally {
+        if (prevAllowFuture !== undefined) {
+          process.env.ALLOW_FUTURE_SALES_IN_DEV = prevAllowFuture;
+        }
       }
     });
 

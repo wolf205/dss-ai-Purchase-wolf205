@@ -13,6 +13,8 @@ export interface SkuSalesHistoryItem {
 export interface SkuForecastInput {
   productId: bigint | number;
   history: SkuSalesHistoryItem[];
+  categoryCode?: string;
+  stockoutDates?: string[];
 }
 
 export interface SkuForecastResult {

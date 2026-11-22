@@ -1,0 +1,223 @@
+[0] (Normal) BỘ GIÁO DỤC VÀ ĐÀO TẠO
+[1] (Normal) TRƯỜNG ĐẠI HỌC XÂY DỰNG HÀ NỘI
+[2] (Normal) ----------------------------------------
+[4] (Normal) [HỌ VÀ TÊN SINH VIÊN]
+[5] (Normal) [TÊN ĐỀ TÀI ĐỒ ÁN TỐT NGHIỆP BẰNG TIẾNG VIỆT]
+[6] (Normal) ([English Topic Title])
+[7] (Normal) ĐỒ ÁN TỐT NGHIỆP
+[8] (Normal) Ngành: [Tên ngành đào tạo, VD: Công nghệ thông tin]
+[9] (Normal) Chuyên ngành: [Tên chuyên ngành đào tạo, VD: Công nghệ phần mềm]
+[10] (Normal) Hà Nội – 2026
+[11] (Normal) BỘ GIÁO DỤC VÀ ĐÀO TẠO
+[12] (Normal) TRƯỜNG ĐẠI HỌC XÂY DỰNG HÀ NỘI
+[13] (Normal) ----------------------------------------
+[15] (Normal) [TÊN ĐỀ TÀI ĐỒ ÁN TỐT NGHIỆP BẰNG TIẾNG VIỆT]
+[16] (Normal) ([English Topic Title])
+[17] (Normal) ĐỒ ÁN TỐT NGHIỆP
+[18] (Normal) Hà Nội – 2026
+[20] (Normal) NHẬN XÉT CỦA NGƯỜI HƯỚNG DẪN
+[21] (Normal) ................................................................................................................................................
+[22] (Normal) ................................................................................................................................................
+[23] (Normal) ................................................................................................................................................
+[24] (Normal) ................................................................................................................................................
+[25] (Normal) ................................................................................................................................................
+[26] (Normal) ................................................................................................................................................
+[27] (Normal) ................................................................................................................................................
+[28] (Normal) ................................................................................................................................................
+[29] (Normal) ................................................................................................................................................
+[30] (Normal) ................................................................................................................................................
+[31] (Normal) ................................................................................................................................................
+[32] (Normal) ................................................................................................................................................
+[33] (Normal) ................................................................................................................................................
+[34] (Normal) ................................................................................................................................................
+[35] (Normal) ................................................................................................................................................
+[36] (Normal) Hà Nội, ngày …… tháng …… năm 2026
+[37] (Normal) Người hướng dẫn
+[38] (Normal) (Ký, ghi rõ họ tên)
+[40] (Normal) NHẬN XÉT CỦA NGƯỜI PHẢN BIỆN
+[41] (Normal) ................................................................................................................................................
+[42] (Normal) ................................................................................................................................................
+[43] (Normal) ................................................................................................................................................
+[44] (Normal) ................................................................................................................................................
+[45] (Normal) ................................................................................................................................................
+[46] (Normal) ................................................................................................................................................
+[47] (Normal) ................................................................................................................................................
+[48] (Normal) ................................................................................................................................................
+[49] (Normal) ................................................................................................................................................
+[50] (Normal) ................................................................................................................................................
+[51] (Normal) ................................................................................................................................................
+[52] (Normal) ................................................................................................................................................
+[53] (Normal) ................................................................................................................................................
+[54] (Normal) ................................................................................................................................................
+[55] (Normal) ................................................................................................................................................
+[56] (Normal) Hà Nội, ngày …… tháng …… năm 2026
+[57] (Normal) Người phản biện
+[58] (Normal) (Ký, ghi rõ họ tên)
+[60] (Normal) TÓM TẮT
+[61] (Normal) Tên đề tài: [Nhập tên đề tài của bạn]
+[62] (Normal) Sinh viên thực hiện: [Họ và tên]    Mã SV: [Mã SV]    Lớp: [Lớp]
+[63] (Normal) Hướng dẫn viết Tóm tắt (khoảng 250–350 từ, trình bày gói gọn trong tối đa 01 trang A4, cỡ chữ 13, giãn dòng 1,3, căn đều hai bên – gồm đủ 4 ý chính):
+[64] (Normal) • Đoạn 1 (Bối cảnh & Mục tiêu): Nêu tên hệ thống/sản phẩm, đối tượng sử dụng, bài toán thực tế cần giải quyết và nguyên tắc cốt lõi.
+[65] (Normal) • Đoạn 2 (Kiến trúc & Công nghệ): Trình bày kiến trúc tổng thể (VD: Client–Server, Microservices...), công nghệ chính (Frontend, Backend, CSDL, AI/Thư viện đặc thù) và cách giải quyết các bài toán kỹ thuật trọng tâm.
+[66] (Normal) • Đoạn 3 (Kết quả thực nghiệm đạt được): Tóm tắt sản phẩm phần mềm/thuật toán hoàn thiện, các con số định lượng đạt được qua kiểm thử/đo đạc thực tế.
+• Đoạn 4 (Đóng góp, ý nghĩa thực tiễn & Hướng phát triển): Nêu rõ giá trị ứng dụng của đề tài, hạn chế còn tồn tại và hướng mở rộng.
+[67] (Normal) [Viết nội dung tóm tắt đồ án của bạn tại đây...]
+[69] (Normal) NHIỆM VỤ ĐỒ ÁN TỐT NGHIỆP
+[70] (Normal) (Theo Mẫu ĐATN-01)
+[72] (Normal) 1. Mục tiêu và yêu cầu của ĐATN:
+[73] (Normal) [Liệt kê 3–4 gạch đầu dòng về mục tiêu xây dựng hệ thống, tính năng cốt lõi, yêu cầu kỹ thuật và chuẩn đầu ra.]
+[74] (Normal) 2. Phạm vi, nội dung công việc và sản phẩm cần nộp:
+[75] (Normal) [Nêu rõ phạm vi thực hiện (khảo sát, phân tích, thiết kế, cài đặt, kiểm thử) và danh mục sản phẩm bàn giao: mã nguồn, bộ kiểm thử, thuyết minh ĐATN, slide bảo vệ.]
+[76] (Normal) 3. Dữ liệu đầu vào, giả thiết, tiêu chuẩn/quy chuẩn, phần mềm/công cụ sử dụng:
+[77] (Normal) [Liệt kê dữ liệu thử nghiệm, các tiêu chuẩn kỹ thuật/pháp lý áp dụng và danh sách công cụ/framework sử dụng.]
+[78] (Normal) 4. Kế hoạch/mốc tiến độ dự kiến:
+[81] (Normal) LỜI NÓI ĐẦU
+[82] (Normal) Hướng dẫn viết Lời nói đầu:
+[83] (Normal) • Đoạn 1: Nêu lý do chọn đề tài, tính cấp thiết trong thực tế và mục tiêu cốt lõi của sản phẩm.
+[84] (Normal) • Đoạn 2: Giới thiệu khái quát bố cục quyển thuyết minh (Mở đầu, 5 chương, Kết luận, Tài liệu tham khảo, Phụ lục).
+[85] (Normal) • Đoạn 3: Lời cảm ơn chân thành tới Giảng viên hướng dẫn, các thầy cô trong Khoa/Bộ môn, gia đình và bạn bè.
+[86] (Normal) [Viết nội dung Lời nói đầu của bạn tại đây...]
+[87] (Normal) Hà Nội, ngày …… tháng …… năm 2026
+[88] (Normal) Sinh viên thực hiện
+[90] (Normal) CAM ĐOAN
+[91] (Normal) Em xin cam đoan đồ án tốt nghiệp “[Nhập tên đề tài]” là kết quả do bản thân trực tiếp nghiên cứu, thiết kế và thực hiện dưới sự hướng dẫn của thầy/cô [Họ tên GVHD]. Các thư viện, dịch vụ, mã nguồn mở và tài liệu của tác giả khác đều được trích dẫn đầy đủ, tường minh trong phần Tài liệu tham khảo. Các số liệu kiểm thử trình bày trong thuyết minh được thu thập trung thực từ việc chạy thực tế hệ thống của đồ án.
+[92] (Normal) Em xin chịu hoàn toàn trách nhiệm trước Hội đồng chấm đồ án và Nhà trường về tính trung thực của đồ án, không sao chép, không thuê làm hộ và tuân thủ đầy đủ các quy định về liêm chính học thuật của Trường Đại học Xây dựng Hà Nội.
+[93] (Normal) Hà Nội, ngày …… tháng …… năm 2026
+[94] (Normal) Sinh viên thực hiện
+[95] (Normal) (Ký, ghi rõ họ tên)
+[97] (Normal) MỤC LỤC
+[98] (Normal) Lưu ý quy cách in ấn & đánh số trang (Điều 8 & Mẫu ĐATN-14):
+• Bắt buộc IN TRÊN 02 MẶT GIẤY kể từ trang MỤC LỤC đến hết phần PHỤ LỤC.
+• Phần đầu (từ Lời nói đầu đến hết Danh sách chữ viết tắt) đánh số trang bằng chữ số La Mã thường (i, ii, iii, iv, v...).
+• Phần nội dung chính (bắt đầu từ trang đầu tiên của MỞ ĐẦU đến hết báo cáo) đánh số trang bằng chữ số Ả Rập (1, 2, 3...).
+• Sau khi hoàn thiện nội dung, dùng References → Table of Contents trong Word để tạo Mục lục tự động (từ Lời nói đầu đến hết Phụ lục).
+[99] (Normal) [Chèn Mục lục tự động tại đây]
+[100] (Normal) DANH SÁCH CÁC BẢNG, HÌNH VẼ
+[101] (Normal) Danh sách hình vẽ
+[103] (Normal) Danh sách bảng
+[105] (Normal) DANH SÁCH CÁC KÝ HIỆU, CHỮ VIẾT TẮT
+[108] (Normal) MỞ ĐẦU
+[109] (Normal) Giới thiệu tổng quan bối cảnh dẫn tới việc hình thành đề tài và khái quát sản phẩm đã xây dựng.
+[110] (Normal) Mục tiêu và phạm vi
+[111] (Normal) [Trình bày mục tiêu tổng quát và giới hạn phạm vi của đề tài.]
+[112] (Normal) Phương pháp thực hiện
+[113] (Normal) [Nêu các phương pháp áp dụng: khảo sát thực tế, đặc tả yêu cầu, phát triển lặp, quản lý mã nguồn Git, kiểm thử tự động và đánh giá định lượng.]
+[114] (Normal) Bố cục thuyết minh và đối chiếu chuẩn đầu ra
+[115] (Normal) Ngoài Mở đầu và Kết luận, thuyết minh gồm năm chương. Bảng 0.1 đối chiếu các chương với hệ thống 8 chuẩn đầu ra học phần (CLO1–CLO8) theo Điều 3 Quyết định 483/QĐ-ĐHXDHN (nếu đề cương chi tiết của Bộ môn áp dụng 6 CLO, sinh viên điều chỉnh cột đối chiếu tương ứng):
+[118] (Normal) CHƯƠNG I. XÁC ĐỊNH VÀ PHÁT BIỂU ĐỀ TÀI
+[119] (Normal) 1.1. Bối cảnh và vấn đề
+[120] (Normal) Mô tả quy trình nghiệp vụ hiện tại trong thực tế và chỉ ra các điểm nghẽn/khó khăn của từng nhóm đối tượng liên quan.
+[121] (Normal) [Nội dung mục 1.1...]
+[122] (Normal) 1.2. Phát biểu đề tài
+[123] (Normal) Nêu rõ tên đề tài, tên sản phẩm, bài toán theo mô hình Đầu vào (Input) → Xử lý (Process) → Đầu ra (Output) và các nguyên tắc xuyên suốt của hệ thống.
+[124] (Normal) [Nội dung mục 1.2...]
+[125] (Normal) 1.3. Mục tiêu
+[126] (Normal) [Liệt kê các mục tiêu kỹ thuật và nghiệp vụ cụ thể mà hệ thống cần đạt được.]
+[127] (Normal) 1.4. Đối tượng sử dụng và phạm vi
+[128] (Normal) [Xác định các vai trò người dùng (Actors), nền tảng hỗ trợ (Web/Mobile), giới hạn kỹ thuật và những tính năng nằm ngoài phạm vi đồ án.]
+[129] (Normal) 1.5. Yêu cầu chức năng
+[131] (Normal) 1.6. Yêu cầu phi chức năng
+[133] (Normal) 1.7. Ràng buộc thực tế
+[135] (Normal) 1.8. Tiêu chí đánh giá thành công
+[137] (Normal) 1.9. Giả định, tiêu chuẩn và quy phạm áp dụng
+[138] (Normal) [Liệt kê các giả định môi trường vận hành và bảng các tiêu chuẩn kỹ thuật (RFC, ISO, OWASP...) hoặc quy định pháp luật áp dụng.]
+[140] (Normal) CHƯƠNG II. PHÂN TÍCH BÀI TOÁN
+[141] (Normal) 2.1. Phân tích chức năng người dùng
+[142] (Normal) Trình bày sơ đồ ca sử dụng (Use Case) tổng quát và phân rã theo từng phân hệ người dùng; kèm bảng đặc tả chi tiết (Tác nhân, Tiền điều kiện, Luồng chính, Luồng thay thế, Hậu điều kiện) và sơ đồ hoạt động (Activity Diagram) cho các nghiệp vụ cốt lõi.
+[143] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[144] (Normal) Hình 2.1. Sơ đồ ca sử dụng tổng quát của hệ thống
+[146] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[147] (Normal) Hình 2.2. Sơ đồ hoạt động cho nghiệp vụ chính
+[148] (Normal) 2.2. Kiến trúc hệ thống và các thành phần
+[149] (Normal) Mô tả mô hình kiến trúc (VD: Client–Server 3 lớp, Microservices), luồng giao tiếp giữa các tầng và bảng phân rã trách nhiệm của từng module trong mã nguồn.
+[150] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[151] (Normal) Hình 2.3. Kiến trúc tổng quan của hệ thống
+[153] (Normal) 2.3. Phân tích dữ liệu
+[154] (Normal) Trình bày sơ đồ thực thể liên kết (ERD / Schema quan hệ), bảng tổng hợp cấu trúc các bảng/collection và mô tả chi tiết từng trường dữ liệu (tên trường, kiểu, ràng buộc, ý nghĩa) cùng phân loại mức độ nhạy cảm dữ liệu.
+[155] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[156] (Normal) Hình 2.4. Mô hình dữ liệu và quan hệ giữa các bảng/collection
+[158] (Normal) 2.4. Hạ tầng mạng
+[159] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[160] (Normal) Hình 2.5. Mô hình triển khai và luồng giao tiếp mạng
+[162] (Normal) 2.5. Phần cứng và phần mềm cần thiết
+[164] (Normal) 2.6. Các vấn đề kỹ thuật cần giải quyết
+[167] (Normal) CHƯƠNG III. THIẾT KẾ VÀ PHÁT TRIỂN GIẢI PHÁP
+[168] (Normal) 3.1. Quy trình phát triển
+[169] (Normal) [Mô tả quy trình phát triển phần mềm áp dụng (Agile/Iterative), cách quản lý nhánh mã nguồn Git, quy tắc Pull Request và kiểm tra chất lượng trước khi hợp nhất.]
+[170] (Normal) 3.2. Lựa chọn công nghệ và framework
+[172] (Normal) 3.3. Thiết kế phía máy chủ
+[173] (Normal) Liệt kê danh sách các API endpoints chính và vẽ Sơ đồ tuần tự (Sequence Diagram) cho các luồng xử lý phức tạp.
+[175] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[176] (Normal) Hình 3.1. Sơ đồ tuần tự luồng nghiệp vụ chính
+[177] (Normal) 3.4. Thiết kế các module cốt lõi / Thuật toán chính
+[178] (Normal) Trình bày chi tiết thiết kế các thành phần tạo nên giá trị cốt lõi của đề tài (VD: Module tích hợp AI, Prompt & JSON Schema, Thuật toán tính điểm/gợi ý, Lưu đồ thuật toán và ví dụ minh họa tính toán cụ thể).
+[179] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[180] (Normal) Hình 3.2. Lưu đồ thuật toán chính của hệ thống
+[181] (Normal) [Trình bày công thức, trọng số, các bước xử lý và ví dụ minh họa bằng số liệu cụ thể...]
+[182] (Normal) 3.5. Thiết kế bảo mật và toàn vẹn dữ liệu
+[184] (Normal) 3.6. Thiết kế giao diện
+[185] (Normal) [Mô tả phong cách thiết kế UI/UX, bảng màu, phông chữ, bố cục điều hướng và tính nhất quán giữa các phân hệ.]
+[186] (Normal) 3.7. Tính khả thi, hiệu quả và bối cảnh kỹ thuật – xã hội
+[187] (Normal) [Đánh giá tính khả thi về mặt kỹ thuật, chi phí vận hành; phân tích các tác động xã hội, quyền riêng tư dữ liệu, tính công bằng và minh bạch của hệ thống.]
+[188] (Normal) 3.8. Tiềm năng ứng dụng thực tế và khởi nghiệp
+[191] (Normal) CHƯƠNG IV. TRIỂN KHAI VÀ THỬ NGHIỆM
+[192] (Normal) 4.1. Môi trường triển khai
+[194] (Normal) 4.2. Kết quả triển khai giao diện
+[195] (Normal) Chụp ảnh màn hình giao diện thực tế của từng chức năng chính (Trang chủ, Danh sách, Chi tiết, Trang quản lý của từng vai trò) và kèm chú thích rõ ràng.
+[196] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[197] (Normal) Hình 4.1. Giao diện trang chủ / màn hình chính của hệ thống
+[198] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[199] (Normal) Hình 4.2. Giao diện chức năng nghiệp vụ cốt lõi
+[200] (Normal) 4.3. Kế hoạch thử nghiệm
+[201] (Normal) [Trình bày các cấp độ thử nghiệm: Kiểm thử đơn vị (Unit Test), Thử nghiệm thuật toán, Kiểm tra chất lượng mã & bảo mật, Kiểm thử chức năng (Manual/E2E) và Đánh giá định lượng.]
+[202] (Normal) 4.4. Kết quả kiểm thử tự động
+[204] (Normal) [Chèn hình ảnh / sơ đồ minh họa tại đây]
+[205] (Normal) Hình 4.3. Ảnh chụp màn hình terminal kết quả chạy bộ kiểm thử tự động
+[206] (Normal) 4.5. Thử nghiệm và đánh giá định lượng thuật toán / mô hình
+[207] (Normal) Trình bày bảng so sánh kết quả trước và sau khi cải tiến thuật toán, hoặc bảng đo độ chính xác (Precision, Recall, F1-score, thời gian phản hồi) trên tập dữ liệu thử nghiệm.
+[209] (Normal) 4.6. Chất lượng mã và bảo mật
+[211] (Normal) 4.7. Kiểm thử chức năng
+[213] (Normal) 4.8. Diễn giải kết quả và hạn chế
+[214] (Normal) [Tổng hợp ý nghĩa của các con số thu được qua thử nghiệm; thẳng thắn chỉ ra các hạn chế hiện tại của hệ thống (quy mô tập dữ liệu thử nghiệm, xử lý đồng bộ, lưu trữ cục bộ...) làm cơ sở cho hướng phát triển.]
+[216] (Normal) CHƯƠNG V. TỔ CHỨC THỰC HIỆN, GIAO TIẾP VÀ TRÌNH BÀY
+[217] (Normal) 5.1. Hình thức thực hiện và vai trò
+[219] (Normal) 5.2. Hạng mục công việc và kết quả bàn giao
+[221] (Normal) 5.3. Kế hoạch, tiến độ và các mốc đánh giá
+[223] (Normal) 5.4. Công cụ và quy trình làm việc
+[224] (Normal) [Trình bày công cụ quản lý mã nguồn (Git/GitHub), lịch sử các Pull Request tiêu biểu, quy trình trao đổi định kỳ với GVHD và ghi nhật ký thực hiện.]
+[225] (Normal) 5.5. Giao tiếp, tự học và xử lý vướng mắc
+[226] (Normal) [Nêu 3–4 vướng mắc kỹ thuật thực tế gặp phải trong quá trình làm đồ án, cách tìm hiểu tài liệu để khắc phục và các kiến thức mới đã tự học được.]
+[227] (Normal) 5.6. Trình bày bằng văn bản
+[228] (Normal) Thuyết minh trình bày theo đúng quy chuẩn của Trường Đại học Xây dựng Hà Nội (Điều 8 & Mẫu ĐATN-14): khổ giấy A4, phần nội dung chính (từ Mở đầu đến Kết luận) không vượt quá 150 trang; phông chữ Times New Roman cỡ 13, giãn dòng 1,3, căn đều hai bên; in 02 mặt kể từ trang Mục lục đến hết Phụ lục; đánh số trang La Mã thường (i, ii, iii...) cho phần đầu và số Ả Rập (1, 2, 3...) từ trang đầu tiên của Mở đầu; tài liệu tham khảo trích dẫn theo chuẩn quốc tế (IEEE/APA).
+[229] (Normal) 5.7. Kế hoạch thuyết trình và demo
+[231] (Normal) 5.8. Tự đánh giá
+[234] (Normal) KẾT LUẬN
+[235] (Normal) Kết quả đạt được
+[236] (Normal) [Tổng kết ngắn gọn những kết quả nổi bật về mặt sản phẩm, kỹ thuật và kiến thức/kỹ năng bản thân tích lũy được qua quá trình thực hiện đồ án.]
+[237] (Normal) Hướng phát triển
+[238] (Normal) [Đề xuất 4–5 hướng nâng cấp cụ thể trong tương lai dựa trên các hạn chế đã nêu ở Mục 4.8.]
+[240] (Normal) TÀI LIỆU THAM KHẢO
+[241] (Normal) Quy tắc trích dẫn (chuẩn IEEE): [STT] Tên tác giả/Tổ chức, “Tên tài liệu/bài viết,” Tên nhà xuất bản/Website, đường dẫn URL (nếu có), năm xuất bản / ngày truy cập.
+[242] (Normal) [1] [Tác giả / Tổ chức], “[Tên tài liệu tham khảo 1],” [URL], truy cập ngày …/…/2026.
+[243] (Normal) [2] [Tác giả / Tổ chức], “[Tên tài liệu tham khảo 2],” [URL], truy cập ngày …/…/2026.
+[244] (Normal) [3] Chính phủ nước CHXHCN Việt Nam, [Tên văn bản pháp quy áp dụng (nếu có)], [Năm].
+[246] (Normal) PHỤ LỤC A. NHẬT KÝ THỰC HIỆN ĐATN
+[247] (Normal) (Theo Mẫu ĐATN-02. Ghi chép theo thực tế từng tuần và có chữ ký xác nhận của GVHD.)
+[249] (Normal) PHỤ LỤC B. CẤU TRÚC MÃ NGUỒN VÀ HƯỚNG DẪN CÀI ĐẶT
+[250] (Normal) Trình bày cây thư mục tổ chức mã nguồn (Client, Server, Scripts, Tests) và hướng dẫn từng bước cài đặt môi trường, cấu hình biến .env, khởi chạy ứng dụng và chạy kiểm thử.
+[251] (Normal) Cấu trúc thư mục:
+[252] (Normal) ├── client/          # [Mô tả thư mục giao diện]
+[253] (Normal) ├── server/          # [Mô tả thư mục máy chủ]
+[254] (Normal) └── README.md        # [Tài liệu hướng dẫn]
+[256] (Normal) Hướng dẫn cài đặt và chạy thử:
+[257] (Normal) 1. [Bước 1: Clone mã nguồn từ GitHub...]
+[258] (Normal) 2. [Bước 2: Cấu hình tệp .env...]
+[259] (Normal) 3. [Bước 3: Cài đặt thư viện và khởi chạy ứng dụng...]
+[260] (Normal) PHỤ LỤC C. DANH MỤC HỒ SƠ NỘP VÀ QUY CÁCH ĐẶT TÊN FILE SỐ
+[261] (Normal) (Hướng dẫn đối chiếu trước khi nộp hồ sơ bảo vệ theo Mẫu ĐATN-09 và Điều 9 Quy định – không cần giữ lại trang hướng dẫn này trong bản in đóng quyển chính thức nếu Bộ môn không yêu cầu.)
+[262] (Normal) 1. Quy tắc đặt tên tệp tin lưu trữ số (Latin không dấu, không khoảng trắng):
+Cú pháp chuẩn: [Đợt]_[Khoa/Nhóm]_[Ngành]_[MãSV]_[HọTên]_[LoạiTàiLiệu]_[YYYYMMDD]_v[phiên_bản].[ext]
+• Thuyết minh: DATN2026-1_CNTT_CNPM_20123456_NguyenVanA_Baocao_20260520_v1.pdf (kèm bản .docx)
+• Mã nguồn & Dữ liệu: DATN2026-1_CNTT_CNPM_20123456_NguyenVanA_Code_20260520_v1.zip
+• Slide bảo vệ: DATN2026-1_CNTT_CNPM_20123456_NguyenVanA_Slide_20260520_v1.pdf (kèm bản .pptx)
+[263] (Normal) 2. Checklist 10 thành phần hồ sơ nộp bắt buộc (Mẫu ĐATN-09):

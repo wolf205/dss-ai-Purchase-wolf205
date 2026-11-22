@@ -1,8 +1,8 @@
 # Đặc Tả Mô Hình Dữ Liệu Kỹ Thuật (Data Model Specification)
 
-## AI-Powered Purchase Decision Support System for a Single Retail Store
+## AI-Driven Retail Purchase Decision Support System
 
-* **Dự án:** Hệ Thống Hỗ Trợ Ra Quyết Định Mua Hàng Ứng Dụng Trí Tuệ Nhân Tạo Cho Cửa Hàng Bán Lẻ Đơn Lẻ
+* **Dự án:** Hệ thống hỗ trợ quyết định mua hàng bán lẻ ứng dụng AI (RetailDSS)
 * **Hệ quản trị CSDL mục tiêu:** PostgreSQL 16+
 * **Trạng thái:** `Status: Confirmed`
 * **Phiên bản:** `1.0 (Official Technical Specification)`

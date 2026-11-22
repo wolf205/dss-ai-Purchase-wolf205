@@ -41,6 +41,10 @@ export class AiForecastingClient {
       return {
         skuId: Number(item.productId),
         history,
+        ...(item.categoryCode ? { categoryCode: item.categoryCode } : {}),
+        ...(item.stockoutDates && item.stockoutDates.length > 0
+          ? { stockoutDates: item.stockoutDates }
+          : {}),
       };
     });
 

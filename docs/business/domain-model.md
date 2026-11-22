@@ -1,8 +1,8 @@
 # Đặc Tả Mô Hình Miền Nghiệp Vụ (Domain Model Specification)
 
-## AI-Powered Purchase Decision Support System for a Single Retail Store
+## AI-Driven Retail Purchase Decision Support System
 
-* **Dự án:** Hệ Thống Hỗ Trợ Ra Quyết Định Mua Hàng Ứng Dụng Trí Tuệ Nhân Tạo Cho Cửa Hàng Bán Lẻ Đơn Lẻ
+* **Dự án:** Hệ thống hỗ trợ quyết định mua hàng bán lẻ ứng dụng AI (RetailDSS)
 * **Trạng thái:** `Status: Confirmed`
 * **Phiên bản:** `1.0 (Official Specification)`
 * **Ngày phê duyệt:** 2026-09-12

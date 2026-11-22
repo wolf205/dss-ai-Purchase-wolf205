@@ -13,10 +13,15 @@ class ForecastModel(str, Enum):
     Khớp với thuộc tính model_used trong SkuForecastResult (response.py).
     """
     AUTO_ARIMA = "AutoARIMA"
+    AUTO_ETS = "AutoETS"
+    MSTL = "MSTL"
+    DYNAMIC_OPTIMIZED_THETA = "DynamicOptimizedTheta"
     CROSTON = "Croston"
+    CROSTON_SBA = "CrostonSBA"
     HOLT_WINTERS = "HoltWinters"
     SMA = "SMA"
     TSB = "TSB"
+    HYBRID_ENSEMBLE = "HybridEnsemble"
 
 
 class SeriesMetrics(CamelModel):
@@ -168,7 +173,7 @@ def select_algorithm_with_metrics(
 
     # 2. Nhu cầu ngắt quãng (intermittent demand)
     if metrics.is_intermittent:
-        selected_model = (
+        selected_model: ForecastModel = (
             preferred_intermittent
             if preferred_intermittent in (ForecastModel.CROSTON, ForecastModel.TSB)
             else ForecastModel.CROSTON

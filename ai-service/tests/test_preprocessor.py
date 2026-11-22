@@ -1,5 +1,5 @@
 import unittest
-from datetime import date
+from datetime import date, timedelta
 import pandas as pd
 
 from src.models.request import DailySalesPoint
@@ -173,6 +173,23 @@ class TestPreprocessor(unittest.TestCase):
         cleaned = clean_and_winsorize_series(short_series)
         self.assertEqual(len(cleaned), 5)
         self.assertEqual([p.quantity for p in cleaned], [0.0, 10.0, 20.0, 30.0, 40.0])
+
+    def test_uncensor_stockout_series_imputes_zero_on_stockout_days(self):
+        """Test that zero sales on a documented stockout date are imputed without altering normal zero days."""
+        from src.services.preprocessor import uncensor_stockout_series
+
+        base = date(2026, 8, 1)
+        series = [
+            DailySalesPoint(
+                date=base + timedelta(days=i),
+                quantity=0.0 if i in (7, 10) else 12.0,
+            )
+            for i in range(14)
+        ]
+        # Only day 7 was a stockout; day 10 was genuine zero demand
+        uncensored = uncensor_stockout_series(series, stockout_dates=[base + timedelta(days=7)])
+        self.assertEqual(uncensored[7].quantity, 12.0)
+        self.assertEqual(uncensored[10].quantity, 0.0)
 
 
 if __name__ == "__main__":

@@ -176,9 +176,9 @@ describe('AccuracyEvaluationCalculator (Pure Domain Engine)', () => {
         { date: '2026-11-03', predicted: 8, actual: 10 },
       ]);
 
-      const weekly = AccuracyEvaluationCalculator.calculateWeeklyHorizonMetrics([
-        sku1,
-      ]);
+      const weekly = AccuracyEvaluationCalculator.calculateWeeklyHorizonMetrics(
+        [sku1],
+      );
       expect(weekly.overallWape).toBe(0.0);
       expect(weekly.overallBias).toBe(0.0);
       expect(weekly.qualityRating).toBe('EXCELLENT');

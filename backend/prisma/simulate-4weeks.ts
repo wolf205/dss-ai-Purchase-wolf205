@@ -15,10 +15,10 @@ interface WeekConfig {
 }
 
 const WEEKS: WeekConfig[] = [
-  { weekNum: 1, asOfDate: '2026-10-05', weekEndDate: '2026-10-11' },
-  { weekNum: 2, asOfDate: '2026-10-12', weekEndDate: '2026-10-18' },
-  { weekNum: 3, asOfDate: '2026-10-19', weekEndDate: '2026-10-25' },
-  { weekNum: 4, asOfDate: '2026-10-26', weekEndDate: '2026-11-01' },
+  { weekNum: 1, asOfDate: '2026-10-17', weekEndDate: '2026-10-23' },
+  { weekNum: 2, asOfDate: '2026-10-24', weekEndDate: '2026-10-30' },
+  { weekNum: 3, asOfDate: '2026-10-31', weekEndDate: '2026-11-06' },
+  { weekNum: 4, asOfDate: '2026-11-07', weekEndDate: '2026-11-13' },
 ];
 
 async function main() {

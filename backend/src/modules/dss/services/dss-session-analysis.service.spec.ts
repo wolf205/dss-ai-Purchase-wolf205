@@ -183,5 +183,115 @@ describe('DssSessionAnalysisService (UC-01 Session Orchestration)', () => {
       expect(mockAiForecastingClient.getForecasts).toHaveBeenCalled();
       expect(mockPrisma.$transaction).toHaveBeenCalled();
     });
+
+    it('should query full sales history without 90-day cutoff and anchor history to earliest sale date', async () => {
+      mockPrisma.recommendationSession.updateMany.mockResolvedValue({
+        count: 0,
+      });
+      mockPrisma.dSSConfiguration.findFirst.mockResolvedValue({
+        id: 1,
+        priceWeight: new Prisma.Decimal(0.4),
+        leadTimeWeight: new Prisma.Decimal(0.2),
+        moqWeight: new Prisma.Decimal(0.15),
+        historyWeight: new Prisma.Decimal(0.25),
+        targetServiceLevel: new Prisma.Decimal(0.95),
+        zFactor: new Prisma.Decimal(1.65),
+        reviewPeriodDays: 7,
+      });
+
+      mockPrisma.product.findMany.mockResolvedValue([
+        {
+          id: BigInt(1),
+          skuCode: 'SKU-001',
+          productName: 'Sữa tươi',
+          currentInventory: 10,
+          onOrderQuantity: 0,
+          category: { categoryCode: 'DAI', categoryName: 'Sữa' },
+          supplyConditions: [
+            {
+              supplierId: BigInt(10),
+              purchasePrice: new Prisma.Decimal(25000),
+              moq: 20,
+              status: 'Active',
+              supplier: {
+                supplierCode: 'NCC-001',
+                supplierName: 'Vinamilk',
+                committedLeadTimeDays: 2,
+                performanceScore: new Prisma.Decimal(0.92),
+                completedOrderCount: 15,
+                status: 'Active',
+              },
+            },
+          ],
+        },
+      ]);
+
+      // Sale from 150 days before asOfDate (2026-11-14) -> must NOT be cut off by 90-day window
+      mockPrisma.salesRecord.findMany.mockResolvedValue([
+        {
+          productId: BigInt(1),
+          revenue: new Prisma.Decimal(340000),
+          quantitySold: 10,
+          saleDate: new Date('2026-06-17T00:00:00.000Z'),
+        },
+        {
+          productId: BigInt(1),
+          revenue: new Prisma.Decimal(680000),
+          quantitySold: 20,
+          saleDate: new Date('2026-11-13T00:00:00.000Z'),
+        },
+      ]);
+
+      const mockForecastResultMap = new Map();
+      mockForecastResultMap.set('1', {
+        dailyAverage: 15,
+        dailyDemandStd: 2,
+        modelUsed: 'HybridEnsemble',
+        dailyForecasts: [
+          { date: '2026-11-14', predicted: 15, lower: 10, upper: 20 },
+        ],
+      });
+      mockAiForecastingClient.getForecasts.mockResolvedValue(
+        mockForecastResultMap,
+      );
+      mockPrisma.recommendationSession.count.mockResolvedValue(0);
+
+      mockPrisma.$transaction.mockImplementation(
+        async (cb: (tx: unknown) => Promise<unknown>) => {
+          const fakeTx = {
+            recommendationSession: {
+              create: jest.fn().mockResolvedValue({
+                id: BigInt(106),
+                sessionCode: 'REC-20261114-001',
+                createdAt: new Date('2026-11-14T00:00:00.000Z'),
+              }),
+            },
+            recommendationItem: {
+              createMany: jest.fn().mockResolvedValue({ count: 1 }),
+            },
+          };
+          return cb(fakeTx);
+        },
+      );
+
+      await service.analyzeSession({ asOfDate: '2026-11-14' }, 'manager');
+
+      const findManyArg = mockPrisma.salesRecord.findMany.mock.calls[0][0];
+      expect(findManyArg.where.saleDate).toEqual({
+        lt: new Date('2026-11-14T00:00:00.000Z'),
+      });
+      expect(findManyArg.where.saleDate.gte).toBeUndefined();
+
+      const forecastCallArg =
+        mockAiForecastingClient.getForecasts.mock.calls[0][0];
+      expect(forecastCallArg[0].history[0]).toEqual({
+        date: '2026-06-17',
+        quantity: 10,
+      });
+      expect(forecastCallArg[0].history[1]).toEqual({
+        date: '2026-11-13',
+        quantity: 20,
+      });
+    });
   });
 });

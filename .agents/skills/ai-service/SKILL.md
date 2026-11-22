@@ -1,11 +1,11 @@
 ---
 name: ai-service
 description: >-
-  Hướng dẫn lập trình Python FastAPI AI Forecasting Service: Pydantic v2 schemas (TimeSeriesPayload,
-  ForecastResponse), lựa chọn thuật toán dự báo theo đặc tính chuỗi (Croston/TSB cho ngắt quãng,
-  AutoARIMA/Holt-Winters cho đều, SMA cho chuỗi ngắn <30 ngày), zero-demand padding, FastAPI router
-  template, error handling và health check. Sử dụng khi implement hoặc debug bất kỳ file nào
-  trong ai-service/src/.
+  Hướng dẫn lập trình Python FastAPI AI Forecasting Service: Pydantic v2 schemas (CamelModel,
+  TimeSeriesPayload, ForecastResponse), tiền xử lý (zero-demand padding, stockout uncensoring,
+  MAD winsorization), Batch Hybrid Ensemble (MSTL, AutoETS, DOT, HoltWinters, CrostonSBA, TSB)
+  kết hợp Global Cross-SKU Ridge, fallback (AutoARIMA, SMA), FastAPI router, error handling và
+  health check. Sử dụng khi implement hoặc debug bất kỳ file nào trong ai-service/src/.
 ---
 
 # AI Service Skill — Python FastAPI Forecasting
@@ -14,22 +14,26 @@ description: >-
 
 ```
 ai-service/
+├── main.py                      # Entrypoint shim (re-export src.main:app)
 ├── src/
 │   ├── api/
 │   │   └── v1/
-│   │       └── forecast.py    # POST /api/v1/forecast + GET /api/v1/health
+│   │       └── forecast.py      # POST /api/v1/forecast + GET /api/v1/health
 │   ├── models/
-│   │   ├── request.py         # Pydantic v2: TimeSeriesPayload
-│   │   └── response.py        # Pydantic v2: ForecastResponse
+│   │   ├── base.py              # CamelModel (camelCase <-> snake_case)
+│   │   ├── request.py           # Pydantic v2: TimeSeriesPayload, SkuSeries, DailySalesPoint
+│   │   └── response.py          # Pydantic v2: ForecastResponse, SkuForecastResult, DailyForecast
 │   ├── services/
-│   │   ├── forecaster.py      # Algorithm selector + orchestrator
-│   │   ├── croston.py         # Croston / TSB (intermittent demand, cv > 1.0 hoặc nonzero < 70%)
-│   │   ├── autoarima.py       # AutoARIMA (stable demand, cv ≤ 0.5)
-│   │   ├── holt_winters.py    # Holt-Winters ETS (seasonal/stable)
-│   │   └── moving_average.py  # Simple MA 7-day (fallback cho chuỗi ngắn < 30 ngày)
-│   └── main.py                # FastAPI app entry point
+│   │   ├── preprocessor.py      # Zero-demand padding, Stockout Uncensoring, MAD Winsorization
+│   │   ├── selector.py          # SeriesMetrics & AlgorithmSelectionResult (ForecastModel enum)
+│   │   ├── global_model.py      # Global Cross-SKU Ridge (Huber-damped) + pooled DoW factors
+│   │   └── forecaster.py        # Batch Hybrid Pipeline + single-SKU/SMA/AutoARIMA fallback
+│   └── main.py                  # FastAPI app + Settings + CORS
 ├── tests/
-│   └── test_forecast.py
+│   ├── test_forecast_api.py
+│   ├── test_models.py
+│   ├── test_preprocessor.py
+│   └── test_selector.py
 ├── requirements.txt
 └── Dockerfile
 ```
@@ -37,90 +41,55 @@ ai-service/
 ## 2. API Contract (Khớp với api-specification.md Mục 11)
 
 ```python
-# src/models/request.py
-from pydantic import BaseModel, Field
-from typing import List
-from datetime import date
-
-class DailySalesPoint(BaseModel):
+# src/models/request.py (kế thừa CamelModel từ src/models/base.py)
+class DailySalesPoint(CamelModel):
     date: date
-    quantity: float  # đã padding zero cho ngày không bán
+    quantity: float = Field(..., ge=0.0)
 
-class SkuSeries(BaseModel):
-    sku_id: int
-    history: List[DailySalesPoint]  # Tối thiểu 14 ngày, tốt nhất 30-90 ngày
+class SkuSeries(CamelModel):
+    sku_id: int = Field(..., gt=0)
+    history: List[DailySalesPoint] = Field(..., min_length=1)
+    category_code: Optional[str] = None
+    stockout_dates: Optional[List[date]] = None
 
-class TimeSeriesPayload(BaseModel):
+class TimeSeriesPayload(CamelModel):
     horizon_days: int = Field(default=14, ge=7, le=30)
-    series: List[SkuSeries]
+    series: List[SkuSeries] = Field(..., min_length=1)
 
 # src/models/response.py
-class DailyForecast(BaseModel):
+class DailyForecast(CamelModel):
     date: date
-    predicted: float
-    lower: float   # CI 95% lower bound
-    upper: float   # CI 95% upper bound
+    predicted: float = Field(..., ge=0.0)
+    lower: float = Field(..., ge=0.0)
+    upper: float = Field(..., ge=0.0)  # model_validator: upper >= lower
 
-class SkuForecastResult(BaseModel):
-    sku_id: int
-    daily_average: float       # d_forecast — dùng trong SS, ROP
-    daily_demand_std: float    # σd — dùng trong SS = Z × σd × √L
-    model_used: str            # "AutoARIMA" | "Croston" | "HoltWinters" | "SMA"
-    daily_forecasts: List[DailyForecast]  # 14 items
+class SkuForecastResult(CamelModel):
+    sku_id: int = Field(..., gt=0)
+    daily_average: float = Field(..., ge=0.0)
+    daily_demand_std: float = Field(..., ge=0.0)
+    model_used: str  # HybridEnsemble | AutoETS | MSTL | DynamicOptimizedTheta | AutoARIMA | HoltWinters | Croston | CrostonSBA | TSB | SMA
+    daily_forecasts: List[DailyForecast]
 
-class ForecastResponse(BaseModel):
+class ForecastResponse(CamelModel):
     success: bool = True
     results: List[SkuForecastResult]
 ```
 
-## 3. Algorithm Selection (Theo đặc tính chuỗi — từ architecture.md)
+## 3. Pipeline & Algorithm Routing (Thực tế trong `src/services/`)
 
-```python
-# src/services/forecaster.py
-def select_algorithm(history: List[float]) -> str:
-    """
-    Lựa chọn thuật toán dựa trên đặc tính chuỗi thời gian.
-    Nguồn: docs/technical/architecture.md Mục 5.1
-    """
-    if len(history) < 30:
-        return "SMA"  # Chuỗi ngắn < 30 ngày → Simple Moving Average 7 ngày
-
-    non_zero_ratio = sum(1 for x in history if x > 0) / len(history)
-    mean = sum(history) / len(history) or 1e-9
-    std = (sum((x - mean) ** 2 for x in history) / len(history)) ** 0.5
-    cv = std / mean  # Coefficient of Variation
-
-    # Nhu cầu ngắt quãng (intermittent): cv > 1.0 hoặc nonzero < 70%
-    if cv > 1.0 or non_zero_ratio < 0.7:
-        return "Croston"  # hoặc TSB via statsforecast
-
-    # Nhu cầu đều, biến động thấp
-    if cv <= 0.5:
-        return "AutoARIMA"  # hoặc HoltWinters ETS
-
-    # Trung bình — AutoARIMA
-    return "AutoARIMA"
-```
-
-## 4. Zero-Demand Padding (Bắt buộc trước khi forecast)
-
-```python
-from datetime import date, timedelta
-
-def pad_zero_demand(
-    history: List[DailySalesPoint],
-    start_date: date,
-    end_date: date
-) -> List[float]:
-    """Tạo chuỗi liên tục theo ngày, ngày không có dữ liệu = 0.0"""
-    sales_map = {r.date: r.quantity for r in history}
-    result = []
-    current = start_date
-    while current <= end_date:
-        result.append(sales_map.get(current, 0.0))
-        current += timedelta(days=1)
-    return result
-```
+1. **Tiền xử lý (`preprocessor.py`):**
+   * `pad_zero_demand_series`: điền `0.0` cho ngày thiếu, cộng dồn nếu trùng ngày.
+   * `uncensor_stockout_series`: nội suy ngày hết hàng (`stockout_dates`, `quantity <= 0`) bằng trung vị cùng thứ hoặc trung vị toàn cục.
+   * `clean_and_winsorize_series`: cắt ngọn ngoại lai bằng `median + 3.0 * (1.4826 * MAD)` (áp dụng khi `len >= 14` và `>= 5` ngày bán > 0).
+2. **Batch Hybrid Pipeline (`forecaster.py` → `_run_batch_hybrid_forecast`):**
+   * Chạy trên `ThreadPoolExecutor` (tối đa 4 workers) qua `run_forecast`.
+   * Vectorized `StatsForecast` 1 lần cho SKU `length >= 30` và `mean > 0`: `MSTL(7)`, `AutoETS(7)`, `DynamicOptimizedTheta(7)`, `HoltWinters(7)`, `CrostonSBA()`, `TSB(0.15, 0.15)`.
+   * `fit_and_predict_global_cross_sku` (`global_model.py`): kích hoạt khi có `>= 3` SKU đạt `>= 35` ngày lịch sử.
+   * Định tuyến trộn trọng số theo `SeriesMetrics` (`is_short_series`, `is_intermittent`, `cv`, `non_zero_ratio`) → trả về `HybridEnsemble` (hoặc `SMA` cho chuỗi ngắn `< 30` ngày).
+   * CI 95% bất đối xứng thực nghiệm (`_compute_empirical_ci_bounds`), mở rộng theo `sqrt(1 + step / 14)`.
+3. **Graceful Fallback:**
+   * Lỗi batch hoặc lô 1 SKU → `run_forecast_for_sku` (dùng `select_algorithm_with_metrics` từ `selector.py`).
+   * Lỗi nhánh liên tục → fallback `AutoARIMA(level=[95])`; vẫn lỗi (hoặc nhánh ngắt quãng lỗi) → fallback `_build_sma_forecasts`.
 
 ## 5. FastAPI Router Template
 
@@ -161,14 +130,13 @@ pip install -r requirements.txt              # Cài dependencies
 ## 7. Requirements Cốt Lõi
 
 ```
-fastapi>=0.110.0
-uvicorn[standard]>=0.29.0
-pydantic>=2.6.0
-statsforecast>=1.7.0    # Croston, AutoARIMA, Holt-Winters
-numpy>=1.26.0
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+pydantic==2.9.2
+pydantic-settings==2.5.2
+statsforecast>=2.1.0    # MSTL, AutoETS, DOT, HoltWinters, CrostonSBA, TSB, AutoARIMA
+numpy>=2.0.0
 pandas>=2.2.0
-httpx>=0.27.0           # FastAPI TestClient
-pytest>=8.0.0
-pytest-cov
-mypy
+scipy>=1.14.0
+httpx>=0.28.0           # FastAPI TestClient
 ```

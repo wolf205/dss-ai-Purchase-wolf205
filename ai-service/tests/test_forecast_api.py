@@ -122,7 +122,7 @@ class TestForecastApi(unittest.TestCase):
         sku_result = data["results"][0]
 
         self.assertEqual(sku_result["skuId"], 103)
-        self.assertIn(sku_result["modelUsed"], ["AutoARIMA", "HoltWinters"])
+        self.assertIn(sku_result["modelUsed"], ["AutoARIMA", "HoltWinters", "AutoETS", "MSTL", "HybridEnsemble"])
         self.assertGreater(sku_result["dailyAverage"], 0.0)
         self.assertEqual(len(sku_result["dailyForecasts"]), 14)
 
@@ -163,8 +163,8 @@ class TestForecastApi(unittest.TestCase):
 
         results_by_id = {r["skuId"]: r for r in data["results"]}
         self.assertEqual(results_by_id[1]["modelUsed"], "SMA")
-        self.assertIn(results_by_id[2]["modelUsed"], ["Croston", "TSB"])
-        self.assertIn(results_by_id[3]["modelUsed"], ["AutoARIMA", "HoltWinters"])
+        self.assertIn(results_by_id[2]["modelUsed"], ["Croston", "TSB", "HybridEnsemble"])
+        self.assertIn(results_by_id[3]["modelUsed"], ["AutoARIMA", "HoltWinters", "AutoETS", "MSTL", "HybridEnsemble"])
 
         # Mỗi SKU có đúng 7 ngày dự báo theo horizonDays=7
         for sid in [1, 2, 3]:
@@ -385,5 +385,41 @@ class TestForecastApi(unittest.TestCase):
         self.assertAlmostEqual(blended.daily_forecasts[0].predicted, 14.0)
         self.assertEqual(blended.daily_average, 14.0)
         self.assertEqual(blended.model_used, "AutoARIMA")
+
+    def test_batch_hybrid_pipeline_with_category_and_stockout_dates(self):
+        """Kiểm tra Batch Hybrid Pipeline với >= 3 SKU, có categoryCode và stockoutDates."""
+        base_date = date(2026, 6, 1)
+        series_list = []
+        for idx in range(1, 5):
+            hist = [
+                {
+                    "date": (base_date + timedelta(days=i)).isoformat(),
+                    "quantity": 0.0 if (idx == 1 and i == 20) else (12.0 + (i % 7) * 1.5 + idx),
+                }
+                for i in range(45)
+            ]
+            item = {
+                "skuId": idx,
+                "categoryCode": "BEV" if idx <= 2 else "SNK",
+                "history": hist,
+            }
+            if idx == 1:
+                item["stockoutDates"] = [(base_date + timedelta(days=20)).isoformat()]
+            series_list.append(item)
+
+        payload = {"horizonDays": 14, "series": series_list}
+        response = self.client.post("/api/v1/forecast", json=payload)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data["success"])
+        self.assertEqual(len(data["results"]), 4)
+        for res in data["results"]:
+            self.assertEqual(res["modelUsed"], "HybridEnsemble")
+            self.assertGreater(res["dailyAverage"], 0.0)
+            self.assertEqual(len(res["dailyForecasts"]), 14)
+            for fc in res["dailyForecasts"]:
+                self.assertGreaterEqual(fc["predicted"], 0.0)
+                self.assertGreaterEqual(fc["lower"], 0.0)
+                self.assertGreaterEqual(fc["upper"], fc["lower"])
 
 

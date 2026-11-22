@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('=== BẮT ĐẦU KHỞI TẠO BỘ DỮ LIỆU BENCHMARK RETAIL THỰC TẾ (WALMART M5) ===');
 
-  console.log('🧹 Dọn sạch dữ liệu vận hành cũ trong database...');
+  console.log('🧹 Dọn sạch toàn bộ dữ liệu cũ trong database...');
   await prisma.activityLog.deleteMany({});
   await prisma.receiptLineItem.deleteMany({});
   await prisma.goodsReceipt.deleteMany({});
@@ -18,6 +18,10 @@ async function main() {
   await prisma.recommendationSession.deleteMany({});
   await prisma.inventorySnapshot.deleteMany({});
   await prisma.salesRecord.deleteMany({});
+  await prisma.supplyCondition.deleteMany({});
+  await prisma.product.deleteMany({});
+  await prisma.supplier.deleteMany({});
+  await prisma.category.deleteMany({});
 
   // 1. DSS Configuration (Cấu hình tham số chuẩn UC-07)
   await prisma.dSSConfiguration.upsert({
@@ -279,12 +283,12 @@ async function main() {
     { skuCode: 'BANH-COSY-136G', productName: 'Bánh quy sữa Cosy Marie Kinh Đô 136g', categoryCode: 'SNK', unit: 'Gói', barcode: '8934673400041', defaultStock: 20 },
     { skuCode: 'CHOCO-KID-28G', productName: 'Bánh ChocoPie Orion hộp 12 cái 396g', categoryCode: 'SNK', unit: 'Hộp', barcode: '8934673400058', defaultStock: 8 },
     { skuCode: 'CANDY-ALPEN-150', productName: 'Kẹo sữa Caramen Alpenliebe túi 150g', categoryCode: 'SNK', unit: 'Gói', barcode: '8934673400065', defaultStock: 6 },
-    { skuCode: 'GUM-COOL-58G', productName: 'Kẹo cao su không đường Cool Air hũ 58.4g', categoryCode: 'SNK', unit: 'Hũ', barcode: '8934673400072', defaultStock: 18 },
+    { skuCode: 'SNACK-OISHI-40G', productName: 'Snack bắp ngọt Oishi gói 40g', categoryCode: 'SNK', unit: 'Gói', barcode: '8934688123052', defaultStock: 195 },
 
     // INS (Mì ăn liền & Thực phẩm đóng gói)
     { skuCode: 'NOOD-HAOHAO-75', productName: 'Mì tôm chua cay Hảo Hảo gói 75g', categoryCode: 'INS', unit: 'Gói', barcode: '8934563138164', defaultStock: 40 },
     { skuCode: 'NOOD-OMACHI-80', productName: 'Mì khoai tây Omachi sườn hầm ngũ quả 80g', categoryCode: 'INS', unit: 'Gói', barcode: '8934563138171', defaultStock: 25 },
-    { skuCode: 'CHILI-CHINSU-250', productName: 'Tương ớt Chinsu chai 250g', categoryCode: 'INS', unit: 'Chai', barcode: '8934563138188', defaultStock: 22 },
+    { skuCode: 'RICE-ST25-5KG', productName: 'Gạo đặc sản ST25 chính hãng túi 5kg', categoryCode: 'INS', unit: 'Túi', barcode: '8934563123032', defaultStock: 8 },
     { skuCode: 'OIL-NEPTUNE-1L', productName: 'Dầu ăn thượng hạng Neptune Light 1L', categoryCode: 'INS', unit: 'Chai', barcode: '8934563138195', defaultStock: 12 },
     { skuCode: 'SAUCE-NAMNGU-500', productName: 'Nước mắm Nam Ngư Đệ Nhị chai 500ml', categoryCode: 'INS', unit: 'Chai', barcode: '8934563138201', defaultStock: 15 },
 
@@ -297,7 +301,7 @@ async function main() {
   ];
 
   const productMap = new Map<string, bigint>();
-  const snapshotDate = new Date('2026-11-01T00:00:00.000Z');
+  const snapshotDate = new Date('2026-10-16T00:00:00.000Z');
 
   for (const prod of productsData) {
     const categoryId = categoryMap.get(prod.categoryCode)!;
@@ -383,16 +387,16 @@ async function main() {
     { skuCode: 'CHOCO-KID-28G', supplierCode: 'NCC-KDO', purchasePrice: 48000, moq: 6 },
     { skuCode: 'CANDY-ALPEN-150', supplierCode: 'NCC-ORN', purchasePrice: 14000, moq: 20 },
     { skuCode: 'CANDY-ALPEN-150', supplierCode: 'NCC-KDO', purchasePrice: 14500, moq: 10 },
-    { skuCode: 'GUM-COOL-58G', supplierCode: 'NCC-ORN', purchasePrice: 21000, moq: 12 },
-    { skuCode: 'GUM-COOL-58G', supplierCode: 'NCC-KDO', purchasePrice: 22000, moq: 6 },
+    { skuCode: 'SNACK-OISHI-40G', supplierCode: 'NCC-ORN', purchasePrice: 4800, moq: 50 },
+    { skuCode: 'SNACK-OISHI-40G', supplierCode: 'NCC-KDO', purchasePrice: 5200, moq: 25 },
 
     // INS
     { skuCode: 'NOOD-HAOHAO-75', supplierCode: 'NCC-MAS', purchasePrice: 3200, moq: 60 },
     { skuCode: 'NOOD-HAOHAO-75', supplierCode: 'NCC-KDO', purchasePrice: 3400, moq: 30 },
     { skuCode: 'NOOD-OMACHI-80', supplierCode: 'NCC-MAS', purchasePrice: 7100, moq: 30 },
     { skuCode: 'NOOD-OMACHI-80', supplierCode: 'NCC-KDO', purchasePrice: 7500, moq: 15 },
-    { skuCode: 'CHILI-CHINSU-250', supplierCode: 'NCC-MAS', purchasePrice: 10500, moq: 24 },
-    { skuCode: 'CHILI-CHINSU-250', supplierCode: 'NCC-UNL', purchasePrice: 11200, moq: 12 },
+    { skuCode: 'RICE-ST25-5KG', supplierCode: 'NCC-MAS', purchasePrice: 145000, moq: 10 },
+    { skuCode: 'RICE-ST25-5KG', supplierCode: 'NCC-ORN', purchasePrice: 152000, moq: 5 },
     { skuCode: 'OIL-NEPTUNE-1L', supplierCode: 'NCC-KDO', purchasePrice: 42000, moq: 12 },
     { skuCode: 'OIL-NEPTUNE-1L', supplierCode: 'NCC-MAS', purchasePrice: 44000, moq: 6 },
     { skuCode: 'SAUCE-NAMNGU-500', supplierCode: 'NCC-MAS', purchasePrice: 18000, moq: 15 },

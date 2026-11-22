@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List
+from typing import List, Optional
 from pydantic import Field
 from src.models.base import CamelModel
 
@@ -23,6 +23,14 @@ class SkuSeries(CamelModel):
         ...,
         min_length=1,
         description="Lịch sử chuỗi thời gian bán hàng hàng ngày (tối thiểu 1 ngày)"
+    )
+    category_code: Optional[str] = Field(
+        default=None,
+        description="Mã ngành hàng (tùy chọn) hỗ trợ học chéo theo nhóm ngành"
+    )
+    stockout_dates: Optional[List[date]] = Field(
+        default=None,
+        description="Danh sách ngày hết hàng trên kệ (tồn kho = 0) để khử hiệu ứng censored demand"
     )
 
 
